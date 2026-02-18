@@ -1,0 +1,5 @@
+# Rules that you must always follow
+
+- Always run Python command, install Python packages or create Python project using uv
+- pi-mono folder is only for reference. Always implement new things at the root level folder
+- All new implementations must be inside src/.

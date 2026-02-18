@@ -1,0 +1,12 @@
+.worktrees/
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+.pytest_cache/
+**/.pytest_cache/
+__pycache__/
+**/__pycache__/
+.ruff_cache/
+*.pyc
+pi-mono/
