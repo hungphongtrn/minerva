@@ -19,7 +19,6 @@ from src.authorization.policy import (
     require_workspace_access,
     get_role_from_string,
 )
-from src.api.dependencies.auth import resolve_principal
 from src.identity.key_material import Principal as IdentityPrincipal
 
 
@@ -50,36 +49,42 @@ class AuthPrincipalFactory:
         )
 
 
-def resolve_auth_principal(
-    identity_principal: IdentityPrincipal = Depends(resolve_principal),
-) -> AuthPrincipal:
-    """Resolve an identity principal to an authorization principal.
+def resolve_auth_principal_dep():
+    """Create a dependency that resolves an identity principal to an authorization principal.
 
-    This is a placeholder that assumes role lookup happens elsewhere.
-    In production, this would query the membership table.
-
-    For now, we extract workspace_id and assume owner role for testing.
-
-    Args:
-        identity_principal: Principal from API key authentication
+    This factory avoids circular imports by importing resolve_principal at call time.
 
     Returns:
-        Authorization principal with role information
+        FastAPI dependency function
     """
-    # TODO: In production, query membership table for actual role
-    # For now, return a principal with owner role (for testing)
-    return AuthPrincipal(
-        user_id=UUID("00000000-0000-0000-0000-000000000001"),  # Placeholder
-        workspace_id=UUID(identity_principal.workspace_id),
-        role=Role.OWNER,  # Default to owner for testing
-        is_active=identity_principal.is_active,
-    )
+    from src.api.dependencies.auth import resolve_principal
+
+    def _resolve(
+        identity_principal: IdentityPrincipal = Depends(resolve_principal),
+    ) -> AuthPrincipal:
+        """Resolve an identity principal to an authorization principal.
+
+        This is a placeholder that assumes role lookup happens elsewhere.
+        In production, this would query the membership table.
+
+        For now, we extract workspace_id and assume owner role for testing.
+        """
+        # TODO: In production, query membership table for actual role
+        # For now, return a principal with owner role (for testing)
+        return AuthPrincipal(
+            user_id=UUID("00000000-0000-0000-0000-000000000001"),  # Placeholder
+            workspace_id=UUID(identity_principal.workspace_id),
+            role=Role.OWNER,  # Default to owner for testing
+            is_active=identity_principal.is_active,
+        )
+
+    return _resolve
 
 
 def guard_workspace_resource(
     action: Action,
     target_workspace_id: Optional[UUID] = None,
-) -> AuthPrincipal:
+):
     """Guard factory for workspace resource actions.
 
     Usage:
@@ -99,7 +104,7 @@ def guard_workspace_resource(
     """
 
     def _guard(
-        principal: AuthPrincipal = Depends(resolve_auth_principal),
+        principal: AuthPrincipal = Depends(resolve_auth_principal_dep()),
     ) -> AuthPrincipal:
         authorize_action(
             principal=principal,
@@ -112,59 +117,67 @@ def guard_workspace_resource(
     return _guard
 
 
-def require_owner(
-    principal: AuthPrincipal = Depends(resolve_auth_principal),
-) -> AuthPrincipal:
-    """Require owner role.
+def require_owner_dep():
+    """Create a dependency that requires owner role.
 
-    Args:
-        principal: The authenticated principal
-
-    Returns:
-        The principal if owner
-
-    Raises:
-        HTTPException: 403 if not owner
-    """
-    if principal.role != Role.OWNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Owner role required",
-        )
-    return principal
-
-
-def require_admin_or_owner(
-    principal: AuthPrincipal = Depends(resolve_auth_principal),
-) -> AuthPrincipal:
-    """Require admin or owner role.
-
-    Args:
-        principal: The authenticated principal
+    Usage:
+        @router.delete("/resource")
+        async def delete(
+            principal: AuthPrincipal = Depends(require_owner_dep())
+        ):
+            ...
 
     Returns:
-        The principal if admin or owner
-
-    Raises:
-        HTTPException: 403 if not admin or owner
+        Dependency function
     """
-    if principal.role not in (Role.ADMIN, Role.OWNER):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or owner role required",
-        )
-    return principal
+
+    def _require(
+        principal: AuthPrincipal = Depends(resolve_auth_principal_dep()),
+    ) -> AuthPrincipal:
+        if principal.role != Role.OWNER:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Owner role required",
+            )
+        return principal
+
+    return _require
 
 
-def require_workspace_match(
-    workspace_id_param: str = "workspace_id",
-) -> AuthPrincipal:
-    """Factory to require workspace ID in path matches principal's workspace.
+def require_admin_or_owner_dep():
+    """Create a dependency that requires admin or owner role.
+
+    Usage:
+        @router.patch("/resource")
+        async def update(
+            principal: AuthPrincipal = Depends(require_admin_or_owner_dep())
+        ):
+            ...
+
+    Returns:
+        Dependency function
+    """
+
+    def _require(
+        principal: AuthPrincipal = Depends(resolve_auth_principal_dep()),
+    ) -> AuthPrincipal:
+        if principal.role not in (Role.ADMIN, Role.OWNER):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or owner role required",
+            )
+        return principal
+
+    return _require
+
+
+def require_workspace_match_dep(workspace_id_param: str = "workspace_id"):
+    """Factory to create dependency requiring workspace ID match.
 
     Usage:
         @router.get("/workspaces/{workspace_id}/resources")
         async def list_resources(
-            principal: AuthPrincipal = Depends(require_workspace_match("workspace_id"))
+            principal: AuthPrincipal = Depends(require_workspace_match_dep("workspace_id"))
         ):
             ...
 
@@ -176,7 +189,7 @@ def require_workspace_match(
     """
 
     def _guard(
-        principal: AuthPrincipal = Depends(resolve_auth_principal),
+        principal: AuthPrincipal = Depends(resolve_auth_principal_dep()),
     ) -> AuthPrincipal:
         # Note: In FastAPI, path params are injected as kwargs
         # This is a simplified version - production would use request.state
