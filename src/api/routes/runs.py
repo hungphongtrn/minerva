@@ -118,6 +118,16 @@ async def start_run(
     tool_policy = ToolPolicy(allowed_tools=request.allowed_tools)
     secret_policy = SecretScope(allowed_secrets=request.allowed_secrets)
 
+    # Extract runtime intents from request
+    # Use explicit fields if provided, otherwise infer from input
+    requested_egress_urls = request.requested_egress_urls.copy()
+    if not requested_egress_urls and request.input.get("url"):
+        requested_egress_urls.append(request.input["url"])
+
+    requested_tools = request.requested_tools.copy()
+    if not requested_tools and request.input.get("tool"):
+        requested_tools.append(request.input["tool"])
+
     # Start the run
     context = service.start_run(
         principal=principal,
@@ -134,8 +144,8 @@ async def start_run(
         tool_policy=tool_policy,
         secret_policy=secret_policy,
         secrets=request.secrets,
-        requested_egress_urls=request.requested_egress_urls,
-        requested_tools=request.requested_tools,
+        requested_egress_urls=requested_egress_urls,
+        requested_tools=requested_tools,
     )
 
     # Handle errors
