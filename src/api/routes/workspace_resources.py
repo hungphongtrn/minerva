@@ -18,7 +18,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.db.session import get_db
-from src.db.rls_context import with_rls_context, set_rls_context
+from src.db.rls_context import with_rls_context
+from src.db.models import Membership
 from src.api.dependencies.auth import resolve_principal
 from src.identity.key_material import Principal as IdentityPrincipal
 from src.authorization.policy import (
@@ -28,6 +29,7 @@ from src.authorization.policy import (
     Role,
     authorize_action,
     require_workspace_access,
+    get_role_from_string,
 )
 
 router = APIRouter(
@@ -82,15 +84,41 @@ def _resolve_auth_principal_with_role(
 ) -> AuthPrincipal:
     """Resolve identity principal to auth principal with role lookup.
 
-    In production, this would query the membership table.
-    For testing, we use a mock that returns owner role.
+    Queries the membership table for actual role based on user_id and workspace_id.
+    Raises HTTPException with 403 if no membership is found.
     """
-    # TODO: Query membership table for actual role
-    # For now, return owner role for demonstration
+    from sqlalchemy import select
+
+    user_id = UUID(identity_principal.user_id)
+    workspace_id = UUID(identity_principal.workspace_id)
+
+    # Query membership table for actual role
+    stmt = select(Membership).where(
+        Membership.user_id == user_id,
+        Membership.workspace_id == workspace_id,
+    )
+    membership = db.execute(stmt).scalar_one_or_none()
+
+    if membership is None:
+        # No membership found - deny access
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Forbidden",
+                "status": 403,
+                "action": "access",
+                "resource": "workspace_resource",
+                "reason": "No workspace membership found for user",
+            },
+        )
+
+    # Convert membership role string to Role enum
+    role = get_role_from_string(membership.role)
+
     return AuthPrincipal(
-        user_id=UUID("00000000-0000-0000-0000-000000000001"),
-        workspace_id=UUID(identity_principal.workspace_id),
-        role=Role.OWNER,
+        user_id=user_id,
+        workspace_id=workspace_id,
+        role=role,
         is_active=identity_principal.is_active,
     )
 
@@ -116,11 +144,11 @@ async def list_resources(
         List of resources in the workspace
 
     Raises:
-        HTTPException: 403 if cross-workspace access attempted
+        HTTPException: 403 if cross-workspace access attempted or no membership
     """
     from src.db.models import WorkspaceResource
 
-    # Resolve to authorization principal
+    # Resolve to authorization principal using membership-backed role
     auth_principal = _resolve_auth_principal_with_role(identity_principal, db)
 
     # Authorize READ action on workspace resource
@@ -174,11 +202,11 @@ async def create_resource(
         The created resource
 
     Raises:
-        HTTPException: 403 if not authorized to create in workspace
+        HTTPException: 403 if not authorized to create in workspace or no membership
     """
     from src.db.models import WorkspaceResource
 
-    # Resolve to authorization principal
+    # Resolve to authorization principal using membership-backed role
     auth_principal = _resolve_auth_principal_with_role(identity_principal, db)
 
     # Authorize CREATE action
@@ -226,11 +254,11 @@ async def get_resource(
         The resource
 
     Raises:
-        HTTPException: 404 if not found, 403 if cross-workspace access
+        HTTPException: 404 if not found, 403 if cross-workspace access or no membership
     """
     from src.db.models import WorkspaceResource
 
-    # Resolve to authorization principal
+    # Resolve to authorization principal using membership-backed role
     auth_principal = _resolve_auth_principal_with_role(identity_principal, db)
 
     # Authorize READ action
@@ -286,11 +314,11 @@ async def update_resource(
         The updated resource
 
     Raises:
-        HTTPException: 404 if not found, 403 if not authorized
+        HTTPException: 404 if not found, 403 if not authorized or no membership
     """
     from src.db.models import WorkspaceResource
 
-    # Resolve to authorization principal
+    # Resolve to authorization principal using membership-backed role
     auth_principal = _resolve_auth_principal_with_role(identity_principal, db)
 
     # Authorize UPDATE action
@@ -352,11 +380,11 @@ async def delete_resource(
         identity_principal: Authenticated principal
 
     Raises:
-        HTTPException: 404 if not found, 403 if not authorized
+        HTTPException: 404 if not found, 403 if not authorized or no membership
     """
     from src.db.models import WorkspaceResource
 
-    # Resolve to authorization principal
+    # Resolve to authorization principal using membership-backed role
     auth_principal = _resolve_auth_principal_with_role(identity_principal, db)
 
     # Authorize DELETE action

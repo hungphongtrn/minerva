@@ -9,7 +9,10 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
+from src.db.session import get_db
+from src.db.models import Membership
 from src.authorization.policy import (
     Action,
     ResourceType,
@@ -28,25 +31,50 @@ class AuthPrincipalFactory:
     @staticmethod
     def from_identity_principal(
         identity_principal: IdentityPrincipal,
-        user_id: UUID,
         role: Role,
     ) -> AuthPrincipal:
         """Convert an identity principal to an authorization principal.
 
         Args:
             identity_principal: Principal from identity layer
-            user_id: The user ID (not directly in API key principal)
             role: The user's role in the workspace
 
         Returns:
             Authorization principal for policy checks
         """
         return AuthPrincipal(
-            user_id=user_id,
+            user_id=UUID(identity_principal.user_id),
             workspace_id=UUID(identity_principal.workspace_id),
             role=role,
             is_active=identity_principal.is_active,
         )
+
+
+def get_membership_role(
+    db: Session, user_id: UUID, workspace_id: UUID
+) -> Optional[Role]:
+    """Get the membership role for a user in a workspace.
+
+    Args:
+        db: Database session
+        user_id: The user ID
+        workspace_id: The workspace ID
+
+    Returns:
+        Role enum if membership exists, None otherwise
+    """
+    from sqlalchemy import select
+
+    stmt = select(Membership).where(
+        Membership.user_id == user_id,
+        Membership.workspace_id == workspace_id,
+    )
+    membership = db.execute(stmt).scalar_one_or_none()
+
+    if membership is None:
+        return None
+
+    return get_role_from_string(membership.role)
 
 
 def resolve_auth_principal_dep():
@@ -60,21 +88,31 @@ def resolve_auth_principal_dep():
     from src.api.dependencies.auth import resolve_principal
 
     def _resolve(
+        db: Session = Depends(get_db),
         identity_principal: IdentityPrincipal = Depends(resolve_principal),
     ) -> AuthPrincipal:
         """Resolve an identity principal to an authorization principal.
 
-        This is a placeholder that assumes role lookup happens elsewhere.
-        In production, this would query the membership table.
-
-        For now, we extract workspace_id and assume owner role for testing.
+        Looks up the user's actual membership role in the workspace.
+        Denies requests where no membership exists with a 403 response.
         """
-        # TODO: In production, query membership table for actual role
-        # For now, return a principal with owner role (for testing)
+        user_id = UUID(identity_principal.user_id)
+        workspace_id = UUID(identity_principal.workspace_id)
+
+        # Look up actual membership role
+        role = get_membership_role(db, user_id, workspace_id)
+
+        if role is None:
+            # No membership found - deny access deterministically
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: no workspace membership found",
+            )
+
         return AuthPrincipal(
-            user_id=UUID("00000000-0000-0000-0000-000000000001"),  # Placeholder
-            workspace_id=UUID(identity_principal.workspace_id),
-            role=Role.OWNER,  # Default to owner for testing
+            user_id=user_id,
+            workspace_id=workspace_id,
+            role=role,
             is_active=identity_principal.is_active,
         )
 
