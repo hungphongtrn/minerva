@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 1 of 5 (Identity and Policy Baseline)
-- **Plan status:** Gap closure in progress (01-06, 01-08 complete; 01-07 pending)
-- **Execution status:** Gap 1 (workspace isolation) and Gap 3 (default-deny enforcement) closed
-- **Progress bar:** [████████--] 75%
+- **Plan status:** Gap closure complete (01-06, 01-07, 01-08 complete)
+- **Execution status:** All gaps closed - Gap 1 (workspace isolation), Gap 2 (role resolution), Gap 3 (default-deny enforcement)
+- **Progress bar:** [██████████] 100% (Phase 1 gap closure)
 
 ```mermaid
 flowchart LR
@@ -24,7 +24,7 @@ flowchart LR
   S5 --> S6[Verification: Gaps Found ⚠]
   S6 --> S7[01-06: RLS Context ✓]
   S7 --> S8[01-08: Gap 3 Closure ✓]
-  S8 --> S9[01-07: Role Resolution]
+  S8 --> S9[01-07: Role Resolution ✓]
   S9 --> S10[Re-verify Phase 1]
   S10 --> S11[Phase 2: Agent Packs]
 ```
@@ -37,8 +37,8 @@ flowchart LR
 - **Completed phases:** 0/5 (Phase 1 pending gap closure)
 - **Completed plans:** 7/15
 - **Completed requirements:** 0/36 (phase not yet closed)
-- **Phase 1 verification score:** 5/6 must-haves verified (SECU-01, SECU-02 now closed)
-- **Blocking requirements:** AUTH-05
+- **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed)
+- **Blocking requirements:** None
 
 ## Accumulated Context
 
@@ -80,6 +80,9 @@ flowchart LR
 | D-01-08-002 | 2026-02-23 | 01-08 | Policy violation errors include action, resource, and reason in structured format | Makes denials diagnosable and testable while maintaining security |
 | D-01-08-003 | 2026-02-23 | 01-08 | HTTP 403 responses include parseable JSON detail with error, status, action, resource, and reason fields | API consumers can programmatically handle different denial types |
 | D-01-08-004 | 2026-02-23 | 01-08 | Service-level tests verify real enforcement with actual RuntimeEnforcer, not mocks | Prevents bypass via mocking and ensures default-deny semantics are enforced |
+| D-01-07-001 | 2026-02-23 | 01-07 | Workspace fixtures automatically create owner membership records | Ensures all tests have consistent authorization context without requiring every test to explicitly request membership fixtures |
+| D-01-07-002 | 2026-02-23 | 01-07 | Migration backfills existing API keys by binding to workspace owner | Maintains backward compatibility while enabling new membership-backed authorization |
+| D-01-07-003 | 2026-02-23 | 01-07 | Return structured 403 responses with descriptive error details when no membership is found | Clear error messages help API consumers understand authorization failures |
 
 ### TODOs
 
@@ -89,23 +92,23 @@ flowchart LR
 - [x] Execute Plan 01-03: Tenant isolation middleware
 - [x] Execute Plan 01-04: Guest identity and runtime policy
 - [x] Execute Plan 01-05: Phase 1 acceptance and security regression tests
-- [x] Plan and execute gap-closure work for verifier findings (01-06, 01-08 complete)
-- [ ] Execute Plan 01-07: Membership-backed role resolution
+- [x] Plan and execute gap-closure work for verifier findings (01-06, 01-07, 01-08 complete)
+- [x] Execute Plan 01-07: Membership-backed role resolution
 - [ ] Re-run Phase 1 verification to achieve `passed` status
 - [ ] Begin Phase 2: Workspace Lifecycle and Agent Pack Portability
 
 ### Blockers
 
-- Phase verification in progress (5/6). Gap 1 (workspace isolation) closed via 01-06. Gap 3 (default-deny enforcement) closed via 01-08. Remaining gap: membership-backed role resolution (01-07).
+- None - All Phase 1 gaps closed. Ready for final verification.
 
 ## Session Continuity
 
-- **Last completed artifact:** `01-08-SUMMARY.md` (status: `complete`)
+- **Last completed artifact:** `01-07-SUMMARY.md` (status: `complete`)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next command:** Execute Plan 01-07: Membership-backed role resolution
-- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-07-PLAN.md`
-- **Last session:** 2026-02-23 - Completed 01-08 (default-deny egress/tool enforcement, deterministic denials, regression tests)
-- **Commits:** 7676310, 412f4a4, 0911f43 (Plan 01-08)
+- **Next command:** Re-run Phase 1 verification to achieve `passed` status
+- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-identity-and-policy-baseline-VERIFICATION.md`
+- **Last session:** 2026-02-23 - Completed 01-07 (membership-backed role resolution, AUTH-05 satisfied, all gaps closed)
+- **Commits:** c4637e1, b8b63a8, 051bcc0 (Plan 01-07)
 
 ---
 *Initialized: 2026-02-23*
