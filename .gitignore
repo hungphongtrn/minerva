@@ -10,3 +10,6 @@ __pycache__/
 .ruff_cache/
 *.pyc
 pi-mono/
+references/
+.opencode/
+opencode.json
