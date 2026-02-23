@@ -48,11 +48,11 @@ flowchart LR
 **Plans:** 5 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Bootstrap FastAPI/DB foundation and RLS-ready schema baseline.
-- [ ] 01-02-PLAN.md — Implement personal API key authentication with rotate/revoke lifecycle.
-- [ ] 01-03-PLAN.md — Enforce workspace isolation and owner/member authorization behavior.
-- [ ] 01-04-PLAN.md — Implement guest identity mode and default-deny runtime policy controls.
-- [ ] 01-05-PLAN.md — Validate Phase 1 with acceptance and security regression suites.
+- [x] 01-01-PLAN.md — Bootstrap FastAPI/DB foundation and RLS-ready schema baseline.
+- [x] 01-02-PLAN.md — Implement personal API key authentication with rotate/revoke lifecycle.
+- [x] 01-03-PLAN.md — Enforce workspace isolation and owner/member authorization behavior.
+- [x] 01-04-PLAN.md — Implement guest identity mode and default-deny runtime policy controls.
+- [x] 01-05-PLAN.md — Validate Phase 1 with acceptance and security regression suites.
 
 ### Phase 2 - Workspace Lifecycle and Agent Pack Portability
 
@@ -152,10 +152,10 @@ flowchart TD
 
 | Phase | Status | Completion |
 |------|--------|------------|
-| 1 - Identity and Policy Baseline | Not Started | 0% |
+| 1 - Identity and Policy Baseline | In Progress (Gaps Found) | 60% |
 | 2 - Workspace Lifecycle and Agent Pack Portability | Not Started | 0% |
 | 3 - Persistence and Checkpoint Recovery | Not Started | 0% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
-**Overall Progress:** 0%
+**Overall Progress:** 12%
