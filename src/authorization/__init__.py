@@ -13,15 +13,17 @@ from src.authorization.policy import (
 )
 
 from src.authorization.guards import (
-    resolve_auth_principal,
+    resolve_auth_principal_dep,
     guard_workspace_resource,
-    require_owner,
-    require_admin_or_owner,
+    require_owner_dep,
+    require_admin_or_owner_dep,
+    require_workspace_match_dep,
     guard_read_resource,
     guard_create_resource,
     guard_update_resource,
     guard_delete_resource,
     guard_admin_resource,
+    AuthPrincipalFactory,
 )
 
 __all__ = [
@@ -36,13 +38,15 @@ __all__ = [
     "get_role_from_string",
     "requires_role",
     # Guards
-    "resolve_auth_principal",
+    "resolve_auth_principal_dep",
     "guard_workspace_resource",
-    "require_owner",
-    "require_admin_or_owner",
+    "require_owner_dep",
+    "require_admin_or_owner_dep",
+    "require_workspace_match_dep",
     "guard_read_resource",
     "guard_create_resource",
     "guard_update_resource",
     "guard_delete_resource",
     "guard_admin_resource",
+    "AuthPrincipalFactory",
 ]

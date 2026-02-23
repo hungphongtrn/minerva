@@ -14,6 +14,7 @@ import pytest
 from uuid import UUID, uuid4
 from datetime import datetime
 
+# Import directly from policy to avoid circular imports through guards
 from src.authorization.policy import (
     Action,
     ResourceType,

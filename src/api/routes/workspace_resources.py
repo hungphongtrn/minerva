@@ -29,8 +29,6 @@ from src.authorization.policy import (
     authorize_action,
     require_workspace_access,
 )
-from src.authorization.guards import resolve_auth_principal
-
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}/resources", tags=["workspace-resources"]
