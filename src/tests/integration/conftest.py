@@ -6,18 +6,18 @@ and use isolated database state for reliable integration testing.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4, UUID
-from typing import Dict, Any, List, Generator
+from typing import Dict, Any, List, Generator, Tuple
 from unittest.mock import MagicMock
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi.testclient import TestClient
 
 from src.main import app
-from src.db.session import get_db
-from src.db.models import Base, User, Workspace, Membership, ApiKey, WorkspaceResource
+from src.db.session import get_db, Base
+from src.db.models import User, Workspace, Membership, ApiKey, WorkspaceResource
 from src.identity.key_material import generate_api_key, KeyPair
 from src.identity.service import ApiKeyService
 from src.identity.key_material import Principal
@@ -31,13 +31,19 @@ from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
 
 
 @pytest.fixture(scope="function")
-def db_engine():
-    """Create an in-memory SQLite database engine for tests."""
+def db_engine(tmp_path):
+    """Create a file-based SQLite database engine for tests.
+
+    File-based is necessary because in-memory SQLite doesn't share
+    connections between the test fixtures and the test client.
+    """
+    db_path = tmp_path / "test.db"
     engine = create_engine(
-        "sqlite:///:memory:",
+        f"sqlite:///{db_path}",
         echo=False,
         connect_args={"check_same_thread": False},
     )
+    # Create all tables
     Base.metadata.create_all(bind=engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
@@ -52,7 +58,8 @@ def db_session(db_engine) -> Generator[Session, None, None]:
     session = TestingSessionLocal()
 
     # Enable foreign key support for SQLite
-    session.execute("PRAGMA foreign_keys=ON")
+    session.execute(text("PRAGMA foreign_keys=ON"))
+    session.commit()
 
     yield session
 
@@ -61,14 +68,18 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="function")
-def client(db_session: Session) -> Generator[TestClient, None, None]:
-    """Create a test client with database override."""
+def client(db_engine) -> Generator[TestClient, None, None]:
+    """Create a test client with database override using shared engine."""
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
 
     def override_get_db():
+        session = TestingSessionLocal()
         try:
-            yield db_session
+            yield session
         finally:
-            pass
+            session.close()
 
     app.dependency_overrides[get_db] = override_get_db
 
@@ -91,8 +102,8 @@ def workspace_owner(db_session: Session) -> User:
         email="owner@example.com",
         is_active=True,
         is_guest=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(user)
     db_session.commit()
@@ -107,8 +118,8 @@ def workspace_member(db_session: Session) -> User:
         email="member@example.com",
         is_active=True,
         is_guest=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(user)
     db_session.commit()
@@ -130,8 +141,8 @@ def workspace_alpha(db_session: Session, workspace_owner: User) -> Workspace:
         slug="alpha-workspace",
         owner_id=workspace_owner.id,
         is_active=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(workspace)
     db_session.commit()
@@ -147,8 +158,8 @@ def workspace_beta(db_session: Session, workspace_owner: User) -> Workspace:
         slug="beta-workspace",
         owner_id=workspace_owner.id,
         is_active=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(workspace)
     db_session.commit()
@@ -165,8 +176,8 @@ def owner_membership(
         user_id=workspace_owner.id,
         workspace_id=workspace_alpha.id,
         role="owner",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
     db_session.commit()
@@ -183,8 +194,8 @@ def member_membership(
         user_id=workspace_member.id,
         workspace_id=workspace_alpha.id,
         role="member",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(membership)
     db_session.commit()
@@ -199,7 +210,7 @@ def member_membership(
 @pytest.fixture
 def owner_api_key(
     db_session: Session, workspace_alpha: Workspace
-) -> tuple[KeyPair, Any]:
+) -> Tuple[KeyPair, Any]:
     """Create an active API key for workspace_alpha (owner context)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
@@ -213,7 +224,7 @@ def owner_api_key(
 @pytest.fixture
 def member_api_key(
     db_session: Session, workspace_alpha: Workspace
-) -> tuple[KeyPair, Any]:
+) -> Tuple[KeyPair, Any]:
     """Create an active API key for workspace_alpha (member context)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
@@ -227,7 +238,7 @@ def member_api_key(
 @pytest.fixture
 def revoked_api_key(
     db_session: Session, workspace_alpha: Workspace
-) -> tuple[KeyPair, Any]:
+) -> Tuple[KeyPair, Any]:
     """Create a revoked API key for workspace_alpha."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
@@ -243,7 +254,7 @@ def revoked_api_key(
 @pytest.fixture
 def other_workspace_key(
     db_session: Session, workspace_beta: Workspace
-) -> tuple[KeyPair, Any]:
+) -> Tuple[KeyPair, Any]:
     """Create an API key for a different workspace (for isolation tests)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
@@ -255,14 +266,16 @@ def other_workspace_key(
 
 
 @pytest.fixture
-def expired_api_key(db_session: Session, workspace_alpha: Workspace) -> ApiKey:
+def expired_api_key(
+    db_session: Session, workspace_alpha: Workspace
+) -> Tuple[KeyPair, Any]:
     """Create an expired API key for testing."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_alpha.id,
         name="Expired Test Key",
         scopes=["workspace:read"],
-        expires_at=datetime.utcnow() - timedelta(days=1),  # Expired yesterday
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired yesterday
     )
     return key_pair, key_info
 
@@ -273,7 +286,7 @@ def expired_api_key(db_session: Session, workspace_alpha: Workspace) -> ApiKey:
 
 
 @pytest.fixture
-def owner_principal(owner_api_key: tuple[KeyPair, Any]) -> Principal:
+def owner_principal(owner_api_key: Tuple[KeyPair, Any]) -> Principal:
     """Create an owner principal from the owner API key."""
     _, key_info = owner_api_key
     return Principal(
@@ -285,7 +298,7 @@ def owner_principal(owner_api_key: tuple[KeyPair, Any]) -> Principal:
 
 
 @pytest.fixture
-def member_principal(member_api_key: tuple[KeyPair, Any]) -> Principal:
+def member_principal(member_api_key: Tuple[KeyPair, Any]) -> Principal:
     """Create a member principal from the member API key."""
     _, key_info = member_api_key
     return Principal(
@@ -313,8 +326,8 @@ def sample_resource(
         name="Sample Agent",
         config='{"model": "gpt-4"}',
         is_active=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db_session.add(resource)
     db_session.commit()
@@ -426,28 +439,32 @@ def bearer_headers(api_key: str) -> Dict[str, str]:
 
 
 @pytest.fixture
-def owner_headers(owner_api_key: tuple[KeyPair, Any]) -> Dict[str, str]:
+def owner_headers(owner_api_key: Tuple[KeyPair, Any]) -> Dict[str, str]:
     """Authorization headers for owner API key."""
     key_pair, _ = owner_api_key
     return auth_headers(key_pair.full_key)
 
 
 @pytest.fixture
-def member_headers(member_api_key: tuple[KeyPair, Any]) -> Dict[str, str]:
+def member_headers(member_api_key: Tuple[KeyPair, Any]) -> Dict[str, str]:
     """Authorization headers for member API key."""
     key_pair, _ = member_api_key
     return auth_headers(key_pair.full_key)
 
 
 @pytest.fixture
-def revoked_headers(revoked_api_key: tuple[KeyPair, Any]) -> Dict[str, str]:
+def revoked_headers(revoked_api_key: Tuple[KeyPair, Any]) -> Dict[str, str]:
     """Authorization headers for revoked API key."""
     key_pair, _ = revoked_api_key
     return auth_headers(key_pair.full_key)
 
 
 @pytest.fixture
-def other_workspace_headers(other_workspace_key: tuple[KeyPair, Any]) -> Dict[str, str]:
+def other_workspace_headers(other_workspace_key: Tuple[KeyPair, Any]) -> Dict[str, str]:
     """Authorization headers for other workspace API key."""
     key_pair, _ = other_workspace_key
     return auth_headers(key_pair.full_key)
+
+
+# Need to import Any for type hints
+from typing import Any
