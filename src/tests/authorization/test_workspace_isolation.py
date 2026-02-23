@@ -68,6 +68,76 @@ class TestRoleAuthorizationMatrix:
         """Member cannot admin workspace (AUTH-05)."""
         assert can_perform(Role.MEMBER, ResourceType.WORKSPACE, Action.ADMIN) is False
 
+    # ============================================================================
+    # WORKSPACE_RESOURCE Permission Regression Tests (UAT Gap Closure)
+    # ============================================================================
+
+    def test_member_cannot_create_workspace_resource(self):
+        """Member cannot CREATE workspace resources - regression test for UAT gap.
+
+        AUTH-05 requires deterministic role divergence: members should not be
+        able to mutate workspace resources.
+        """
+        assert (
+            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
+            is False
+        )
+
+    def test_member_cannot_update_workspace_resource(self):
+        """Member cannot UPDATE workspace resources - regression test for UAT gap."""
+        assert (
+            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
+            is False
+        )
+
+    def test_member_cannot_delete_workspace_resource(self):
+        """Member cannot DELETE workspace resources - regression test for UAT gap."""
+        assert (
+            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
+            is False
+        )
+
+    def test_member_can_read_workspace_resource(self):
+        """Member CAN read workspace resources - positive assertion."""
+        assert (
+            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.READ)
+            is True
+        )
+
+    def test_owner_can_mutate_workspace_resource(self):
+        """Owner retains full mutation permissions on workspace resources."""
+        assert (
+            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
+            is True
+        )
+        assert (
+            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
+            is True
+        )
+        assert (
+            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
+            is True
+        )
+        assert (
+            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.READ)
+            is True
+        )
+
+    def test_admin_can_mutate_workspace_resource(self):
+        """Admin retains mutation permissions on workspace resources."""
+        assert (
+            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
+            is True
+        )
+        assert (
+            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
+            is True
+        )
+        assert (
+            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
+            is True
+        )
+
     def test_owner_can_admin_memberships(self):
         """Owner can manage all memberships."""
         assert can_perform(Role.OWNER, ResourceType.MEMBERSHIP, Action.ADMIN) is True
@@ -167,6 +237,75 @@ class TestAuthorizeAction:
 
         assert exc_info.value.status_code == 403
         assert "member" in exc_info.value.detail.lower()
+
+    def test_member_create_workspace_resource_denied(self):
+        """Member CREATE workspace_resource denied with 403 (UAT gap regression test)."""
+        workspace_id = uuid4()
+        principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=workspace_id,
+            role=Role.MEMBER,
+            is_active=True,
+        )
+
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            authorize_action(
+                principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.CREATE,
+                workspace_id,
+            )
+
+        assert exc_info.value.status_code == 403
+        assert "member" in exc_info.value.detail.lower()
+        assert "create" in exc_info.value.detail.lower()
+        assert "workspace_resource" in exc_info.value.detail.lower()
+
+    def test_member_update_workspace_resource_denied(self):
+        """Member UPDATE workspace_resource denied with 403 (UAT gap regression test)."""
+        workspace_id = uuid4()
+        principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=workspace_id,
+            role=Role.MEMBER,
+            is_active=True,
+        )
+
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            authorize_action(
+                principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.UPDATE,
+                workspace_id,
+            )
+
+        assert exc_info.value.status_code == 403
+
+    def test_member_delete_workspace_resource_denied(self):
+        """Member DELETE workspace_resource denied with 403 (UAT gap regression test)."""
+        workspace_id = uuid4()
+        principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=workspace_id,
+            role=Role.MEMBER,
+            is_active=True,
+        )
+
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            authorize_action(
+                principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.DELETE,
+                workspace_id,
+            )
+
+        assert exc_info.value.status_code == 403
 
 
 class TestRequireWorkspaceAccess:

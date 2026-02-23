@@ -120,10 +120,7 @@ AUTHORIZATION_MATRIX: dict[Role, dict[ResourceType, Set[Action]]] = {
         },
         ResourceType.WORKSPACE_RESOURCE: {
             Action.READ,
-            Action.CREATE,
-            Action.UPDATE,
-            Action.DELETE,
-        },  # Normal workspace work
+        },  # Members can only read workspace resources (AUTH-05)
     },
 }
 
