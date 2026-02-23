@@ -45,7 +45,7 @@ flowchart LR
 5. Requests without explicit user identity are assigned a random guest identity and execute in guest mode without persistent storage.
 6. Runtime runs enforce default-deny network egress, tool allowlists, and scoped secret injection per run context.
 
-**Plans:** 5 plans
+**Plans:** 9 plans
 
 Plans:
 - [x] 01-01-PLAN.md — Bootstrap FastAPI/DB foundation and RLS-ready schema baseline.
@@ -53,6 +53,10 @@ Plans:
 - [x] 01-03-PLAN.md — Enforce workspace isolation and owner/member authorization behavior.
 - [x] 01-04-PLAN.md — Implement guest identity mode and default-deny runtime policy controls.
 - [x] 01-05-PLAN.md — Validate Phase 1 with acceptance and security regression suites.
+- [x] 01-06-PLAN.md — Close RLS context propagation gap identified by verification.
+- [x] 01-07-PLAN.md — Close membership-backed role resolution gap identified by verification.
+- [x] 01-08-PLAN.md — Close runtime policy enforcement and structured denial gap.
+- [x] 01-09-PLAN.md — Close member workspace resource mutation authorization gap.
 
 ### Phase 2 - Workspace Lifecycle and Agent Pack Portability
 
