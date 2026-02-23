@@ -353,6 +353,38 @@ class TestRoleBehavior:
         assert "scopes" in data
         assert isinstance(data["scopes"], list)
 
+    def test_member_cannot_create_workspace_resources(
+        self,
+        client: TestClient,
+        member_headers: dict,
+        workspace_alpha: any,
+    ):
+        """Success Criterion 4: Member create denied with 403 (AUTH-05 UAT gap closure).
+
+        This is the acceptance test for the UAT gap identified in 01-09:
+        Member POST /workspaces/{workspace_id}/resources must return 403,
+        demonstrating observable owner/admin/member behavior differences.
+        """
+        workspace_id = str(workspace_alpha.id)
+
+        resource_data = {
+            "name": "Member Attempted Resource",
+            "resource_type": "agent_config",
+            "config": '{"model": "gpt-4"}',
+        }
+
+        response = client.post(
+            f"/api/v1/workspaces/{workspace_id}/resources",
+            json=resource_data,
+            headers=member_headers,
+        )
+
+        # Member create must be denied with 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        # Verify error indicates role-based denial
+        data = response.json()
+        assert "detail" in data
+
 
 # ============================================================================
 # AUTH-06: Guest Mode
