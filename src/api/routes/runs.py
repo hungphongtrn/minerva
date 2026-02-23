@@ -32,6 +32,16 @@ class StartRunRequest(BaseModel):
         default_factory=dict, description="Input parameters for the run"
     )
 
+    # Runtime intents (what the run will attempt to do)
+    requested_egress_urls: list[str] = Field(
+        default_factory=list,
+        description="Egress URLs the run will access (must be allowed by allowed_hosts)",
+    )
+    requested_tools: list[str] = Field(
+        default_factory=list,
+        description="Tools the run will invoke (must be allowed by allowed_tools)",
+    )
+
     # Policy configuration
     allowed_hosts: list[str] = Field(
         default_factory=list, description="Allowed egress hosts (default: none)"
@@ -117,6 +127,8 @@ async def start_run(
         tool_policy=tool_policy,
         secret_policy=secret_policy,
         secrets=request.secrets,
+        requested_egress_urls=request.requested_egress_urls,
+        requested_tools=request.requested_tools,
     )
 
     # Handle errors

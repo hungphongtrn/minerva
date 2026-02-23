@@ -195,6 +195,8 @@ class RunService:
         tool_policy: ToolPolicy,
         secret_policy: SecretScope,
         secrets: Dict[str, Any],
+        requested_egress_urls: Optional[list[str]] = None,
+        requested_tools: Optional[list[str]] = None,
     ) -> RunResult:
         """Execute a run with full policy enforcement.
 
@@ -207,11 +209,24 @@ class RunService:
             tool_policy: Tool policy
             secret_policy: Secret scope policy
             secrets: Available secrets
+            requested_egress_urls: Egress URLs the run will access
+            requested_tools: Tools the run will invoke
 
         Returns:
             RunResult with execution outcome
         """
+        requested_egress_urls = requested_egress_urls or []
+        requested_tools = requested_tools or []
+
         try:
+            # Enforce egress policy for all requested URLs
+            for url in requested_egress_urls:
+                self.authorize_egress(context, url, egress_policy)
+
+            # Enforce tool policy for all requested tools
+            for tool_id in requested_tools:
+                self.authorize_tool(context, tool_id, tool_policy)
+
             # Filter secrets to only allowed ones
             injected_secrets = self.get_injected_secrets(
                 context, secrets, secret_policy
@@ -232,7 +247,7 @@ class RunService:
             return RunResult(
                 run_id=context.run_id,
                 status="denied",
-                error=f"Policy violation: {e.reason}",
+                error=f"Policy violation ({e.action}): {e.resource} - {e.reason}",
             )
         except PermissionError as e:
             return RunResult(run_id=context.run_id, status="error", error=str(e))
