@@ -79,6 +79,13 @@ class RunErrorResponse(BaseModel):
     status: str = Field(default="error")
     error: str = Field(..., description="Error message")
     error_type: str = Field(..., description="Type of error")
+    action: Optional[str] = Field(
+        None, description="Action that was denied (egress, tool, secret)"
+    )
+    resource: Optional[str] = Field(
+        None, description="Resource that was denied access to"
+    )
+    reason: Optional[str] = Field(None, description="Reason for denial")
 
 
 # Endpoints
@@ -138,7 +145,26 @@ async def start_run(
         )
 
     if result.status == "denied":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=result.error)
+        # Parse policy violation error for structured response
+        # Format: "Policy violation ({action}): {resource} - {reason}"
+        detail = {"error": result.error, "status": "denied"}
+        if result.error and "Policy violation" in result.error:
+            try:
+                # Extract action, resource, and reason from error message
+                # Example: "Policy violation (egress): https://example.com - Denied by policy"
+                import re
+
+                match = re.match(
+                    r"Policy violation \(([^)]+)\): (.+?) - (.+)", result.error
+                )
+                if match:
+                    detail["action"] = match.group(1)
+                    detail["resource"] = match.group(2)
+                    detail["reason"] = match.group(3)
+            except Exception:
+                pass  # Keep original error if parsing fails
+
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
     # Build response
     message = (
