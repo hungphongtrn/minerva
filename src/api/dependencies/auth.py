@@ -4,15 +4,21 @@ Provides dependencies for resolving API keys to principals
 and enforcing authentication on protected routes.
 """
 
+from typing import Union
+
 from fastapi import Depends, HTTPException, Header, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from src.db.session import get_db
 from src.identity.service import ApiKeyService, ValidationResult, Principal
+from src.guest.identity import create_guest_principal, GuestPrincipal
 
 # Security scheme for OpenAPI documentation
 security = HTTPBearer(auto_error=False)
+
+# Type alias for any principal (authenticated or guest)
+AnyPrincipal = Union[Principal, GuestPrincipal]
 
 
 async def resolve_principal(
@@ -146,3 +152,86 @@ class require_scopes:
             )
 
         return principal
+
+
+async def resolve_principal_or_guest(
+    x_api_key: str = Header(None, alias="X-Api-Key"),
+    authorization: str = Header(None),
+    db: Session = Depends(get_db),
+) -> AnyPrincipal:
+    """Resolve an API key to a principal, or create a guest principal.
+
+    This dependency validates the API key and returns the associated
+    principal. If no key is provided, it creates an ephemeral guest
+    principal instead of raising an error.
+
+    Malformed or invalid provided keys still raise 401 errors - guest
+    mode is only used when NO key is provided at all.
+
+    Args:
+        x_api_key: API key from X-Api-Key header
+        authorization: API key from Authorization header (Bearer format)
+        db: Database session
+
+    Returns:
+        Principal if key valid, GuestPrincipal if no key provided
+
+    Raises:
+        HTTPException: 401 if provided key is invalid, revoked, or expired
+    """
+    # Extract key from header
+    api_key = None
+
+    if x_api_key:
+        api_key = x_api_key
+    elif authorization:
+        # Support Bearer token format: "Bearer <token>"
+        if authorization.lower().startswith("bearer "):
+            api_key = authorization[7:]  # Remove "Bearer " prefix
+        else:
+            api_key = authorization
+
+    # No key provided - create guest principal
+    if not api_key:
+        return create_guest_principal()
+
+    # Key provided - validate it (invalid keys still fail)
+    service = ApiKeyService(db)
+    result: ValidationResult = service.validate_key(api_key)
+
+    if not result.is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=result.error or "Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return result.principal
+
+
+def require_non_guest():
+    """Dependency factory to require authenticated (non-guest) access.
+
+    Usage:
+        @router.post("/runs")
+        async def create_run(
+            principal: AnyPrincipal = Depends(require_non_guest())
+        ):
+            # Only authenticated users reach here
+            ...
+    """
+
+    async def _check(
+        principal: AnyPrincipal = Depends(resolve_principal_or_guest),
+    ) -> Principal:
+        """Check that principal is not a guest."""
+        if getattr(principal, "is_guest", False):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required. Provide a valid API key.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # At this point we know it's a real Principal
+        return principal
+
+    return _check
