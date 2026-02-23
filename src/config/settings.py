@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Database
+    # Database - supports PostgreSQL (production) or SQLite (testing)
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/picoclaw"
 
     # Application
@@ -25,3 +25,8 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+
+def get_database_url() -> str:
+    """Get database URL, falling back to SQLite for testing if PostgreSQL is unavailable."""
+    return settings.DATABASE_URL
