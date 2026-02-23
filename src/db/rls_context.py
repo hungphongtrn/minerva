@@ -71,7 +71,8 @@ class RLSContext:
     def set_context(self) -> None:
         """Set the RLS context in the current database session.
 
-        This executes SET CONFIG commands that RLS policies reference.
+        This executes SELECT set_config() calls that RLS policies reference.
+        Settings are transaction-local (is_local=true) for automatic cleanup.
         """
         if self.workspace_id:
             self._set_config(self.WORKSPACE_ID_KEY, str(self.workspace_id))
@@ -90,19 +91,36 @@ class RLSContext:
         self._set_config(self.ROLE_KEY, None)
 
     def _set_config(self, key: str, value: Optional[str]) -> None:
-        """Execute SET CONFIG for a single setting.
+        """Execute set_config for a single setting.
+
+        Uses PostgreSQL set_config() function with is_local=true for
+        transaction-scoped settings. For non-PostgreSQL backends,
+        the call is silently ignored to allow test compatibility.
 
         Args:
             key: The configuration key (e.g., app.workspace_id)
             value: The value to set, or None to reset
         """
+        # Check if we're on PostgreSQL - silently skip for other dialects
+        # This allows tests to run on SQLite without RLS errors
+        # For mock objects or unknown dialects, assume PostgreSQL (execute the SQL)
+        try:
+            dialect_name = self.db.bind.dialect.name
+            # Only skip for explicitly non-PostgreSQL dialects (string comparison)
+            if isinstance(dialect_name, str) and dialect_name != "postgresql":
+                return
+        except AttributeError:
+            # Mock objects or incomplete db session - proceed with SQL execution
+            pass
+
+        # PostgreSQL: Use SELECT set_config(key, value, is_local)
+        # is_local=true makes the setting transaction-scoped
         if value is not None:
-            # Use parameterized query to prevent SQL injection
-            stmt = text(f"SET CONFIG :key, :value, false")
+            stmt = text("SELECT set_config(:key, :value, true)")
             self.db.execute(stmt, {"key": key, "value": value})
         else:
-            # Reset the config key
-            stmt = text(f"SET CONFIG :key, NULL, false")
+            # Reset the config key to NULL (transaction-local)
+            stmt = text("SELECT set_config(:key, NULL, true)")
             self.db.execute(stmt, {"key": key})
 
     def __enter__(self) -> "RLSContext":
