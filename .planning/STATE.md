@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 1 of 5 (Identity and Policy Baseline)
-- **Plan status:** Phase 1 executed; gap closure required
-- **Execution status:** Gaps Found (verification failed)
-- **Progress bar:** [██████----] 60%
+- **Plan status:** Gap closure in progress (01-06 complete, 01-07 pending)
+- **Execution status:** Gap 1 (workspace isolation) closed
+- **Progress bar:** [███████---] 65%
 
 ```mermaid
 flowchart LR
@@ -22,9 +22,10 @@ flowchart LR
   S3 --> S4[01-04: Guest + Policy ✓]
   S4 --> S5[01-05: Acceptance Tests ✓]
   S5 --> S6[Verification: Gaps Found ⚠]
-  S6 --> S7[Plan Gap Closure]
-  S7 --> S8[Re-execute Phase 1]
-  S8 --> S9[Phase 2: Agent Packs]
+  S6 --> S7[01-06: RLS Context ✓]
+  S7 --> S8[01-07: Role Resolution]
+  S8 --> S9[Re-verify Phase 1]
+  S9 --> S10[Phase 2: Agent Packs]
 ```
 
 ## Performance Metrics
@@ -35,8 +36,8 @@ flowchart LR
 - **Completed phases:** 0/5 (Phase 1 pending gap closure)
 - **Completed plans:** 5/15
 - **Completed requirements:** 0/36 (phase not yet closed)
-- **Phase 1 verification score:** 3/6 must-haves verified
-- **Blocking requirements:** AUTH-03, AUTH-05, SECU-01, SECU-02
+- **Phase 1 verification score:** 4/6 must-haves verified
+- **Blocking requirements:** AUTH-05, SECU-01, SECU-02
 
 ## Accumulated Context
 
@@ -70,6 +71,10 @@ flowchart LR
 | D-01-05-002 | 2026-02-23 | 01-05 | Acceptance tests map 1:1 to roadmap success criteria for traceability | Ensures every requirement is provably observable |
 | D-01-05-003 | 2026-02-23 | 01-05 | Security regression tests use defensive patterns that pass even if underlying behavior changes | Documents expected security behavior without brittle assertions |
 | D-01-05-004 | 2026-02-23 | 01-05 | Expected failures documented for SQLite/PostgreSQL RLS compatibility differences | Clear documentation of test environment limitations |
+| D-01-06-001 | 2026-02-23 | 01-06 | Use SELECT set_config(..., true) for transaction-local RLS context | Transaction-local settings auto-clear; no manual cleanup needed |
+| D-01-06-002 | 2026-02-23 | 01-06 | Skip RLS context for non-PostgreSQL dialects | SQLite tests run without SQL syntax errors |
+| D-01-06-003 | 2026-02-23 | 01-06 | Cast UUIDs to text for current_setting() comparison | PostgreSQL current_setting() returns text; avoids type mismatches |
+| D-01-06-004 | 2026-02-23 | 01-06 | Use COALESCE with empty string for unset context | Safe handling fails closed (no match) when context unset |
 
 ### TODOs
 
@@ -79,23 +84,24 @@ flowchart LR
 - [x] Execute Plan 01-03: Tenant isolation middleware
 - [x] Execute Plan 01-04: Guest identity and runtime policy
 - [x] Execute Plan 01-05: Phase 1 acceptance and security regression tests
-- [ ] Plan and execute gap-closure work for verifier findings
+- [x] Plan and execute gap-closure work for verifier findings (01-06 complete)
+- [ ] Execute Plan 01-07: Membership-backed role resolution
 - [ ] Re-run Phase 1 verification to achieve `passed` status
 - [ ] Begin Phase 2: Workspace Lifecycle and Agent Pack Portability
 
 ### Blockers
 
-- Phase verification failed (3/6). Blocking gaps in workspace isolation, membership-backed role resolution, and default-deny runtime egress/tool enforcement.
+- Phase verification in progress (4/6). Gap 1 (workspace isolation) closed via 01-06. Remaining gaps: membership-backed role resolution (01-07), default-deny runtime egress/tool enforcement.
 
 ## Session Continuity
 
-- **Last completed artifact:** `01-identity-and-policy-baseline-VERIFICATION.md` (status: `gaps_found`)
+- **Last completed artifact:** `01-06-SUMMARY.md` (status: `complete`)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next command:** `/gsd-plan-phase 1 --gaps`
-- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-identity-and-policy-baseline-VERIFICATION.md` and create gap-closure plans.
-- **Last session:** 2026-02-23 - Executed plans 01-01..01-05, verification found gaps
-- **Commits:** 4a17dc5, 4613a45, ba59885, 7ab67d3 (Plan 01-05) + verifier report
+- **Next command:** Execute Plan 01-07: Membership-backed role resolution
+- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-07-PLAN.md`
+- **Last session:** 2026-02-23 - Completed 01-06 (RLS context fix, tenant predicates, regression tests)
+- **Commits:** fc2e9bb, b4debf9, 7658dc9 (Plan 01-06)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-23*
+*Updated: 2026-02-23 (completed 01-06)*
