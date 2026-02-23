@@ -233,9 +233,11 @@ class TestRoleParsing:
 class TestRLSContext:
     """Test RLS context management."""
 
-    def test_rls_context_sets_keys(self, mocker):
+    def test_rls_context_sets_keys(self):
         """RLSContext sets the correct configuration keys."""
-        mock_db = mocker.MagicMock()
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
         workspace_id = uuid4()
         user_id = uuid4()
         role = "owner"
@@ -246,9 +248,11 @@ class TestRLSContext:
         # Should execute SET CONFIG for each key
         assert mock_db.execute.call_count == 3
 
-    def test_rls_context_clears_keys(self, mocker):
+    def test_rls_context_clears_keys(self):
         """RLSContext clears configuration keys."""
-        mock_db = mocker.MagicMock()
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
 
         context = RLSContext(mock_db)
         context.clear_context()
@@ -256,27 +260,31 @@ class TestRLSContext:
         # Should execute SET CONFIG for each key with NULL
         assert mock_db.execute.call_count == 3
 
-    def test_rls_context_manager_sets_and_clears(self, mocker):
+    def test_rls_context_manager_sets_and_clears(self):
         """Context manager sets context on enter and clears on exit."""
-        mock_db = mocker.MagicMock()
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
         workspace_id = uuid4()
 
         with RLSContext(mock_db, workspace_id):
             pass
 
-        # Should set context (3 calls) and clear context (3 calls)
-        assert mock_db.execute.call_count == 6
+        # Should set context (1 call for workspace_id) and clear context (3 calls for all keys)
+        assert mock_db.execute.call_count == 4
 
-    def test_with_rls_context_sets_workspace_id(self, mocker):
+    def test_with_rls_context_sets_workspace_id(self):
         """with_rls_context helper sets workspace ID."""
-        mock_db = mocker.MagicMock()
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
         workspace_id = uuid4()
 
         with with_rls_context(mock_db, workspace_id):
             pass
 
-        # Should set and clear
-        assert mock_db.execute.call_count == 6
+        # Should set (1 call for workspace_id) and clear (3 calls for all keys)
+        assert mock_db.execute.call_count == 4
 
 
 class TestRLSContextKeys:
@@ -431,9 +439,11 @@ class TestWorkspaceResourceAccess:
 class TestWorkspaceIsolationIntegration:
     """Integration tests for workspace isolation behavior."""
 
-    def test_cross_workspace_read_blocked(self, mocker):
+    def test_cross_workspace_read_blocked(self):
         """Cross-workspace read is blocked by authorization (AUTH-03)."""
-        mock_db = mocker.MagicMock()
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
 
         principal_workspace = uuid4()
         target_workspace = uuid4()
@@ -460,7 +470,7 @@ class TestWorkspaceIsolationIntegration:
         # No database query should occur
         mock_db.query.assert_not_called()
 
-    def test_same_workspace_read_succeeds(self, mocker):
+    def test_same_workspace_read_succeeds(self):
         """Same-workspace read passes authorization."""
         workspace_id = uuid4()
 
