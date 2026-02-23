@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 1 of 5 (Identity and Policy Baseline)
-- **Plan status:** Gap closure in progress (01-06 complete, 01-07 pending)
-- **Execution status:** Gap 1 (workspace isolation) closed
-- **Progress bar:** [███████---] 65%
+- **Plan status:** Gap closure in progress (01-06, 01-08 complete; 01-07 pending)
+- **Execution status:** Gap 1 (workspace isolation) and Gap 3 (default-deny enforcement) closed
+- **Progress bar:** [████████--] 75%
 
 ```mermaid
 flowchart LR
@@ -23,9 +23,10 @@ flowchart LR
   S4 --> S5[01-05: Acceptance Tests ✓]
   S5 --> S6[Verification: Gaps Found ⚠]
   S6 --> S7[01-06: RLS Context ✓]
-  S7 --> S8[01-07: Role Resolution]
-  S8 --> S9[Re-verify Phase 1]
-  S9 --> S10[Phase 2: Agent Packs]
+  S7 --> S8[01-08: Gap 3 Closure ✓]
+  S8 --> S9[01-07: Role Resolution]
+  S9 --> S10[Re-verify Phase 1]
+  S10 --> S11[Phase 2: Agent Packs]
 ```
 
 ## Performance Metrics
@@ -34,10 +35,10 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 0/5 (Phase 1 pending gap closure)
-- **Completed plans:** 5/15
+- **Completed plans:** 7/15
 - **Completed requirements:** 0/36 (phase not yet closed)
-- **Phase 1 verification score:** 4/6 must-haves verified
-- **Blocking requirements:** AUTH-05, SECU-01, SECU-02
+- **Phase 1 verification score:** 5/6 must-haves verified (SECU-01, SECU-02 now closed)
+- **Blocking requirements:** AUTH-05
 
 ## Accumulated Context
 
@@ -75,6 +76,10 @@ flowchart LR
 | D-01-06-002 | 2026-02-23 | 01-06 | Skip RLS context for non-PostgreSQL dialects | SQLite tests run without SQL syntax errors |
 | D-01-06-003 | 2026-02-23 | 01-06 | Cast UUIDs to text for current_setting() comparison | PostgreSQL current_setting() returns text; avoids type mismatches |
 | D-01-06-004 | 2026-02-23 | 01-06 | Use COALESCE with empty string for unset context | Safe handling fails closed (no match) when context unset |
+| D-01-08-001 | 2026-02-23 | 01-08 | Thread runtime intents through explicit fields (requested_egress_urls, requested_tools) with fallback extraction from input | Allows both explicit policy intent declaration and backward-compatible input-based inference |
+| D-01-08-002 | 2026-02-23 | 01-08 | Policy violation errors include action, resource, and reason in structured format | Makes denials diagnosable and testable while maintaining security |
+| D-01-08-003 | 2026-02-23 | 01-08 | HTTP 403 responses include parseable JSON detail with error, status, action, resource, and reason fields | API consumers can programmatically handle different denial types |
+| D-01-08-004 | 2026-02-23 | 01-08 | Service-level tests verify real enforcement with actual RuntimeEnforcer, not mocks | Prevents bypass via mocking and ensures default-deny semantics are enforced |
 
 ### TODOs
 
@@ -84,24 +89,24 @@ flowchart LR
 - [x] Execute Plan 01-03: Tenant isolation middleware
 - [x] Execute Plan 01-04: Guest identity and runtime policy
 - [x] Execute Plan 01-05: Phase 1 acceptance and security regression tests
-- [x] Plan and execute gap-closure work for verifier findings (01-06 complete)
+- [x] Plan and execute gap-closure work for verifier findings (01-06, 01-08 complete)
 - [ ] Execute Plan 01-07: Membership-backed role resolution
 - [ ] Re-run Phase 1 verification to achieve `passed` status
 - [ ] Begin Phase 2: Workspace Lifecycle and Agent Pack Portability
 
 ### Blockers
 
-- Phase verification in progress (4/6). Gap 1 (workspace isolation) closed via 01-06. Remaining gaps: membership-backed role resolution (01-07), default-deny runtime egress/tool enforcement.
+- Phase verification in progress (5/6). Gap 1 (workspace isolation) closed via 01-06. Gap 3 (default-deny enforcement) closed via 01-08. Remaining gap: membership-backed role resolution (01-07).
 
 ## Session Continuity
 
-- **Last completed artifact:** `01-06-SUMMARY.md` (status: `complete`)
+- **Last completed artifact:** `01-08-SUMMARY.md` (status: `complete`)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next command:** Execute Plan 01-07: Membership-backed role resolution
 - **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-07-PLAN.md`
-- **Last session:** 2026-02-23 - Completed 01-06 (RLS context fix, tenant predicates, regression tests)
-- **Commits:** fc2e9bb, b4debf9, 7658dc9 (Plan 01-06)
+- **Last session:** 2026-02-23 - Completed 01-08 (default-deny egress/tool enforcement, deterministic denials, regression tests)
+- **Commits:** 7676310, 412f4a4, 0911f43 (Plan 01-08)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-23 (completed 01-06)*
+*Updated: 2026-02-23 (completed 01-08)*
