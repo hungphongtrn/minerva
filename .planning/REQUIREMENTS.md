@@ -9,12 +9,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Identity & Access
 
-- [ ] **AUTH-01**: User can authenticate API requests with a personal API key.
-- [ ] **AUTH-02**: User or operator can rotate and revoke an API key.
-- [ ] **AUTH-03**: User can access only their own workspace resources.
+- [x] **AUTH-01**: User can authenticate API requests with a personal API key.
+- [x] **AUTH-02**: User or operator can rotate and revoke an API key.
+- [x] **AUTH-03**: User can access only their own workspace resources.
 - [ ] **AUTH-04**: User can send an idempotency key so retries do not create duplicate runs.
-- [ ] **AUTH-05**: Operator can assign a basic role (owner/member) to control access behavior.
-- [ ] **AUTH-06**: System assigns a random guest identity for requests without explicit user identity and marks that run as guest mode.
+- [x] **AUTH-05**: Operator can assign a basic role (owner/member) to control access behavior.
+- [x] **AUTH-06**: System assigns a random guest identity for requests without explicit user identity and marks that run as guest mode.
 
 ### Agent Bootstrap
 
@@ -58,9 +58,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Policy & Security
 
-- [ ] **SECU-01**: System enforces default-deny outbound network policy.
-- [ ] **SECU-02**: System enforces tool allowlist policy per user/agent context.
-- [ ] **SECU-03**: System injects only scoped secrets required for each run.
+- [x] **SECU-01**: System enforces default-deny outbound network policy.
+- [x] **SECU-02**: System enforces tool allowlist policy per user/agent context.
+- [x] **SECU-03**: System injects only scoped secrets required for each run.
 - [ ] **SECU-04**: System writes immutable append-only audit events.
 - [ ] **SECU-05**: System includes automated policy and isolation boundary tests.
 
@@ -100,12 +100,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AGNT-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 | AGNT-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 | AGNT-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| AUTH-01 | Phase 1 - Identity and Policy Baseline | Pending |
-| AUTH-02 | Phase 1 - Identity and Policy Baseline | Pending |
-| AUTH-03 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-01 | Phase 1 - Identity and Policy Baseline | Complete |
+| AUTH-02 | Phase 1 - Identity and Policy Baseline | Complete |
+| AUTH-03 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-04 | Phase 4 - Execution Orchestration and Fairness | Pending |
-| AUTH-05 | Phase 1 - Identity and Policy Baseline | Pending |
-| AUTH-06 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-05 | Phase 1 - Identity and Policy Baseline | Complete |
+| AUTH-06 | Phase 1 - Identity and Policy Baseline | Complete |
 | WORK-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 | WORK-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 | WORK-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
@@ -128,9 +128,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERS-02 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
 | PERS-03 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
 | PERS-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
-| SECU-01 | Phase 1 - Identity and Policy Baseline | Pending |
-| SECU-02 | Phase 1 - Identity and Policy Baseline | Pending |
-| SECU-03 | Phase 1 - Identity and Policy Baseline | Pending |
+| SECU-01 | Phase 1 - Identity and Policy Baseline | Complete |
+| SECU-02 | Phase 1 - Identity and Policy Baseline | Complete |
+| SECU-03 | Phase 1 - Identity and Policy Baseline | Complete |
 | SECU-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
 | SECU-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 
@@ -141,4 +141,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-23*
-*Last updated: 2026-02-23 after adding AUTH-06 guest identity policy*
+*Last updated: 2026-02-23 after Phase 1 completion (AUTH/SECU requirements marked complete)*

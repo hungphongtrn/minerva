@@ -1,55 +1,25 @@
 ---
 phase: 01-identity-and-policy-baseline
-verified: 2026-02-23T09:19:51Z
-status: gaps_found
-score: 3/6 must-haves verified
-gaps:
-  - truth: "User can read/write only resources in their own workspace and cannot access other users' workspace data."
-    status: failed
-    reason: "Workspace resource flows rely on RLS context SQL that fails at runtime and DB policies are placeholder allow-all, so tenant boundaries are not reliably enforced end to end."
-    artifacts:
-      - path: "src/db/rls_context.py"
-        issue: "Uses `SET CONFIG` statements; integration execution fails with SQL syntax errors."
-      - path: "src/db/migrations/versions/0001_identity_policy_baseline.py"
-        issue: "RLS policies are `USING (true)` placeholders and do not enforce tenant predicates."
-      - path: "src/tests/integration/test_phase1_acceptance.py"
-        issue: "Workspace isolation acceptance tests fail in current suite run."
-    missing:
-      - "Executable transaction-scoped RLS context SQL for supported databases"
-      - "Real tenant predicates in RLS policies using app context (workspace/user/role)"
-      - "Green workspace isolation acceptance tests under supported runtime DB"
-  - truth: "Owner/member role behavior differences are observable in API outcomes."
-    status: failed
-    reason: "Role resolution is stubbed to owner in authorization path, so API behavior does not reflect real owner/member membership."
-    artifacts:
-      - path: "src/api/routes/workspace_resources.py"
-        issue: "`_resolve_auth_principal_with_role` hardcodes user_id and `Role.OWNER` with TODO for membership lookup."
-      - path: "src/authorization/guards.py"
-        issue: "`resolve_auth_principal_dep` hardcodes `Role.OWNER` placeholder."
-    missing:
-      - "Membership-backed role lookup from DB"
-      - "Authorization principal derived from actual user/workspace membership"
-      - "API tests proving owner/member divergences with real role resolution"
-  - truth: "Runtime runs enforce default-deny network egress and tool allowlists."
-    status: failed
-    reason: "Run execution path does not invoke policy enforcement hooks for egress/tool decisions before success response."
-    artifacts:
-      - path: "src/services/run_service.py"
-        issue: "`execute_run` filters secrets but does not call egress/tool authorization methods."
-      - path: "src/tests/integration/test_phase1_acceptance.py"
-        issue: "Default-deny egress/tool acceptance tests fail in current suite run."
-    missing:
-      - "Policy checks in run execution for requested egress targets"
-      - "Policy checks in run execution for requested tools"
-      - "Deterministic denial responses when allowlists are empty or missing entries"
+verified: 2026-02-23T14:46:35Z
+status: passed
+score: 6/6 must-haves verified
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/6
+  gaps_closed:
+    - "User can read/write only resources in their own workspace and cannot access other users' workspace data."
+    - "Owner/member role behavior differences are observable in API outcomes."
+    - "Runtime runs enforce default-deny network egress and tool allowlists."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 1: Identity and Policy Baseline Verification Report
 
 **Phase Goal:** Users can authenticate requests safely and execute only within authorized, policy-constrained boundaries.
-**Verified:** 2026-02-23T09:19:51Z
-**Status:** gaps_found
-**Re-verification:** No - initial verification
+**Verified:** 2026-02-23T14:46:35Z
+**Status:** passed
+**Re-verification:** Yes - after gap closure
 
 ## Goal Achievement
 
@@ -57,77 +27,68 @@ gaps:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | User can authenticate API requests with a personal API key. | ✓ VERIFIED | `src/api/dependencies/auth.py` validates keys via `ApiKeyService.validate_key`; `src/api/routes/whoami.py` is protected; integration run has auth tests passing. |
-| 2 | User/operator can rotate or revoke API keys and revoked keys fail subsequent requests. | ✓ VERIFIED | `src/api/routes/api_keys.py` wires rotate/revoke to service; `src/identity/service.py` invalidates rotated material and rejects inactive keys; revocation tests pass in integration run. |
-| 3 | User can read/write only their own workspace resources and cannot access other workspace data. | ✗ FAILED | `uv run pytest src/tests/integration -q` shows workspace isolation failures; `src/db/rls_context.py` issues `SET CONFIG` SQL errors; migration policies are placeholder `USING (true)` in `src/db/migrations/versions/0001_identity_policy_baseline.py`. |
-| 4 | Owner/member roles produce different authorization outcomes in API behavior. | ✗ FAILED | Role resolution is stubbed to owner in `src/api/routes/workspace_resources.py` and `src/authorization/guards.py`, so role outcomes are not grounded in membership data. |
-| 5 | Requests without explicit identity are assigned random guest identity and run in guest non-persistent mode. | ✓ VERIFIED | `src/api/dependencies/auth.py` uses `resolve_principal_or_guest` fallback to `create_guest_principal`; `src/guest/identity.py` generates random guest IDs; `src/services/run_service.py` blocks guest persistence paths. |
-| 6 | Runtime policy enforces default-deny egress/tool controls and scoped secrets. | ✗ FAILED | Secret filtering exists, but `src/services/run_service.py` execute path does not enforce egress/tool checks; integration failures include default-deny egress/tool tests. |
+| 1 | User can authenticate API requests with a personal API key. | ✓ VERIFIED | `src/api/dependencies/auth.py` resolves/validates API keys through `ApiKeyService.validate_key`; protected endpoint in `src/api/routes/whoami.py`; acceptance suite `uv run pytest src/tests/integration/test_phase1_acceptance.py -q` passed (32 passed). |
+| 2 | User/operator can rotate or revoke API keys and revoked keys fail subsequent requests. | ✓ VERIFIED | `src/api/routes/api_keys.py` calls `rotate_key`/`revoke_key`; `src/identity/service.py` invalidates old key material and enforces inactive rejection; acceptance tests include rotate/revoke lifecycle pass. |
+| 3 | User can read/write only resources in their own workspace and cannot access other workspace data. | ✓ VERIFIED | `src/api/routes/workspace_resources.py` enforces `authorize_action` + `with_rls_context`; `src/db/rls_context.py` uses executable `SELECT set_config(..., true)`; migration `src/db/migrations/versions/0001_identity_policy_baseline.py` uses `current_setting('app.workspace_id', true)` predicates; cross-workspace tests pass in acceptance run. |
+| 4 | Owner/member role behavior differences are observable in API outcomes. | ✓ VERIFIED | Membership-backed role lookup is implemented in `src/api/routes/workspace_resources.py` (`Membership` query + `get_role_from_string`) and `src/authorization/guards.py` (`get_membership_role`); role behavior tests pass in acceptance run. |
+| 5 | Requests without explicit identity are assigned random guest identity and run in guest non-persistent mode. | ✓ VERIFIED | `resolve_principal_or_guest` in `src/api/dependencies/auth.py` falls back to `create_guest_principal`; `src/guest/identity.py` generates random guest IDs; `src/services/run_service.py` guest persistence guard blocks `persist_run`/`persist_checkpoint`; guest acceptance tests pass. |
+| 6 | Runtime policy enforces default-deny egress/tool controls and scoped secrets. | ✓ VERIFIED | `src/services/run_service.py` now enforces egress/tool checks in `execute_run` (loops over `requested_egress_urls` and `requested_tools`) and returns deterministic denied results; route `src/api/routes/runs.py` maps denied results to 403; default-deny egress/tool/secret tests pass in acceptance suite and service regression tests. |
 
-**Score:** 3/6 truths verified
+**Score:** 6/6 truths verified
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `src/api/dependencies/auth.py` | API key + guest principal resolution | ✓ VERIFIED | Substantive and wired; includes `resolve_principal`, `resolve_principal_or_guest`, and service linkage. |
-| `src/identity/service.py` | Key lifecycle and validation logic | ✓ VERIFIED | Substantive lifecycle implementation with create/validate/rotate/revoke flows. |
-| `src/api/routes/api_keys.py` | Key lifecycle HTTP endpoints | ✓ VERIFIED | Endpoints wired to service and auth dependency. |
-| `src/api/routes/workspace_resources.py` | Workspace-scoped resource CRUD + authz | ✗ STUB | Contains TODO role lookup and hardcoded owner principal, so role behavior is not real. |
-| `src/db/rls_context.py` | Transaction-scoped RLS context setter | ⚠ PARTIAL | Substantive and imported, but emitted SQL fails in current integration execution. |
-| `src/db/migrations/versions/0001_identity_policy_baseline.py` | Enforced RLS policies for tenant data | ✗ STUB | RLS enabled/forced, but policies are placeholder `USING (true)` and not tenant-constraining. |
-| `src/authorization/policy.py` | Owner/member action matrix and enforcement | ✓ VERIFIED | Role matrix and `authorize_action` implemented. |
-| `src/guest/identity.py` | Ephemeral guest identity generation | ✓ VERIFIED | Random guest principal generation via `secrets.token_urlsafe`. |
-| `src/services/run_service.py` | Runtime execution with policy enforcement | ✗ STUB | `execute_run` does not call egress/tool policy checks before success. |
-| `src/runtime_policy/enforcer.py` | Central policy enforcement API | ✓ VERIFIED | Implements authorize methods and scoped secret filtering. |
+| `src/api/dependencies/auth.py` | API key + guest principal resolution | ✓ VERIFIED | Exists, substantive, and wired through route dependencies. |
+| `src/identity/service.py` | Key lifecycle and validation logic | ✓ VERIFIED | Exists, substantive implementation for create/validate/rotate/revoke/list/get. |
+| `src/api/routes/api_keys.py` | Key lifecycle HTTP endpoints | ✓ VERIFIED | Exists, substantive endpoint surface, wired to auth and service methods. |
+| `src/api/routes/workspace_resources.py` | Workspace-scoped CRUD + role-aware authz | ✓ VERIFIED | Exists, substantive CRUD and membership role resolution; no role stub remains. |
+| `src/authorization/guards.py` | Membership-backed auth principal guards | ✓ VERIFIED | Exists, substantive, resolves role from `memberships` table and denies missing membership. |
+| `src/db/rls_context.py` | Transaction-scoped RLS context setter | ✓ VERIFIED | Exists, substantive `set_config`-based implementation, dialect-aware guard present. |
+| `src/db/migrations/versions/0001_identity_policy_baseline.py` | Real tenant RLS predicates | ✓ VERIFIED | Exists, substantive policies using `current_setting` + `WITH CHECK`; no allow-all predicates. |
+| `src/services/run_service.py` | Runtime execution with policy gates | ✓ VERIFIED | Exists, substantive enforcement calls for egress/tools and scoped secret injection. |
+| `src/runtime_policy/enforcer.py` | Default-deny enforcement API | ✓ VERIFIED | Exists, substantive `authorize_*` methods and filtered secrets helper. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `src/main.py` | `src/api/router.py` | `app.include_router(api_router)` | ✓ WIRED | Route composition present and active. |
-| `src/api/dependencies/auth.py` | `src/identity/service.py` | `validate_key` call | ✓ WIRED | Auth dependency invokes service validation directly. |
-| `src/api/routes/api_keys.py` | `src/identity/service.py` | create/rotate/revoke methods | ✓ WIRED | Lifecycle endpoints call corresponding service methods. |
-| `src/api/routes/workspace_resources.py` | `src/authorization/policy.py` | `authorize_action` | ✓ WIRED | Route handlers invoke policy authorization checks. |
-| `src/api/routes/workspace_resources.py` | `src/db/rls_context.py` | `with_rls_context(...)` | ⚠ PARTIAL | Link exists but runtime execution fails due context SQL incompatibility/error. |
-| `src/db/rls_context.py` | `src/db/migrations/versions/0001_identity_policy_baseline.py` | `app.workspace_id/app.user_id/app.role` policy coupling | ✗ NOT_WIRED | Migration policies do not reference app context; all use `USING (true)`. |
-| `src/api/dependencies/auth.py` | `src/guest/identity.py` | `create_guest_principal()` fallback | ✓ WIRED | Missing-key path creates guest principal. |
-| `src/services/run_service.py` | `src/runtime_policy/enforcer.py` | pre-action policy gate in run execution | ✗ NOT_WIRED | Methods exist but execution flow bypasses egress/tool checks. |
-| `src/api/routes/runs.py` | `src/services/run_service.py` | `start_run` and `execute_run` | ✓ WIRED | Runs endpoint uses service path for execution. |
+| `src/main.py` | `src/api/router.py` | `app.include_router(api_router)` | ✓ WIRED | API router is included in app startup. |
+| `src/api/dependencies/auth.py` | `src/identity/service.py` | `ApiKeyService.validate_key` | ✓ WIRED | Auth dependency delegates key validation to service. |
+| `src/api/routes/api_keys.py` | `src/identity/service.py` | create/rotate/revoke/list/get calls | ✓ WIRED | Endpoints invoke lifecycle methods directly. |
+| `src/api/routes/workspace_resources.py` | `src/db/models.py` (`Membership`) | membership query in `_resolve_auth_principal_with_role` | ✓ WIRED | Role is resolved from DB membership, not hardcoded. |
+| `src/api/routes/workspace_resources.py` | `src/authorization/policy.py` | `authorize_action(...)` | ✓ WIRED | All CRUD handlers enforce policy checks. |
+| `src/api/routes/workspace_resources.py` | `src/db/rls_context.py` | `with_rls_context(...)` | ✓ WIRED | Resource queries/writes execute under explicit RLS context. |
+| `src/db/rls_context.py` | `src/db/migrations/versions/0001_identity_policy_baseline.py` | `app.workspace_id/app.user_id/app.role` + `current_setting()` coupling | ✓ WIRED | Runtime context keys align with migration predicates. |
+| `src/services/run_service.py` | `src/runtime_policy/enforcer.py` | `authorize_egress`/`authorize_tool` and secret filtering | ✓ WIRED | Active execution path now invokes policy hooks before success. |
+| `src/api/routes/runs.py` | `src/services/run_service.py` | `start_run` + `execute_run` | ✓ WIRED | Route passes intent + policies into service and returns structured denials. |
 
 ### Requirements Coverage
 
 | Requirement | Status | Blocking Issue |
 | --- | --- | --- |
-| AUTH-01 | ✓ SATISFIED | API key auth path and tests are present and passing. |
-| AUTH-02 | ✓ SATISFIED | Rotate/revoke semantics implemented and exercised. |
-| AUTH-03 | ✗ BLOCKED | Workspace isolation path fails in integration execution; DB RLS policies are placeholder allow-all. |
-| AUTH-05 | ✗ BLOCKED | API role resolution is hardcoded owner, not membership-backed. |
-| AUTH-06 | ✓ SATISFIED | Guest fallback and guest-mode execution path exist. |
-| SECU-01 | ✗ BLOCKED | Default-deny egress is not enforced in active run execute path. |
-| SECU-02 | ✗ BLOCKED | Default-deny tool allowlist is not enforced in active run execute path. |
-| SECU-03 | ✓ SATISFIED | Secret injection is filtered by allowlist in runtime enforcer/service. |
+| AUTH-01 | ✓ SATISFIED | None |
+| AUTH-02 | ✓ SATISFIED | None |
+| AUTH-03 | ✓ SATISFIED | None |
+| AUTH-05 | ✓ SATISFIED | None |
+| AUTH-06 | ✓ SATISFIED | None |
+| SECU-01 | ✓ SATISFIED | None |
+| SECU-02 | ✓ SATISFIED | None |
+| SECU-03 | ✓ SATISFIED | None |
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `src/api/routes/workspace_resources.py` | 88 | TODO role lookup placeholder | 🛑 Blocker | Real owner/member behavior cannot be enforced. |
-| `src/authorization/guards.py` | 72 | TODO + hardcoded owner principal | 🛑 Blocker | Authorization outcomes are not tied to actual memberships. |
-| `src/db/migrations/versions/0001_identity_policy_baseline.py` | 203 | Placeholder RLS policy comments/`USING (true)` | 🛑 Blocker | DB-level tenant isolation not enforced by policy predicates. |
-| `src/services/run_service.py` | 201 | Placeholder execution flow note | ⚠ Warning | Policy hooks are incomplete in effective run path. |
-| `src/api/routes/whoami.py` | 118 | TODO guest endpoint placeholder | ⚠ Warning | Auxiliary guest introspection endpoint is not complete. |
-| `src/api/routes/runs.py` | 176 | `status: not_implemented` branch in retrieval | ℹ Info | Run retrieval endpoint not complete; not core Phase 1 blocker for start/execute path. |
-
-### Human Verification Required
-
-Not required for status determination. Automated structural checks and integration execution already found blocking gaps.
+| `src/api/routes/whoami.py` | 118 | TODO in `/whoami/guest` placeholder endpoint | ⚠ Warning | Auxiliary endpoint remains placeholder; does not block Phase 1 goal because run guest flow is implemented and verified elsewhere. |
+| `src/api/routes/runs.py` | 224 | `status: not_implemented` in `get_run` | ℹ Info | Run retrieval is incomplete but does not block auth/policy-constrained execution goal for Phase 1. |
 
 ### Gaps Summary
 
-Phase 1 is not goal-complete. Core authentication and API key lifecycle are implemented, and guest fallback exists, but policy-constrained boundaries are incomplete in three critical areas: workspace isolation is not reliably enforced end to end (broken RLS context execution plus placeholder RLS predicates), role behavior is stubbed to owner rather than derived from memberships, and default-deny egress/tool enforcement is not invoked in the active run execution path. These gaps block achievement of the phase goal as defined in ROADMAP success criteria and mapped requirements.
+All previously failed must-haves are now closed in code and wiring. Re-verification found no remaining blockers for Phase 1 goal achievement. Authentication, workspace isolation, membership-backed role behavior, guest fallback, and default-deny runtime policy enforcement are all implemented and exercised by the current acceptance suite.
 
 ---
 
-_Verified: 2026-02-23T09:19:51Z_
+_Verified: 2026-02-23T14:46:35Z_
 _Verifier: OpenCode (gsd-verifier)_
