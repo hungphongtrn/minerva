@@ -42,4 +42,4 @@ The `.env` file controls both the Docker Compose service and the application con
 1. Copy environment defaults: `cp .env.example .env`
 2. Start Postgres: `docker compose up -d postgres`
 3. Wait for healthcheck (10-15 seconds)
-4. Database is ready at `postgresql://picoclaw:picoclaw_dev@localhost:5432/picoclaw`
+4. Database is ready at `postgresql+psycopg://picoclaw:picoclaw_dev@localhost:5432/picoclaw`
