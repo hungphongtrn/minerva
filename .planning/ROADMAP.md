@@ -45,6 +45,15 @@ flowchart LR
 5. Requests without explicit user identity are assigned a random guest identity and execute in guest mode without persistent storage.
 6. Runtime runs enforce default-deny network egress, tool allowlists, and scoped secret injection per run context.
 
+**Plans:** 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Bootstrap FastAPI/DB foundation and RLS-ready schema baseline.
+- [ ] 01-02-PLAN.md — Implement personal API key authentication with rotate/revoke lifecycle.
+- [ ] 01-03-PLAN.md — Enforce workspace isolation and owner/member authorization behavior.
+- [ ] 01-04-PLAN.md — Implement guest identity mode and default-deny runtime policy controls.
+- [ ] 01-05-PLAN.md — Validate Phase 1 with acceptance and security regression suites.
+
 ### Phase 2 - Workspace Lifecycle and Agent Pack Portability
 
 **Goal:** Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring.
