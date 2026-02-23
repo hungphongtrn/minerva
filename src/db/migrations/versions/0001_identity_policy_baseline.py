@@ -199,28 +199,60 @@ def upgrade() -> None:
     op.execute("ALTER TABLE workspace_resources ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE workspace_resources FORCE ROW LEVEL SECURITY")
 
-    # Create RLS policies
-    # Note: These are placeholder policies that will be refined in later phases
-    # The key requirement here is that RLS is ENABLED and FORCED
+    # Create RLS policies with real tenant predicates
+    # These policies enforce workspace isolation at the database boundary
 
+    # Workspaces: User can access if they are owner OR if workspace_id matches context
     op.execute("""
         CREATE POLICY workspace_isolation ON workspaces
-        USING (true)  -- Allow all for now, refined in later phases
+        FOR ALL
+        USING (
+            -- Owner can access their workspaces
+            owner_id::text = COALESCE(current_setting('app.user_id', true), '')
+            OR
+            -- Or workspace_id matches the RLS context
+            id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
+        WITH CHECK (
+            -- Can only modify workspaces they own
+            owner_id::text = COALESCE(current_setting('app.user_id', true), '')
+        )
     """)
 
+    # Memberships: User can access memberships in their workspace
     op.execute("""
         CREATE POLICY membership_isolation ON memberships
-        USING (true)  -- Allow all for now, refined in later phases
+        FOR ALL
+        USING (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
+        WITH CHECK (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
     """)
 
+    # API Keys: Workspace-scoped access
     op.execute("""
         CREATE POLICY api_key_isolation ON api_keys
-        USING (true)  -- Allow all for now, refined in later phases
+        FOR ALL
+        USING (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
+        WITH CHECK (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
     """)
 
+    # Workspace Resources: Workspace-scoped access
     op.execute("""
         CREATE POLICY workspace_resource_isolation ON workspace_resources
-        USING (true)  -- Allow all for now, refined in later phases
+        FOR ALL
+        USING (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
+        WITH CHECK (
+            workspace_id::text = COALESCE(current_setting('app.workspace_id', true), '')
+        )
     """)
 
 
