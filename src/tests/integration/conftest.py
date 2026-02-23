@@ -209,12 +209,13 @@ def member_membership(
 
 @pytest.fixture
 def owner_api_key(
-    db_session: Session, workspace_alpha: Workspace
+    db_session: Session, workspace_alpha: Workspace, workspace_owner: User
 ) -> Tuple[KeyPair, Any]:
     """Create an active API key for workspace_alpha (owner context)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_alpha.id,
+        user_id=workspace_owner.id,
         name="Owner Test Key",
         scopes=["workspace:read", "workspace:write"],
     )
@@ -223,12 +224,13 @@ def owner_api_key(
 
 @pytest.fixture
 def member_api_key(
-    db_session: Session, workspace_alpha: Workspace
+    db_session: Session, workspace_alpha: Workspace, workspace_member: User
 ) -> Tuple[KeyPair, Any]:
     """Create an active API key for workspace_alpha (member context)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_alpha.id,
+        user_id=workspace_member.id,
         name="Member Test Key",
         scopes=["workspace:read"],
     )
@@ -237,12 +239,13 @@ def member_api_key(
 
 @pytest.fixture
 def revoked_api_key(
-    db_session: Session, workspace_alpha: Workspace
+    db_session: Session, workspace_alpha: Workspace, workspace_owner: User
 ) -> Tuple[KeyPair, Any]:
     """Create a revoked API key for workspace_alpha."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_alpha.id,
+        user_id=workspace_owner.id,
         name="Revoked Test Key",
         scopes=["workspace:read"],
     )
@@ -253,12 +256,13 @@ def revoked_api_key(
 
 @pytest.fixture
 def other_workspace_key(
-    db_session: Session, workspace_beta: Workspace
+    db_session: Session, workspace_beta: Workspace, workspace_owner: User
 ) -> Tuple[KeyPair, Any]:
     """Create an API key for a different workspace (for isolation tests)."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_beta.id,
+        user_id=workspace_owner.id,
         name="Other Workspace Key",
         scopes=["workspace:read", "workspace:write"],
     )
@@ -267,12 +271,13 @@ def other_workspace_key(
 
 @pytest.fixture
 def expired_api_key(
-    db_session: Session, workspace_alpha: Workspace
+    db_session: Session, workspace_alpha: Workspace, workspace_owner: User
 ) -> Tuple[KeyPair, Any]:
     """Create an expired API key for testing."""
     service = ApiKeyService(db_session)
     key_pair, key_info = service.create_key(
         workspace_id=workspace_alpha.id,
+        user_id=workspace_owner.id,
         name="Expired Test Key",
         scopes=["workspace:read"],
         expires_at=datetime.now(timezone.utc) - timedelta(days=1),  # Expired yesterday
@@ -292,6 +297,7 @@ def owner_principal(owner_api_key: Tuple[KeyPair, Any]) -> Principal:
     return Principal(
         workspace_id=key_info.workspace_id,
         key_id=key_info.id,
+        user_id=key_info.user_id,
         scopes=key_info.scopes,
         is_active=key_info.is_active,
     )
@@ -304,6 +310,7 @@ def member_principal(member_api_key: Tuple[KeyPair, Any]) -> Principal:
     return Principal(
         workspace_id=key_info.workspace_id,
         key_id=key_info.id,
+        user_id=key_info.user_id,
         scopes=key_info.scopes,
         is_active=key_info.is_active,
     )

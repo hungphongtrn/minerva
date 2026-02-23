@@ -29,6 +29,7 @@ class Principal(NamedTuple):
 
     workspace_id: str
     key_id: str
+    user_id: str
     scopes: list[str]
     is_active: bool
 

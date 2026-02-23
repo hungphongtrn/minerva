@@ -64,6 +64,7 @@ class ApiKeyRepository:
     def create(
         self,
         workspace_id: UUID,
+        user_id: UUID,
         name: str,
         key_hash: str,
         key_prefix: str,
@@ -74,6 +75,7 @@ class ApiKeyRepository:
 
         Args:
             workspace_id: The workspace this key belongs to
+            user_id: The user who owns this key
             name: Human-readable name for the key
             key_hash: SHA-256 hash of the full key
             key_prefix: Display prefix (e.g., "pk_v1_abcd")
@@ -85,6 +87,7 @@ class ApiKeyRepository:
         """
         api_key = ApiKey(
             workspace_id=workspace_id,
+            user_id=user_id,
             name=name,
             key_hash=key_hash,
             key_prefix=key_prefix,

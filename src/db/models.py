@@ -79,6 +79,7 @@ class ApiKey(Base):
     workspace_id = Column(
         UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
     )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False, index=True)
     key_prefix = Column(String(16), nullable=False)

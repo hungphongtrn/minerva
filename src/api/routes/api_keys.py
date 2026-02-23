@@ -55,6 +55,7 @@ class CreateApiKeyResponse(BaseModel):
     scopes: List[str] = Field(..., description="Granted scopes")
     expires_at: datetime | None = Field(..., description="Expiration timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
+    user_id: str = Field(..., description="User ID this key belongs to")
 
     class Config:
         json_schema_extra = {
@@ -81,6 +82,7 @@ class ApiKeyInfoResponse(BaseModel):
     expires_at: datetime | None = Field(..., description="Expiration timestamp")
     last_used_at: datetime | None = Field(..., description="Last usage timestamp")
     created_at: datetime = Field(..., description="Creation timestamp")
+    user_id: str = Field(..., description="User ID this key belongs to")
 
     class Config:
         json_schema_extra = {
@@ -93,6 +95,7 @@ class ApiKeyInfoResponse(BaseModel):
                 "expires_at": None,
                 "last_used_at": "2024-01-15T12:00:00Z",
                 "created_at": "2024-01-15T10:30:00Z",
+                "user_id": "550e8400-e29b-41d4-a716-446655440001",
             }
         }
 
@@ -159,6 +162,7 @@ def _key_info_to_response(key_info: KeyInfo) -> ApiKeyInfoResponse:
         expires_at=key_info.expires_at,
         last_used_at=key_info.last_used_at,
         created_at=key_info.created_at,
+        user_id=key_info.user_id,
     )
 
 
@@ -183,6 +187,7 @@ async def create_api_key(
     try:
         key_pair, key_info = service.create_key(
             workspace_id=UUID(principal.workspace_id),
+            user_id=UUID(principal.user_id),
             name=request.name,
             scopes=request.scopes,
             expires_at=request.expires_at,
@@ -198,6 +203,7 @@ async def create_api_key(
         scopes=key_info.scopes,
         expires_at=key_info.expires_at,
         created_at=key_info.created_at,
+        user_id=key_info.user_id,
     )
 
 

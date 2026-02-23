@@ -37,6 +37,7 @@ class KeyInfo:
 
     id: str
     workspace_id: str
+    user_id: str
     name: str
     prefix: str
     scopes: List[str]
@@ -56,6 +57,7 @@ class ApiKeyService:
     def create_key(
         self,
         workspace_id: UUID,
+        user_id: UUID,
         name: str,
         scopes: Optional[List[str]] = None,
         expires_at: Optional[datetime] = None,
@@ -64,6 +66,7 @@ class ApiKeyService:
 
         Args:
             workspace_id: The workspace this key belongs to
+            user_id: The user who owns this key
             name: Human-readable name for the key
             scopes: List of permission scopes (optional)
             expires_at: Optional expiration timestamp
@@ -83,6 +86,7 @@ class ApiKeyService:
         # Persist to database (only hash, never the full key)
         api_key = self.repository.create(
             workspace_id=workspace_id,
+            user_id=user_id,
             name=name,
             key_hash=key_pair.hash,
             key_prefix=key_pair.prefix,
@@ -149,6 +153,7 @@ class ApiKeyService:
         principal = Principal(
             workspace_id=str(api_key.workspace_id),
             key_id=str(api_key.id),
+            user_id=str(api_key.user_id),
             scopes=scopes,
             is_active=api_key.is_active,
         )
@@ -268,6 +273,7 @@ class ApiKeyService:
         return KeyInfo(
             id=str(api_key.id),
             workspace_id=str(api_key.workspace_id),
+            user_id=str(api_key.user_id),
             name=api_key.name,
             prefix=api_key.key_prefix,
             scopes=scopes,
