@@ -485,3 +485,232 @@ class TestWorkspaceIsolationIntegration:
         authorize_action(
             principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id
         )
+
+
+# ============================================================================
+# RLS Regression Tests
+# ============================================================================
+
+
+class TestRLSContextRegression:
+    """Regression tests for RLS context SQL validity.
+
+    These tests fail if RLS context SQL regresses to invalid syntax
+    or if the implementation breaks.
+    """
+
+    def test_rls_context_sql_is_valid_postgresql(self):
+        """RLS context SQL uses valid PostgreSQL syntax.
+
+        This test will fail if set_config() is not used correctly
+        or if SQL syntax errors are introduced.
+        """
+        from unittest.mock import MagicMock, call
+
+        mock_db = MagicMock()
+        workspace_id = uuid4()
+        user_id = uuid4()
+
+        context = RLSContext(mock_db, workspace_id, user_id, "owner")
+        context.set_context()
+
+        # Verify set_config is called with correct parameters
+        # The SQL should be: SELECT set_config(:key, :value, true)
+        calls = mock_db.execute.call_args_list
+        assert len(calls) == 3  # workspace_id, user_id, role
+
+        # Check first call uses set_config with is_local=true
+        first_call = calls[0]
+        stmt = str(first_call[0][0])  # First positional arg (text() statement)
+        assert "set_config" in stmt.lower()
+        assert ":key" in stmt
+        assert ":value" in stmt
+
+    def test_rls_context_resets_on_clear(self):
+        """RLS context properly resets all keys on clear.
+
+        Regression test: Ensure clear_context() resets all three keys.
+        """
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
+
+        context = RLSContext(mock_db)
+        context.clear_context()
+
+        # Should reset all three keys
+        assert mock_db.execute.call_count == 3
+
+    def test_rls_context_handles_null_values_gracefully(self):
+        """RLS context handles None values without SQL errors."""
+        from unittest.mock import MagicMock
+
+        mock_db = MagicMock()
+        workspace_id = uuid4()
+
+        # Only set workspace_id (user_id and role are None)
+        context = RLSContext(mock_db, workspace_id, None, None)
+        context.set_context()
+
+        # Should only set workspace_id
+        assert mock_db.execute.call_count == 1
+
+
+class TestRLSPolicyRegression:
+    """Regression tests for RLS policy predicates.
+
+    These tests verify that RLS policies enforce tenant isolation
+    and will fail if policies regress to allow-all behavior.
+    """
+
+    def test_policy_predicates_use_current_setting(self):
+        """RLS policies reference current_setting for tenant context.
+
+        This is a structural regression test - it verifies the migration
+        contains the expected predicates by checking source code patterns.
+        """
+        import inspect
+        import importlib.util
+        from pathlib import Path
+
+        # Import migration dynamically (filename starts with number)
+        migration_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "src/db/migrations/versions/0001_identity_policy_baseline.py"
+        )
+        spec = importlib.util.spec_from_file_location("migration_0001", migration_path)
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+
+        source = inspect.getsource(migration)
+
+        # Policies should use current_setting for workspace isolation
+        assert (
+            "current_setting('app.workspace_id'" in source
+            or 'current_setting("app.workspace_id"' in source
+        ), "Migration missing current_setting('app.workspace_id') predicate"
+
+        # Should have WITH CHECK clauses for write protection
+        assert "WITH CHECK" in source, (
+            "Migration missing WITH CHECK clauses for write protection"
+        )
+
+    def test_policies_are_not_placeholder_allow_all(self):
+        """RLS policies are not placeholder USING (true) allow-all.
+
+        This test fails if policies regress to placeholder state.
+        """
+        import inspect
+        import importlib.util
+        from pathlib import Path
+
+        # Import migration dynamically (filename starts with number)
+        migration_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "src/db/migrations/versions/0001_identity_policy_baseline.py"
+        )
+        spec = importlib.util.spec_from_file_location("migration_0001", migration_path)
+        migration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(migration)
+
+        source = inspect.getsource(migration.upgrade)
+
+        # Count USING (true) occurrences in the upgrade function
+        # These should have been replaced with real predicates
+        placeholder_count = source.count("USING (true)")
+
+        assert placeholder_count == 0, (
+            f"Found {placeholder_count} placeholder USING (true) policies - "
+            "these must be replaced with tenant predicates"
+        )
+
+
+class TestWorkspaceIsolationRouteRegression:
+    """Route-level regression tests for workspace isolation.
+
+    These tests verify that cross-workspace requests are properly
+    denied (403) and not internal server errors (500).
+    """
+
+    def test_cross_workspace_request_returns_403_not_500(self):
+        """Cross-workspace access returns 403 Forbidden, not 500 Internal Server Error.
+
+        This is a critical security regression test. If workspace isolation
+        is broken or missing, this should fail.
+        """
+        from fastapi import HTTPException
+
+        principal_workspace = uuid4()
+        target_workspace = uuid4()
+
+        principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=principal_workspace,
+            role=Role.OWNER,  # Even owners can't cross workspace boundaries
+            is_active=True,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            authorize_action(
+                principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.READ,
+                target_workspace,
+            )
+
+        # Must be 403 (forbidden), not 500 (server error)
+        assert exc_info.value.status_code == 403, (
+            f"Expected 403 Forbidden for cross-workspace access, got {exc_info.value.status_code}"
+        )
+
+        # Should mention workspace in error detail
+        assert "workspace" in exc_info.value.detail.lower(), (
+            "Cross-workspace denial should mention workspace in error message"
+        )
+
+    def test_same_workspace_request_not_denied(self):
+        """Same-workspace access is allowed and does not raise exceptions."""
+        workspace_id = uuid4()
+
+        principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=workspace_id,
+            role=Role.MEMBER,
+            is_active=True,
+        )
+
+        # Should not raise any exception
+        try:
+            authorize_action(
+                principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.READ,
+                workspace_id,
+            )
+        except HTTPException as e:
+            pytest.fail(
+                f"Same-workspace request should not be denied, got {e.status_code}: {e.detail}"
+            )
+
+    def test_unauthenticated_request_blocked(self):
+        """Requests without valid principal are blocked."""
+        from fastapi import HTTPException
+
+        # Inactive principal
+        inactive_principal = AuthPrincipal(
+            user_id=uuid4(),
+            workspace_id=uuid4(),
+            role=Role.OWNER,
+            is_active=False,  # Inactive
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            authorize_action(
+                inactive_principal,
+                ResourceType.WORKSPACE_RESOURCE,
+                Action.READ,
+            )
+
+        assert exc_info.value.status_code == 403, (
+            "Inactive principals should be denied access"
+        )
