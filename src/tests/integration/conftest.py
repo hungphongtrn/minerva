@@ -145,6 +145,18 @@ def workspace_alpha(db_session: Session, workspace_owner: User) -> Workspace:
         updated_at=datetime.now(timezone.utc),
     )
     db_session.add(workspace)
+    db_session.flush()  # Get workspace ID before creating membership
+
+    # Create owner membership for workspace_owner
+    membership = Membership(
+        id=uuid4(),
+        user_id=workspace_owner.id,
+        workspace_id=workspace.id,
+        role="owner",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db_session.add(membership)
     db_session.commit()
     return workspace
 
@@ -162,6 +174,18 @@ def workspace_beta(db_session: Session, workspace_owner: User) -> Workspace:
         updated_at=datetime.now(timezone.utc),
     )
     db_session.add(workspace)
+    db_session.flush()  # Get workspace ID before creating membership
+
+    # Create owner membership for workspace_owner
+    membership = Membership(
+        id=uuid4(),
+        user_id=workspace_owner.id,
+        workspace_id=workspace.id,
+        role="owner",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db_session.add(membership)
     db_session.commit()
     return workspace
 
@@ -170,7 +194,21 @@ def workspace_beta(db_session: Session, workspace_owner: User) -> Workspace:
 def owner_membership(
     db_session: Session, workspace_owner: User, workspace_alpha: Workspace
 ) -> Membership:
-    """Create owner membership for workspace_alpha."""
+    """Get or create owner membership for workspace_alpha."""
+    # Check if membership already exists (workspace_alpha fixture creates it)
+    existing = (
+        db_session.query(Membership)
+        .filter_by(
+            user_id=workspace_owner.id,
+            workspace_id=workspace_alpha.id,
+        )
+        .first()
+    )
+
+    if existing:
+        return existing
+
+    # Create if not exists
     membership = Membership(
         id=uuid4(),
         user_id=workspace_owner.id,
@@ -224,7 +262,10 @@ def owner_api_key(
 
 @pytest.fixture
 def member_api_key(
-    db_session: Session, workspace_alpha: Workspace, workspace_member: User
+    db_session: Session,
+    workspace_alpha: Workspace,
+    workspace_member: User,
+    member_membership: Membership,
 ) -> Tuple[KeyPair, Any]:
     """Create an active API key for workspace_alpha (member context)."""
     service = ApiKeyService(db_session)
