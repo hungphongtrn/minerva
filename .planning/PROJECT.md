@@ -22,6 +22,11 @@ Any team can run Picoclaw safely for multiple users with strong isolation and pr
 - [ ] Platform enforces workspace safety and isolation boundaries compatible with Picoclaw's filesystem-centric model.
 - [ ] Platform persists event logs and session metadata, with milestone-based workspace checkpoint snapshots.
 - [ ] Platform supports user-centric tenancy with one workspace per user shared across that user's sessions.
+- [ ] Platform can quickly bootstrap a new agent workspace from filesystem templates (`AGENT.md`, `SOUL.md`, `IDENTITY.md`, `skills/`).
+- [ ] Platform can register an agent pack folder and run it without manual infrastructure wiring.
+- [ ] Platform supports two fast runtime profiles for agent packs: local Docker Compose and BYOC with managed service dependencies.
+- [ ] Platform supports guest mode by assigning a random ephemeral identity when no explicit user identity is provided.
+- [ ] Platform treats guest sandboxes as non-persistent (no long-term run/session/checkpoint persistence).
 
 ### Out of Scope
 
@@ -37,6 +42,7 @@ Any team can run Picoclaw safely for multiple users with strong isolation and pr
 - Team context: project owner is strongest in Python, teammates are stronger in Go; speed to market is prioritized.
 - Target operator in v1 is engineering teams deploying in their own infrastructure.
 - Canonical control/data flow direction: API request -> user identity resolution -> sandbox lookup -> route or hydrate from snapshot -> run -> stream events -> checkpoint milestones.
+- OSS workflow target: write template docs/files -> package as folder -> run locally with Docker Compose or deploy to BYOC without changing agent pack semantics.
 
 ## Constraints
 
@@ -46,6 +52,7 @@ Any team can run Picoclaw safely for multiple users with strong isolation and pr
 - **Deployment**: Self-hosted first - avoid assumptions that require managed control plane operations.
 - **Tech stack**: Python control plane plus Go runtime harness alignment - leverage existing Picoclaw patterns while moving quickly.
 - **Persistence**: Event log plus metadata as authority, with milestone snapshots to object storage.
+- **Persistence**: Persistent storage applies to non-guest workspaces; guest sandboxes are ephemeral.
 
 ## Key Decisions
 
@@ -59,6 +66,9 @@ Any team can run Picoclaw safely for multiple users with strong isolation and pr
 | Milestone checkpoints instead of full periodic snapshots | Better cost and performance tradeoff while retaining recoverability | - Pending |
 | Python control plane plus Go runtime harness | Balances team skill profile with compatibility to existing Picoclaw behavior | - Pending |
 | Self-hosting teams are primary operator | Best fit for OSS adoption and early deployment motion | - Pending |
+| Agent bootstrap starts with filesystem template scaffolding | Fastest path for teams to create agents in Picoclaw-compatible format | - Pending |
+| v1 adds agent pack registration and deployment profiles | Required to make "create agents by writing files" true end-to-end | - Pending |
+| Guest mode uses random ephemeral identity and disables persistence | Keeps generic integration path simple without storing transient guest data | - Pending |
 
 ---
-*Last updated: 2026-02-23 after initialization*
+*Last updated: 2026-02-23 after adding guest-mode identity and persistence policy*

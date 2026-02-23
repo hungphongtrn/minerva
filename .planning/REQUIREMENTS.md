@@ -14,6 +14,13 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **AUTH-03**: User can access only their own workspace resources.
 - [ ] **AUTH-04**: User can send an idempotency key so retries do not create duplicate runs.
 - [ ] **AUTH-05**: Operator can assign a basic role (owner/member) to control access behavior.
+- [ ] **AUTH-06**: System assigns a random guest identity for requests without explicit user identity and marks that run as guest mode.
+
+### Agent Bootstrap
+
+- [ ] **AGNT-01**: User can create a new agent workspace from filesystem templates that include `AGENT.md`, `SOUL.md`, `IDENTITY.md`, and a `skills/` skeleton.
+- [ ] **AGNT-02**: User can register an agent pack folder and run it without manual infrastructure wiring.
+- [ ] **AGNT-03**: User can run the same agent pack in two deployment profiles: local Docker Compose and BYOC infrastructure (for example Postgres, queue, S3).
 
 ### Workspace & Isolation
 
@@ -44,10 +51,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Persistence & Checkpointing
 
-- [ ] **PERS-01**: System persists runtime events and run/session metadata in Postgres.
-- [ ] **PERS-02**: System writes workspace checkpoints to S3 at configured milestones.
-- [ ] **PERS-03**: System tracks checkpoint manifest/version and active revision pointer.
-- [ ] **PERS-04**: System hydrates workspace from latest checkpoint for cold-start sandbox restore.
+- [ ] **PERS-01**: System persists runtime events and run/session metadata in Postgres for non-guest runs.
+- [ ] **PERS-02**: System writes workspace checkpoints to S3 at configured milestones for non-guest workspaces.
+- [ ] **PERS-03**: System tracks checkpoint manifest/version and active revision pointer for persistent workspaces.
+- [ ] **PERS-04**: System hydrates workspace from latest checkpoint for cold-start restore of persistent workspaces.
 
 ### Policy & Security
 
@@ -90,12 +97,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| AGNT-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| AGNT-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| AGNT-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| AUTH-01 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-02 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-03 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-04 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| AUTH-05 | Phase 1 - Identity and Policy Baseline | Pending |
+| AUTH-06 | Phase 1 - Identity and Policy Baseline | Pending |
+| WORK-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-04 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-06 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| EXEC-01 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EXEC-02 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EXEC-03 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EXEC-04 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EXEC-05 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EXEC-06 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| EVNT-01 | Phase 5 - Typed Event Streaming API | Pending |
+| EVNT-02 | Phase 5 - Typed Event Streaming API | Pending |
+| EVNT-03 | Phase 5 - Typed Event Streaming API | Pending |
+| EVNT-04 | Phase 5 - Typed Event Streaming API | Pending |
+| EVNT-05 | Phase 5 - Typed Event Streaming API | Pending |
+| EVNT-06 | Phase 5 - Typed Event Streaming API | Pending |
+| PERS-01 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| PERS-02 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| PERS-03 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| PERS-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| SECU-01 | Phase 1 - Identity and Policy Baseline | Pending |
+| SECU-02 | Phase 1 - Identity and Policy Baseline | Pending |
+| SECU-03 | Phase 1 - Identity and Policy Baseline | Pending |
+| SECU-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| SECU-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
 
 **Coverage:**
-- v1 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32
+- v1 requirements: 36 total
+- Mapped to phases: 36
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-23*
-*Last updated: 2026-02-23 after initial definition*
+*Last updated: 2026-02-23 after adding AUTH-06 guest identity policy*
