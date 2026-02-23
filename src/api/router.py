@@ -2,11 +2,20 @@
 
 from fastapi import APIRouter
 
+from src.api.routes import api_keys, whoami
+
 # Main API router
 api_router = APIRouter(prefix="/api/v1")
+
+# Register routes
+api_router.include_router(api_keys.router)
+api_router.include_router(whoami.router)
 
 
 @api_router.get("/")
 async def api_root() -> dict:
     """API root endpoint."""
-    return {"message": "Picoclaw API v1"}
+    return {
+        "message": "Picoclaw API v1",
+        "endpoints": {"api_keys": "/api/v1/api-keys", "whoami": "/api/v1/whoami"},
+    }
