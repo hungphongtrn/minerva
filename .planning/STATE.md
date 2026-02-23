@@ -13,7 +13,7 @@
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
 - **Plan status:** Phase 1 complete and verified; Phase 2 not started
 - **Execution status:** Phase 1 passed (6/6 must-haves verified)
-- **Progress bar:** [██--------] 20%
+- **Progress bar:** [███-------] 27%
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,8 @@ flowchart LR
   S7 --> S8[01-08: Gap 3 Closure ✓]
   S8 --> S9[01-07: Role Resolution ✓]
   S9 --> S10[Verification: Passed ✓]
-  S10 --> S11[Phase 2: Agent Packs ◆]
+  S10 --> S11[01-09: Member Mutation Fix ✓]
+  S11 --> S12[Phase 2: Agent Packs ◆]
 ```
 
 ## Performance Metrics
@@ -35,9 +36,9 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 1/5
-- **Completed plans:** 8/15
+- **Completed plans:** 9/15
 - **Completed requirements:** 8/36
-- **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed)
+- **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Blocking requirements:** None
 
 ## Accumulated Context
@@ -83,6 +84,9 @@ flowchart LR
 | D-01-07-001 | 2026-02-23 | 01-07 | Workspace fixtures automatically create owner membership records | Ensures all tests have consistent authorization context without requiring every test to explicitly request membership fixtures |
 | D-01-07-002 | 2026-02-23 | 01-07 | Migration backfills existing API keys by binding to workspace owner | Maintains backward compatibility while enabling new membership-backed authorization |
 | D-01-07-003 | 2026-02-23 | 01-07 | Return structured 403 responses with descriptive error details when no membership is found | Clear error messages help API consumers understand authorization failures |
+| D-01-09-001 | 2026-02-23 | 01-09 | Remove all mutation permissions (CREATE/UPDATE/DELETE) from MEMBER role on WORKSPACE_RESOURCE | AUTH-05 requires deterministic, observable role divergence; member permissions violated this requirement |
+| D-01-09-002 | 2026-02-23 | 01-09 | Add both positive and negative assertions in tests | Ensures tests fail if permissions are accidentally reintroduced or if owner/admin permissions regress |
+| D-01-09-003 | 2026-02-23 | 01-09 | Include explicit UAT scenario test in integration suite | Directly covers the reported issue: "Member POST /workspaces/{workspace_id}/resources returned 201; expected 403" |
 
 ### TODOs
 
@@ -95,6 +99,7 @@ flowchart LR
 - [x] Plan and execute gap-closure work for verifier findings (01-06, 01-07, 01-08 complete)
 - [x] Execute Plan 01-07: Membership-backed role resolution
 - [x] Re-run Phase 1 verification to achieve `passed` status
+- [x] Execute Plan 01-09: Close member workspace resource mutation gap
 - [ ] Begin Phase 2: Workspace Lifecycle and Agent Pack Portability
 
 ### Blockers
@@ -109,14 +114,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `01-identity-and-policy-baseline-VERIFICATION.md` (status: `passed`)
-- **Last activity:** 2026-02-23 - Completed quick task 001: Create a docker compose to spin up Postgres quickly.
+- **Last completed artifact:** `01-09-SUMMARY.md` (UAT gap closure)
+- **Last activity:** 2026-02-23 - Closed member workspace resource mutation gap (01-09)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next command:** `/gsd-discuss-phase 2`
-- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-identity-and-policy-baseline-VERIFICATION.md`
-- **Last session:** 2026-02-23 - Phase 1 verified passed (6/6), gap closure complete via 01-06/01-07/01-08
-- **Commits:** fc2e9bb, b4debf9, 7658dc9, 3c933ea (01-06); 7676310, 412f4a4, 0911f43, f6ccf9a (01-08); c4637e1, b8b63a8, 051bcc0, 931f2da (01-07)
+- **Next command:** `/gsd-discuss-phase 2` or re-run Phase 1 verification
+- **Recovery note:** If context is lost, resume from `.planning/phases/01-identity-and-policy-baseline/01-09-SUMMARY.md`
+- **Last session:** 2026-02-23 - Phase 1 gap closure complete via 01-06/01-07/01-08/01-09
+- **Commits:** fc2e9bb, b4debf9, 7658dc9, 3c933ea (01-06); 7676310, 412f4a4, 0911f43, f6ccf9a (01-08); c4637e1, b8b63a8, 051bcc0, 931f2da (01-07); d66f658, 3daffed (01-09)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-23 (Phase 1 verified passed)*
+*Updated: 2026-02-23 (Phase 1 gap closure complete via 01-09)*
