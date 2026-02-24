@@ -73,14 +73,17 @@ Plans:
 4. A request routes to an already active healthy sandbox when one exists for that workspace, or hydrates/creates a sandbox with workspace attached when none exists.
 5. Concurrent write attempts for the same workspace are serialized, unhealthy sandboxes are excluded from routing, idle sandboxes auto-stop by TTL, and policy/isolation boundary tests pass in CI.
 
-**Plans:** 5 plans
+**Plans:** 8 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Add Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs.
-- [ ] 02-02-PLAN.md — Implement provider adapter abstraction for local compose and Daytona parity semantics.
-- [ ] 02-03-PLAN.md — Build workspace lifecycle services for durable reuse, lease serialization, and health-aware routing.
-- [ ] 02-04-PLAN.md — Implement template scaffold, validation checklist, and path-linked pack registration with stale detection.
-- [ ] 02-05-PLAN.md — Expose Phase 2 API routes and lock behavior with acceptance and security regression suites.
+- [x] 02-01-PLAN.md — Add Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs.
+- [x] 02-02-PLAN.md — Implement provider adapter abstraction for local compose and Daytona parity semantics.
+- [x] 02-03-PLAN.md — Build workspace lifecycle services for durable reuse, lease serialization, and health-aware routing.
+- [x] 02-04-PLAN.md — Implement template scaffold, validation checklist, and path-linked pack registration with stale detection.
+- [x] 02-05-PLAN.md — Expose Phase 2 API routes and lock behavior with acceptance and security regression suites.
+- [x] 02-06-PLAN.md — Close workspace route UUID ownership normalization and resolve endpoint auth contract gaps.
+- [x] 02-07-PLAN.md — Fix scaffold absolute-path handling and pack/provider portability contract mismatches.
+- [x] 02-08-PLAN.md — Re-green Phase 2 acceptance plus SECU-05 suites and capture final gap-closure evidence.
 
 ### Phase 3 - Persistence and Checkpoint Recovery
 
@@ -166,9 +169,9 @@ flowchart TD
 | Phase | Status | Completion |
 |------|--------|------------|
 | 1 - Identity and Policy Baseline | Complete | 100% |
-| 2 - Workspace Lifecycle and Agent Pack Portability | Not Started | 0% |
+| 2 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
 | 3 - Persistence and Checkpoint Recovery | Not Started | 0% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
-**Overall Progress:** 20%
+**Overall Progress:** 40%

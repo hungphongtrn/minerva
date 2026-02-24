@@ -18,18 +18,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Agent Bootstrap
 
-- [ ] **AGNT-01**: User can create a new agent workspace from filesystem templates that include `AGENT.md`, `SOUL.md`, `IDENTITY.md`, and a `skills/` skeleton.
-- [ ] **AGNT-02**: User can register an agent pack folder and run it without manual infrastructure wiring.
-- [ ] **AGNT-03**: User can run the same agent pack in two deployment profiles: local Docker Compose and BYOC infrastructure (for example Postgres, queue, S3).
+- [x] **AGNT-01**: User can create a new agent workspace from filesystem templates that include `AGENT.md`, `SOUL.md`, `IDENTITY.md`, and a `skills/` skeleton.
+- [x] **AGNT-02**: User can register an agent pack folder and run it without manual infrastructure wiring.
+- [x] **AGNT-03**: User can run the same agent pack in two deployment profiles: local Docker Compose and BYOC infrastructure (for example Postgres, queue, S3).
 
 ### Workspace & Isolation
 
-- [ ] **WORK-01**: User has one persistent workspace shared across their sessions.
-- [ ] **WORK-02**: User request is routed to an active healthy sandbox when available.
-- [ ] **WORK-03**: User request can trigger sandbox creation and workspace attach when no active sandbox exists.
-- [ ] **WORK-04**: System enforces a workspace lease lock so only one active writer operates on a user workspace at a time.
-- [ ] **WORK-05**: System runs sandbox health checks before routing execution.
-- [ ] **WORK-06**: System auto-stops idle sandboxes after configurable TTL.
+- [x] **WORK-01**: User has one persistent workspace shared across their sessions.
+- [x] **WORK-02**: User request is routed to an active healthy sandbox when available.
+- [x] **WORK-03**: User request can trigger sandbox creation and workspace attach when no active sandbox exists.
+- [x] **WORK-04**: System enforces a workspace lease lock so only one active writer operates on a user workspace at a time.
+- [x] **WORK-05**: System runs sandbox health checks before routing execution.
+- [x] **WORK-06**: System auto-stops idle sandboxes after configurable TTL.
 
 ### Execution & Scheduling
 
@@ -62,7 +62,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SECU-02**: System enforces tool allowlist policy per user/agent context.
 - [x] **SECU-03**: System injects only scoped secrets required for each run.
 - [ ] **SECU-04**: System writes immutable append-only audit events.
-- [ ] **SECU-05**: System includes automated policy and isolation boundary tests.
+- [x] **SECU-05**: System includes automated policy and isolation boundary tests.
 
 ## v2 Requirements
 
@@ -97,21 +97,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGNT-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| AGNT-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| AGNT-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| AGNT-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| AGNT-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| AGNT-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
 | AUTH-01 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-02 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-03 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-04 | Phase 4 - Execution Orchestration and Fairness | Pending |
 | AUTH-05 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-06 | Phase 1 - Identity and Policy Baseline | Complete |
-| WORK-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| WORK-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| WORK-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| WORK-04 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| WORK-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
-| WORK-06 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| WORK-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| WORK-02 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| WORK-03 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| WORK-04 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| WORK-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
+| WORK-06 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
 | EXEC-01 | Phase 4 - Execution Orchestration and Fairness | Pending |
 | EXEC-02 | Phase 4 - Execution Orchestration and Fairness | Pending |
 | EXEC-03 | Phase 4 - Execution Orchestration and Fairness | Pending |
@@ -132,7 +132,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SECU-02 | Phase 1 - Identity and Policy Baseline | Complete |
 | SECU-03 | Phase 1 - Identity and Policy Baseline | Complete |
 | SECU-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
-| SECU-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Pending |
+| SECU-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
 
 **Coverage:**
 - v1 requirements: 36 total
@@ -141,4 +141,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-23*
-*Last updated: 2026-02-23 after Phase 1 completion (AUTH/SECU requirements marked complete)*
+*Last updated: 2026-02-25 after Phase 2 completion (AGNT/WORK/SECU-05 requirements marked complete)*

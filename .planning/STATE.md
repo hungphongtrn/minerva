@@ -6,14 +6,14 @@
 - **Core value:** Teams can run Picoclaw safely for many users with strong isolation and predictable behavior, without building orchestration and sandbox infrastructure.
 - **Current milestone scope:** v1 OSS self-hosted runtime foundation.
 - **Roadmap depth:** standard
-- **Current focus:** Phase 2 - Workspace Lifecycle and Agent Pack Portability
+- **Current focus:** Phase 3 - Persistence and Checkpoint Recovery
 
 ## Current Position
 
-- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
+- **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - READY
 - **Plan status:** Phase 2 complete; all plans 02-01 through 02-08 complete
-- **Execution status:** All acceptance and security tests green (42/42 passing)
-- **Progress bar:** [██████████] 67%
+- **Execution status:** Phase 2 verified passed (6/6 must-haves, 42/42 acceptance+security tests passing)
+- **Progress bar:** [████------] 40%
 
 ```mermaid
 flowchart LR
@@ -43,8 +43,8 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 2/5
-- **Completed plans:** 11/15
-- **Completed requirements:** 8/36
+- **Completed plans:** 17/17
+- **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Blocking requirements:** None
 
@@ -166,4 +166,4 @@ flowchart LR
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-24 (Phase 2 complete - 100% test pass rate, ready for Phase 3)*
+*Updated: 2026-02-25 (Phase 2 verified passed; Phase 3 ready to begin)*
