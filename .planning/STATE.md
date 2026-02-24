@@ -11,8 +11,8 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
-- **Plan status:** Phase 2 in progress; 02-02 provider adapters complete
-- **Execution status:** 02-02 verified (24/24 parity assertions pass)
+- **Plan status:** Phase 2 in progress; 02-01 and 02-02 complete
+- **Execution status:** 02-01 foundation + 02-02 provider adapters verified
 - **Progress bar:** [████------] 33%
 
 ```mermaid
@@ -27,8 +27,9 @@ flowchart LR
   S8 --> S9[01-07: Role Resolution ✓]
   S9 --> S10[Verification: Passed ✓]
   S10 --> S11[01-09: Member Mutation Fix ✓]
-  S11 --> S12[02-02: Provider Adapters ✓]
-  S12 --> S13[02-03: Lifecycle Services ◆]
+  S11 --> S12[02-01: Schema Foundation ✓]
+  S12 --> S13[02-02: Provider Adapters ✓]
+  S13 --> S14[02-03: Lifecycle Services ◆]
 ```
 
 ## Performance Metrics
@@ -93,6 +94,10 @@ flowchart LR
 | D-02-02-003 | 2026-02-24 | 02-02 | Idempotent Stop Operations | Lease expiration, crash recovery, TTL enforcement may all attempt stop; idempotency prevents error cascades |
 | D-02-02-004 | 2026-02-24 | 02-02 | Config-Driven Profile Selection | AGNT-03 requires switching profiles via environment changes, not workflow changes |
 | D-02-02-005 | 2026-02-24 | 02-02 | Self-Hosted Daytona First-Class Support | 02-CONTEXT explicitly prioritizes Daytona self-host as a handy option alongside Cloud |
+| D-02-01-001 | 2026-02-24 | 02-01 | Partial unique index for active leases | PostgreSQL partial index WHERE released_at IS NULL enforces one active lease per workspace |
+| D-02-01-002 | 2026-02-24 | 02-01 | Path-linked pack registration | Store source_path as source of truth with source_digest for stale detection - aligns with Picoclaw filesystem model |
+| D-02-01-003 | 2026-02-24 | 02-01 | PostgreSQL native enums for states/status | Better type safety at database level for state/status columns |
+| D-02-01-004 | 2026-02-24 | 02-01 | Repository pattern with focused query methods | Each entity has dedicated repository; query logic centralized and testable |
 
 ### TODOs
 
@@ -106,6 +111,7 @@ flowchart LR
 - [x] Execute Plan 01-07: Membership-backed role resolution
 - [x] Re-run Phase 1 verification to achieve `passed` status
 - [x] Execute Plan 01-09: Close member workspace resource mutation gap
+- [x] Execute Plan 02-01: Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs
 - [x] Execute Plan 02-02: Provider adapter boundary for local compose and Daytona parity
 - [ ] Execute Plan 02-03: Workspace lifecycle services
 - [ ] Execute Plan 02-04: Template scaffold and pack registration
@@ -123,13 +129,13 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-02-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 2 (provider adapter boundary)
+- **Last completed artifact:** `02-01-SUMMARY.md` and `02-02-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-24 - Completed Phase 2 Plans 1-2 (schema foundation + provider adapters)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** 02-03 (workspace lifecycle services), 02-04 (template/pack registration), 02-05 (API routes)
 - **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-02-SUMMARY.md`
-- **Last session:** 2026-02-24 - Phase 2 Plan 2 complete (24/24 parity tests pass)
-- **Commits:** 715c0a1, 9f2f340, afe0228 (02-02)
+- **Last session:** 2026-02-24 - Phase 2 Plans 1-2 complete (10 smoke tests + 24 parity tests pass)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02)
 
 ---
 *Initialized: 2026-02-23*
