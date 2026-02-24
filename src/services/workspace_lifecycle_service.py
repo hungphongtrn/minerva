@@ -228,10 +228,23 @@ class WorkspaceLifecycleService:
         Returns:
             Workspace instance or None if not found and auto_create is False.
         """
-        # Get user ID from principal
-        user_id = getattr(principal, "id", None)
-        if not user_id:
+        from uuid import UUID
+
+        # Get user ID from principal - try both 'id' and 'user_id' attributes
+        user_id_raw = getattr(principal, "user_id", None) or getattr(
+            principal, "id", None
+        )
+        if not user_id_raw:
             return None
+
+        # Convert to UUID if needed
+        if isinstance(user_id_raw, str):
+            try:
+                user_id = UUID(user_id_raw)
+            except ValueError:
+                return None
+        else:
+            user_id = user_id_raw
 
         # Look for existing workspace owned by user
         workspace = (
@@ -256,7 +269,21 @@ class WorkspaceLifecycleService:
         Returns:
             Created workspace.
         """
-        user_id = getattr(user, "id", uuid4())
+        from uuid import UUID
+
+        user_id_raw = getattr(user, "user_id", None) or getattr(user, "id", None)
+
+        # Convert to UUID if needed
+        if isinstance(user_id_raw, str):
+            try:
+                user_id = UUID(user_id_raw)
+            except ValueError:
+                user_id = uuid4()
+        elif user_id_raw is None:
+            user_id = uuid4()
+        else:
+            user_id = user_id_raw
+
         user_email = getattr(user, "email", f"user_{user_id}@example.com")
 
         workspace = Workspace(
