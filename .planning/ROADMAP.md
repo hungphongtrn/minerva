@@ -73,6 +73,15 @@ Plans:
 4. A request routes to an already active healthy sandbox when one exists for that workspace, or hydrates/creates a sandbox with workspace attached when none exists.
 5. Concurrent write attempts for the same workspace are serialized, unhealthy sandboxes are excluded from routing, idle sandboxes auto-stop by TTL, and policy/isolation boundary tests pass in CI.
 
+**Plans:** 5 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Add Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs.
+- [ ] 02-02-PLAN.md — Implement provider adapter abstraction for local compose and Daytona parity semantics.
+- [ ] 02-03-PLAN.md — Build workspace lifecycle services for durable reuse, lease serialization, and health-aware routing.
+- [ ] 02-04-PLAN.md — Implement template scaffold, validation checklist, and path-linked pack registration with stale detection.
+- [ ] 02-05-PLAN.md — Expose Phase 2 API routes and lock behavior with acceptance and security regression suites.
+
 ### Phase 3 - Persistence and Checkpoint Recovery
 
 **Goal:** Runtime state is durably stored and recoverable through milestone checkpoints with immutable audit history.
