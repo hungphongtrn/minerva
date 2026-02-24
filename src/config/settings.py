@@ -22,6 +22,24 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/api/v1"
 
+    # Sandbox Configuration
+    SANDBOX_PROFILE: str = "local_compose"
+    """Sandbox provider profile: 'local_compose' or 'daytona'."""
+
+    # Daytona Provider Configuration (used when SANDBOX_PROFILE=daytona)
+    DAYTONA_API_TOKEN: str = ""
+    """Daytona API token for Cloud or self-hosted authentication."""
+
+    DAYTONA_BASE_URL: str = ""
+    """Daytona API base URL. Leave empty for Daytona Cloud.
+
+    Set to self-hosted Daytona URL (e.g., 'https://daytona.example.com/v1')
+    for BYOC mode. Empty value defaults to Daytona Cloud.
+    """
+
+    DAYTONA_TARGET_REGION: str = "us"
+    """Target region for Daytona Cloud workspaces (default: 'us')."""
+
 
 # Global settings instance
 settings = Settings()
