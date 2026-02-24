@@ -582,13 +582,20 @@ async def get_pack(
             detail={"error": "Access denied - pack belongs to different workspace"},
         )
 
+    # Handle validation_status - could be enum (PostgreSQL) or string (SQLite)
+    if pack.validation_status:
+        if hasattr(pack.validation_status, "value"):
+            validation_status = pack.validation_status.value
+        else:
+            validation_status = str(pack.validation_status)
+    else:
+        validation_status = "pending"
+
     return PackStatusResponse(
         pack_id=str(pack.id),
         name=pack.name,
         source_path=pack.source_path,
-        validation_status=pack.validation_status.value
-        if pack.validation_status
-        else "pending",
+        validation_status=validation_status,
         is_active=pack.is_active,
         last_validated_at=pack.last_validated_at.isoformat()
         if pack.last_validated_at
@@ -643,7 +650,11 @@ async def list_packs(
             pack_id=str(pack.id),
             name=pack.name,
             source_path=pack.source_path,
-            validation_status=pack.validation_status.value
+            validation_status=(
+                pack.validation_status.value
+                if hasattr(pack.validation_status, "value")
+                else str(pack.validation_status)
+            )
             if pack.validation_status
             else "pending",
             is_active=pack.is_active,
