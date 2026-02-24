@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
-- **Plan status:** Phase 2 in progress; 02-01, 02-02, and 02-04 complete
-- **Execution status:** 02-01 foundation + 02-02 provider adapters + 02-04 template scaffold verified
-- **Progress bar:** [██████----] 40%
+- **Plan status:** Phase 2 in progress; 02-01, 02-02, 02-03, and 02-04 complete
+- **Execution status:** 02-01 foundation + 02-02 provider adapters + 02-03 lifecycle services + 02-04 template scaffold verified
+- **Progress bar:** [███████---] 47%
 
 ```mermaid
 flowchart LR
@@ -29,8 +29,9 @@ flowchart LR
   S10 --> S11[01-09: Member Mutation Fix ✓]
   S11 --> S12[02-01: Schema Foundation ✓]
   S12 --> S13[02-02: Provider Adapters ✓]
-  S13 --> S14[02-04: Template/Pack Registration ✓]
-  S14 --> S15[02-03: Lifecycle Services ◆]
+  S13 --> S14[02-03: Lifecycle Services ✓]
+  S14 --> S15[02-04: Template/Pack Registration ✓]
+  S15 --> S16[02-05: API Routes ◆]
 ```
 
 ## Performance Metrics
@@ -105,6 +106,9 @@ flowchart LR
 | D-02-04-004 | 2026-02-24 | 02-04 | SHA-256 for content digests | Industry standard, stable, widely supported for change detection |
 | D-02-04-005 | 2026-02-24 | 02-04 | Repository delegation in pack service | All persistence operations go through AgentPackRepository - consistent with codebase |
 | D-02-04-006 | 2026-02-24 | 02-04 | Upsert behavior for pack registration | Natural for path-linked semantics where folder remains source of truth |
+| D-02-03-001 | 2026-02-24 | 02-03 | Cross-Database Lease Acquisition | Use explicit locking instead of PostgreSQL-specific syntax for SQLite compatibility |
+| D-02-03-002 | 2026-02-24 | 02-03 | Lease TTL Validation Range | 10s-1h for leases, 60s-24h for idle TTL to prevent accidental immediate expiry or indefinite locks |
+| D-02-03-003 | 2026-02-24 | 02-03 | LifecycleService as Primary Entrypoint | Routes should not coordinate lease + routing manually; single entrypoint ensures consistent pattern |
 
 ### TODOs
 
@@ -120,8 +124,8 @@ flowchart LR
 - [x] Execute Plan 01-09: Close member workspace resource mutation gap
 - [x] Execute Plan 02-01: Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs
 - [x] Execute Plan 02-02: Provider adapter boundary for local compose and Daytona parity
+- [x] Execute Plan 02-03: Workspace lifecycle services
 - [x] Execute Plan 02-04: Template scaffold and pack registration
-- [ ] Execute Plan 02-03: Workspace lifecycle services
 - [ ] Execute Plan 02-05: Phase 2 API routes and security tests
 
 ### Blockers
@@ -136,14 +140,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-04-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 04 (template scaffold and pack registration)
+- **Last completed artifact:** `02-03-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 03 (workspace lifecycle services)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** 02-03 (workspace lifecycle services), 02-05 (API routes and security tests)
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-04-SUMMARY.md`
-- **Last session:** 2026-02-24 - Plan 02-04 complete (65 tests pass across scaffold, validation, and pack services)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04)
+- **Next plans:** 02-05 (API routes and security tests)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-03-SUMMARY.md`
+- **Last session:** 2026-02-24 - Plan 02-03 complete (59 tests pass across lease, orchestrator, and lifecycle services)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-24 (Phase 2 Plan 4 complete - template scaffold and pack registration with 65 tests)*
+*Updated: 2026-02-24 (Phase 2 Plan 3 complete - workspace lifecycle services with 59 tests)*
