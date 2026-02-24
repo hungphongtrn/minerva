@@ -10,10 +10,10 @@
 
 ## Current Position
 
-- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
-- **Plan status:** Phase 2 gap closure complete; 02-01 through 02-07 complete
-- **Execution status:** Scaffold path handling, pack authorization, and provider exports fixed
-- **Progress bar:** [█████████░] 60%
+- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
+- **Plan status:** Phase 2 complete; all plans 02-01 through 02-08 complete
+- **Execution status:** All acceptance and security tests green (42/42 passing)
+- **Progress bar:** [██████████] 67%
 
 ```mermaid
 flowchart LR
@@ -33,6 +33,8 @@ flowchart LR
   S14 --> S15[02-04: Template/Pack Registration ✓]
   S15 --> S16[02-05: API Routes ✓]
   S16 --> S17[02-06: UUID Ownership Fix ✓]
+  S17 --> S18[02-07: Scaffold/Portability Gaps ✓]
+  S18 --> S19[02-08: Acceptance/Security Green ✓]
 ```
 
 ## Performance Metrics
@@ -40,8 +42,8 @@ flowchart LR
 - **v1 requirements total:** 36
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
-- **Completed phases:** 1/5
-- **Completed plans:** 10/15
+- **Completed phases:** 2/5
+- **Completed plans:** 11/15
 - **Completed requirements:** 8/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Blocking requirements:** None
@@ -117,6 +119,9 @@ flowchart LR
 | D-02-06-001 | 2026-02-24 | 02-06 | Route-local UUID normalization helper | Safer than modifying shared Principal type; focused fix for workspace routes |
 | D-02-06-002 | 2026-02-24 | 02-06 | Explicit HTTP errors for identity validation | Clear error messages help API consumers debug authentication issues |
 | D-02-06-003 | 2026-02-24 | 02-06 | Clean removal of dead code | Removes ~89 lines of unreachable duplicate logic; reduces drift risk |
+| D-02-08-001 | 2026-02-24 | 02-08 | Use hasattr pattern for enum/string compatibility | SQLite returns strings, PostgreSQL returns enums; hasattr provides safe dual-mode handling |
+| D-02-08-002 | 2026-02-24 | 02-08 | Return ephemeral routing for guests without workspace | Guest mode must bypass workspace lifecycle entirely |
+| D-02-08-003 | 2026-02-24 | 02-08 | Document user-centric model in test docstrings | Clarifies why same-user cross-workspace access succeeds |
 
 ### TODOs
 
@@ -137,6 +142,7 @@ flowchart LR
 - [x] Execute Plan 02-05: Phase 2 API routes and security tests
 - [x] Execute Plan 02-07: Close scaffold/register and profile portability contract gaps
 - [x] Execute Plan 02-06: UUID ownership normalization and dead branch removal
+- [x] Execute Plan 02-08: Drive acceptance and security suites to green
 
 ### Blockers
 
@@ -150,14 +156,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-07-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 07 (Gap closure for scaffold and portability)
+- **Last completed artifact:** `02-08-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 08 (Final gap closure - all tests green)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-07-SUMMARY.md`
-- **Last session:** 2026-02-24 - Plan 02-07 complete (17/19 security tests pass, all scaffold/provider tests green)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-08-SUMMARY.md`
+- **Last session:** 2026-02-24 - Plan 02-08 complete (42/42 tests passing, Phase 2 complete)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-24 (Phase 2 Plan 7 complete - Gap closure for scaffold and portability contracts)*
+*Updated: 2026-02-24 (Phase 2 complete - 100% test pass rate, ready for Phase 3)*
