@@ -155,6 +155,12 @@ class SandboxConfigurationError(SandboxProviderError):
     pass
 
 
+class SandboxProfileError(SandboxConfigurationError):
+    """Raised when an unsupported or invalid profile is requested."""
+
+    pass
+
+
 class SandboxProvider(ABC):
     """Abstract interface for sandbox providers.
 
