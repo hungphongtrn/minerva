@@ -82,7 +82,7 @@ def upgrade() -> None:
     membership_role = postgresql.ENUM(
         "owner", "admin", "member", name="membership_role"
     )
-    membership_role.create(op.get_bind())
+    membership_role.create(op.get_bind(), checkfirst=True)
 
     # Create memberships table
     op.create_table(
@@ -92,7 +92,13 @@ def upgrade() -> None:
         sa.Column("workspace_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("owner", "admin", "member", name="membership_role"),
+            postgresql.ENUM(
+                "owner",
+                "admin",
+                "member",
+                name="membership_role",
+                create_type=False,
+            ),
             nullable=False,
             server_default="member",
         ),
@@ -286,4 +292,4 @@ def downgrade() -> None:
     membership_role = postgresql.ENUM(
         "owner", "admin", "member", name="membership_role"
     )
-    membership_role.drop(op.get_bind())
+    membership_role.drop(op.get_bind(), checkfirst=True)

@@ -13,3 +13,6 @@ pi-mono/
 references/
 .opencode/
 opencode.json
+
+.env
+TEST_KEY.txt
