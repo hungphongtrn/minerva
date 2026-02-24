@@ -134,9 +134,15 @@ Describe the agent's personality traits:
 
         Args:
             base_path: Optional base path for validating relative paths.
-                      If not provided, current working directory is used.
+                      If not provided, current working directory is used and
+                      absolute paths are allowed (for API/integration flows).
         """
-        self.base_path = base_path or Path.cwd()
+        if base_path is not None:
+            self.base_path = base_path
+            self._base_path_explicit = True
+        else:
+            self.base_path = Path.cwd()
+            self._base_path_explicit = False
 
     def generate(
         self,
@@ -272,6 +278,9 @@ Describe the agent's personality traits:
     def _normalize_and_validate_path(self, pack_path: str) -> Path:
         """Normalize path and validate against traversal attacks.
 
+        Supports safe absolute paths (e.g., temp directories) while blocking
+        traversal attacks that attempt to escape intended boundaries.
+
         Args:
             pack_path: Path to normalize and validate.
 
@@ -279,18 +288,14 @@ Describe the agent's personality traits:
             Normalized absolute Path.
 
         Raises:
-            PathTraversalError: If path attempts to escape base directory.
+            PathTraversalError: If path attempts path traversal.
             ScaffoldError: If path is empty or invalid.
         """
         if not pack_path or not pack_path.strip():
             raise ScaffoldError("Pack path cannot be empty")
 
-        # Convert to Path and resolve to absolute
+        # Convert to Path
         path = Path(pack_path)
-
-        # If relative, resolve against base path
-        if not path.is_absolute():
-            path = self.base_path / path
 
         # Resolve to eliminate .. and symlinks
         try:
@@ -298,15 +303,37 @@ Describe the agent's personality traits:
         except (OSError, RuntimeError) as e:
             raise ScaffoldError(f"Failed to resolve path {pack_path}: {e}") from e
 
-        # Validate: resolved path must be within or equal to base_path
-        try:
-            # Use relative_to to check if resolved_path is under base_path
-            resolved_path.relative_to(self.base_path.resolve())
-        except ValueError:
-            raise PathTraversalError(
-                f"Path '{pack_path}' attempts to escape base directory "
-                f"'{self.base_path}'. Resolved to: '{resolved_path}'"
-            )
+        # Validate: check for traversal attacks
+        # For absolute paths:
+        #   - If base_path is explicit: validate containment within base_path
+        #   - If base_path is default (cwd): allow safe absolute paths
+        # For relative paths: always validate containment within base_path
+        if path.is_absolute() and not self._base_path_explicit:
+            # Absolute path with default base: validate no traversal components
+            if ".." in pack_path.replace("\\", "/"):
+                raise PathTraversalError(
+                    f"Path '{pack_path}' contains traversal components"
+                )
+        else:
+            # Either relative path, or absolute with explicit base:
+            # Validate containment within base_path
+            if path.is_absolute():
+                path_to_validate = resolved_path
+            else:
+                # Relative path: resolve against base
+                path_to_validate = (self.base_path / path).resolve()
+
+            # Validate: path must be within or equal to base_path
+            try:
+                path_to_validate.relative_to(self.base_path.resolve())
+            except ValueError:
+                raise PathTraversalError(
+                    f"Path '{pack_path}' attempts to escape base directory "
+                    f"'{self.base_path}'. Resolved to: '{path_to_validate}'"
+                )
+
+            if not path.is_absolute():
+                resolved_path = path_to_validate
 
         return resolved_path
 
