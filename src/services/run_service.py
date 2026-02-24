@@ -316,6 +316,18 @@ class RunService:
         """
         run_id = str(uuid4())
 
+        # For guest principals, skip workspace resolution entirely
+        if is_guest_principal(principal):
+            return RunRoutingResult(
+                success=True,
+                workspace_id=None,
+                sandbox_id=None,
+                sandbox_state="guest",
+                sandbox_health="healthy",
+                lease_acquired=False,
+                error=None,
+            )
+
         try:
             # Initialize lifecycle service
             lifecycle = self._lifecycle_service or WorkspaceLifecycleService(
