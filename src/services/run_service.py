@@ -347,11 +347,20 @@ class RunService:
                 if routing_result.sandbox:
                     sandbox_id = str(routing_result.sandbox.id)
                     if hasattr(routing_result.sandbox, "state"):
-                        sandbox_state = str(routing_result.sandbox.state.value)
+                        state_val = routing_result.sandbox.state
+                        # Handle both enum (PostgreSQL) and string (SQLite) types
+                        if hasattr(state_val, "value"):
+                            sandbox_state = str(state_val.value)
+                        else:
+                            sandbox_state = str(state_val)
                     if hasattr(routing_result.sandbox, "health_status"):
                         health = routing_result.sandbox.health_status
                         if health:
-                            sandbox_health = str(health.value)
+                            # Handle both enum (PostgreSQL) and string (SQLite) types
+                            if hasattr(health, "value"):
+                                sandbox_health = str(health.value)
+                            else:
+                                sandbox_health = str(health)
 
             return RunRoutingResult(
                 success=True,
