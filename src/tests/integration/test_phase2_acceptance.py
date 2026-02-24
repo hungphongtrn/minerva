@@ -226,7 +226,7 @@ class TestSandboxRouting:
 
         assert resolve_response.status_code == 200
         data = resolve_response.json()
-        assert "sandbox_state" in data
+        assert "state" in data
         assert "lease_acquired" in data
         assert data["lease_acquired"] is True
 
@@ -307,7 +307,9 @@ class TestWorkspaceLeaseSerialization:
     def test_lease_service_acquire_prevents_concurrent_access(
         self, db_session, workspace_alpha
     ):
-        """Lease acquisition serializes same-workspace write attempts."""
+        """TEST-15: Lease acquisition serializes same-workspace write attempts."""
+        from src.services.workspace_lease_service import LeaseResult
+
         service = WorkspaceLeaseService(db_session)
 
         # First acquire should succeed
@@ -319,7 +321,7 @@ class TestWorkspaceLeaseSerialization:
         )
 
         assert result1.success is True
-        assert result1.result.value == "ACQUIRED"
+        assert result1.result == LeaseResult.ACQUIRED
 
         # Second acquire should fail (conflict)
         result2 = service.acquire_lease(
@@ -330,10 +332,12 @@ class TestWorkspaceLeaseSerialization:
         )
 
         assert result2.success is False
-        assert result2.result.value == "CONFLICT"
+        assert result2.result == LeaseResult.CONFLICT
 
     def test_lease_release_allows_next_acquirer(self, db_session, workspace_alpha):
-        """Releasing lease allows next acquirer to proceed."""
+        """TEST-16: Releasing lease allows next acquirer to proceed."""
+        from src.services.workspace_lease_service import LeaseResult
+
         service = WorkspaceLeaseService(db_session)
 
         # First acquire
@@ -359,7 +363,7 @@ class TestWorkspaceLeaseSerialization:
         )
 
         assert result2.success is True
-        assert result2.result.value == "ACQUIRED"
+        assert result2.result == LeaseResult.ACQUIRED
 
 
 # =============================================================================
@@ -479,16 +483,16 @@ class TestProfileSemanticParity:
     """AGNT-03: Local compose and BYOC profiles have equivalent semantics."""
 
     def test_local_compose_adapter_has_semantic_states(self):
-        """Local compose adapter exposes semantic state (ready, hydrating, etc.)."""
+        """TEST-21: Local compose adapter exposes semantic state (ready, hydrating, etc.)."""
         from src.infrastructure.sandbox.providers.local_compose import (
-            LocalComposeProvider,
+            LocalComposeSandboxProvider,
         )
         from src.infrastructure.sandbox.providers.base import (
             SandboxState,
             SandboxHealth,
         )
 
-        provider = LocalComposeProvider()
+        provider = LocalComposeSandboxProvider()
 
         # Verify semantic state contract is implemented
         assert hasattr(provider, "get_active_sandbox")
@@ -497,12 +501,12 @@ class TestProfileSemanticParity:
         assert hasattr(provider, "stop_sandbox")
 
     def test_daytona_adapter_has_semantic_states(self):
-        """Daytona adapter exposes semantic state (ready, hydrating, etc.)."""
-        from src.infrastructure.sandbox.providers.daytona import DaytonaProvider
+        """TEST-22: Daytona adapter exposes semantic state (ready, hydrating, etc.)."""
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
         from src.infrastructure.sandbox.providers.base import SandboxState
 
         # Provider can be instantiated with config
-        provider = DaytonaProvider(
+        provider = DaytonaSandboxProvider(
             api_token="test-token",
             base_url=None,  # Cloud mode
         )
@@ -512,10 +516,10 @@ class TestProfileSemanticParity:
         assert hasattr(provider, "provision_sandbox")
 
     def test_provider_factory_returns_configured_provider(self):
-        """Factory returns appropriate provider based on configuration."""
+        """TEST-23: Factory returns appropriate provider based on configuration."""
         from src.infrastructure.sandbox.providers.factory import get_provider
         from src.infrastructure.sandbox.providers.local_compose import (
-            LocalComposeProvider,
+            LocalComposeSandboxProvider,
         )
 
         # Default should return local compose for testing
