@@ -523,4 +523,6 @@ class TestLeaseExpirationRecovery:
         )
 
         assert result.success is False
-        assert result.result.value == "CONFLICT"
+        from src.services.workspace_lease_service import LeaseResult
+
+        assert result.result == LeaseResult.CONFLICT
