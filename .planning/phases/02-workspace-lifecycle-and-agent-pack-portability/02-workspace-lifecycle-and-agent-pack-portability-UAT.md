@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-workspace-lifecycle-and-agent-pack-portability
 source:
   - 02-01-SUMMARY.md
@@ -11,7 +11,7 @@ source:
   - 02-07-SUMMARY.md
   - 02-08-SUMMARY.md
 started: 2026-02-24T17:09:02Z
-updated: 2026-02-24T17:14:38Z
+updated: 2026-02-24T17:16:58Z
 ---
 
 ## Current Test
@@ -69,7 +69,19 @@ skipped: 0
   reason: "Subagent reported: profile adapter parity passes, but end-to-end pack binding to runtime across profiles is not verifiably wired."
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Agent pack binding is only persisted in schema; runtime provisioning never resolves pack source path into SandboxConfig or provider mount/bind flow, so cross-profile execution parity for real registered packs is not guaranteed."
+  artifacts:
+    - path: "src/services/sandbox_orchestrator_service.py"
+      issue: "Creates SandboxConfig without pack_source_path even when agent_pack_id is provided."
+    - path: "src/infrastructure/sandbox/providers/local_compose.py"
+      issue: "Provisioning path does not bind or mount registered pack source into runtime sandbox."
+    - path: "src/infrastructure/sandbox/providers/daytona.py"
+      issue: "Provisioning path does not bind or mount registered pack source into runtime sandbox."
+    - path: "src/tests/integration/test_phase2_acceptance.py"
+      issue: "Profile parity tests cover adapter contract but not end-to-end registered pack execution parity."
+  missing:
+    - "Resolve AgentPack source_path in orchestrator from agent_pack_id before provisioning."
+    - "Populate SandboxConfig.pack_source_path and pass through provider provisioning path."
+    - "Implement provider-side pack bind/mount behavior for local_compose and daytona adapters."
+    - "Add acceptance test: register pack, run via local_compose and daytona, assert equivalent pack execution semantics."
+  debug_session: ".planning/debug/phase02-pack-binding-gap.md"
