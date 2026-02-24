@@ -20,6 +20,47 @@ from src.guest.identity import is_guest_principal
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
 
 
+def _get_principal_user_id(principal: AnyPrincipal) -> UUID:
+    """Extract and normalize principal user_id to UUID.
+
+    Raises HTTPException if user_id is missing or invalid.
+    """
+    user_id = getattr(principal, "user_id", None)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Invalid principal identity",
+                "reason": "Principal has no user_id",
+            },
+        )
+
+    # Normalize string UUID to UUID object
+    if isinstance(user_id, str):
+        try:
+            return UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "Invalid principal identity",
+                    "reason": "user_id is not a valid UUID",
+                },
+            )
+
+    if isinstance(user_id, UUID):
+        return user_id
+
+    # Unexpected type
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail={
+            "error": "Invalid principal identity",
+            "reason": f"user_id has unexpected type: {type(user_id).__name__}",
+        },
+    )
+
+
 # Request/Response Models
 
 
@@ -193,8 +234,8 @@ async def resolve_sandbox(
                 },
             )
 
-        # Verify the principal owns this workspace
-        user_id = getattr(principal, "user_id", None)
+        # Verify the principal owns this workspace (normalized UUID comparison)
+        user_id = _get_principal_user_id(principal)
         if workspace.owner_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -414,9 +455,9 @@ async def get_workspace(
             detail={"error": "Workspace not found"},
         )
 
-    # Check access for non-guest principals
+    # Check access for non-guest principals (normalized UUID comparison)
     if not is_guest_principal(principal):
-        user_id = getattr(principal, "user_id", None)
+        user_id = _get_principal_user_id(principal)
         if workspace.owner_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -462,15 +503,10 @@ async def get_my_workspace(
             },
         )
 
-    # Get user ID
-    user_id = getattr(principal, "user_id", None)
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "Could not identify user"},
-        )
+    # Get normalized user ID (UUID type for consistent comparison)
+    user_id = _get_principal_user_id(principal)
 
-    # Get workspace
+    # Get workspace (UUID-to-UUID comparison)
     workspace = db.query(Workspace).filter(Workspace.owner_id == user_id).first()
 
     if not workspace:
