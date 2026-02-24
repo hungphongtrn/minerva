@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
-- **Plan status:** Phase 2 gap closure in progress; 02-01 through 02-06 complete
-- **Execution status:** UUID ownership normalization fixed; sandbox resolve needs further work
-- **Progress bar:** [████████░░] 53%
+- **Plan status:** Phase 2 gap closure complete; 02-01 through 02-07 complete
+- **Execution status:** Scaffold path handling, pack authorization, and provider exports fixed
+- **Progress bar:** [█████████░] 60%
 
 ```mermaid
 flowchart LR
@@ -110,6 +110,10 @@ flowchart LR
 | D-02-03-001 | 2026-02-24 | 02-03 | Cross-Database Lease Acquisition | Use explicit locking instead of PostgreSQL-specific syntax for SQLite compatibility |
 | D-02-03-002 | 2026-02-24 | 02-03 | Lease TTL Validation Range | 10s-1h for leases, 60s-24h for idle TTL to prevent accidental immediate expiry or indefinite locks |
 | D-02-03-003 | 2026-02-24 | 02-03 | LifecycleService as Primary Entrypoint | Routes should not coordinate lease + routing manually; single entrypoint ensures consistent pattern |
+| D-02-07-001 | 2026-02-24 | 02-07 | Distinguish explicit vs default base_path in scaffold service | API flows need temp directory support; explicit base needs containment |
+| D-02-07-002 | 2026-02-24 | 02-07 | Add workspace parameter to lifecycle service | Prevents wrong workspace selection when user owns multiple workspaces |
+| D-02-07-003 | 2026-02-24 | 02-07 | Test client auto-commit on success | Required for multi-request integration tests with shared database |
+| D-02-07-004 | 2026-02-24 | 02-07 | Centralize provider exports in __init__.py | Consistent import pattern for acceptance and portability tests |
 | D-02-06-001 | 2026-02-24 | 02-06 | Route-local UUID normalization helper | Safer than modifying shared Principal type; focused fix for workspace routes |
 | D-02-06-002 | 2026-02-24 | 02-06 | Explicit HTTP errors for identity validation | Clear error messages help API consumers debug authentication issues |
 | D-02-06-003 | 2026-02-24 | 02-06 | Clean removal of dead code | Removes ~89 lines of unreachable duplicate logic; reduces drift risk |
@@ -131,6 +135,7 @@ flowchart LR
 - [x] Execute Plan 02-03: Workspace lifecycle services
 - [x] Execute Plan 02-04: Template scaffold and pack registration
 - [x] Execute Plan 02-05: Phase 2 API routes and security tests
+- [x] Execute Plan 02-07: Close scaffold/register and profile portability contract gaps
 - [x] Execute Plan 02-06: UUID ownership normalization and dead branch removal
 
 ### Blockers
@@ -145,14 +150,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-06-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 06 (UUID ownership normalization)
+- **Last completed artifact:** `02-07-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 07 (Gap closure for scaffold and portability)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** 02-07: Scaffold absolute-path handling; 02-08: Final gap-closure verification
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-06-SUMMARY.md`
-- **Last session:** 2026-02-24 - Plan 02-06 complete (me_status test passes, UUID normalization fixed)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-07-SUMMARY.md`
+- **Last session:** 2026-02-24 - Plan 02-07 complete (17/19 security tests pass, all scaffold/provider tests green)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-24 (Phase 2 Plan 6 complete - UUID ownership normalization fixed)*
+*Updated: 2026-02-24 (Phase 2 Plan 7 complete - Gap closure for scaffold and portability contracts)*
