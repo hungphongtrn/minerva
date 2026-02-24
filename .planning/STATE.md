@@ -11,9 +11,9 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability)
-- **Plan status:** Phase 2 in progress; 02-01 and 02-02 complete
-- **Execution status:** 02-01 foundation + 02-02 provider adapters verified
-- **Progress bar:** [████------] 33%
+- **Plan status:** Phase 2 in progress; 02-01, 02-02, and 02-04 complete
+- **Execution status:** 02-01 foundation + 02-02 provider adapters + 02-04 template scaffold verified
+- **Progress bar:** [██████----] 40%
 
 ```mermaid
 flowchart LR
@@ -29,7 +29,8 @@ flowchart LR
   S10 --> S11[01-09: Member Mutation Fix ✓]
   S11 --> S12[02-01: Schema Foundation ✓]
   S12 --> S13[02-02: Provider Adapters ✓]
-  S13 --> S14[02-03: Lifecycle Services ◆]
+  S13 --> S14[02-04: Template/Pack Registration ✓]
+  S14 --> S15[02-03: Lifecycle Services ◆]
 ```
 
 ## Performance Metrics
@@ -98,6 +99,12 @@ flowchart LR
 | D-02-01-002 | 2026-02-24 | 02-01 | Path-linked pack registration | Store source_path as source of truth with source_digest for stale detection - aligns with Picoclaw filesystem model |
 | D-02-01-003 | 2026-02-24 | 02-01 | PostgreSQL native enums for states/status | Better type safety at database level for state/status columns |
 | D-02-01-004 | 2026-02-24 | 02-01 | Repository pattern with focused query methods | Each entity has dedicated repository; query logic centralized and testable |
+| D-02-04-001 | 2026-02-24 | 02-04 | Idempotent scaffold generation by default | Safe to re-run without corrupting user edits to scaffold files |
+| D-02-04-002 | 2026-02-24 | 02-04 | Path traversal protection in scaffold service | Security requirement for filesystem operations - reject paths escaping base directory |
+| D-02-04-003 | 2026-02-24 | 02-04 | Deterministic checklist format with machine-readable codes | API consumers can programmatically handle validation results |
+| D-02-04-004 | 2026-02-24 | 02-04 | SHA-256 for content digests | Industry standard, stable, widely supported for change detection |
+| D-02-04-005 | 2026-02-24 | 02-04 | Repository delegation in pack service | All persistence operations go through AgentPackRepository - consistent with codebase |
+| D-02-04-006 | 2026-02-24 | 02-04 | Upsert behavior for pack registration | Natural for path-linked semantics where folder remains source of truth |
 
 ### TODOs
 
@@ -113,8 +120,8 @@ flowchart LR
 - [x] Execute Plan 01-09: Close member workspace resource mutation gap
 - [x] Execute Plan 02-01: Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs
 - [x] Execute Plan 02-02: Provider adapter boundary for local compose and Daytona parity
+- [x] Execute Plan 02-04: Template scaffold and pack registration
 - [ ] Execute Plan 02-03: Workspace lifecycle services
-- [ ] Execute Plan 02-04: Template scaffold and pack registration
 - [ ] Execute Plan 02-05: Phase 2 API routes and security tests
 
 ### Blockers
@@ -129,14 +136,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-01-SUMMARY.md` and `02-02-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-24 - Completed Phase 2 Plans 1-2 (schema foundation + provider adapters)
+- **Last completed artifact:** `02-04-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-24 - Completed Phase 2 Plan 04 (template scaffold and pack registration)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** 02-03 (workspace lifecycle services), 02-04 (template/pack registration), 02-05 (API routes)
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-02-SUMMARY.md`
-- **Last session:** 2026-02-24 - Phase 2 Plans 1-2 complete (10 smoke tests + 24 parity tests pass)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02)
+- **Next plans:** 02-03 (workspace lifecycle services), 02-05 (API routes and security tests)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-04-SUMMARY.md`
+- **Last session:** 2026-02-24 - Plan 02-04 complete (65 tests pass across scaffold, validation, and pack services)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-24 (Phase 2 Plan 2 complete - provider adapters with parity tests)*
+*Updated: 2026-02-24 (Phase 2 Plan 4 complete - template scaffold and pack registration with 65 tests)*
