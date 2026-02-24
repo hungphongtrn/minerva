@@ -121,6 +121,7 @@ class WorkspaceLifecycleService:
         run_id: Optional[str] = None,
         lease_ttl_seconds: Optional[int] = None,
         env_vars: Optional[Dict[str, str]] = None,
+        workspace: Optional[Workspace] = None,
     ) -> LifecycleTarget:
         """Resolve workspace and routing target for a principal.
 
@@ -137,6 +138,7 @@ class WorkspaceLifecycleService:
             run_id: Optional run identifier for lease tracking.
             lease_ttl_seconds: Lease TTL override (default: 5 minutes).
             env_vars: Optional environment variables for sandbox provisioning.
+            workspace: Optional specific workspace to use (bypasses lookup).
 
         Returns:
             LifecycleTarget with workspace, lease status, and routing info.
@@ -145,8 +147,9 @@ class WorkspaceLifecycleService:
         lease_ttl = lease_ttl_seconds or self.DEFAULT_LEASE_TTL_SECONDS
 
         try:
-            # Step 1: Resolve or create workspace
-            workspace = self._resolve_workspace(principal, auto_create=auto_create)
+            # Step 1: Resolve or create workspace (if not provided)
+            if workspace is None:
+                workspace = self._resolve_workspace(principal, auto_create=auto_create)
             if not workspace:
                 return LifecycleTarget(
                     workspace=None,  # type: ignore

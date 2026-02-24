@@ -245,34 +245,19 @@ async def resolve_sandbox(
                 },
             )
 
-    # Initialize lifecycle service and resolve target
-    lifecycle = WorkspaceLifecycleService(session=db)
-    run_id = str(uuid4())
+        # Initialize lifecycle service and resolve target
+        lifecycle = WorkspaceLifecycleService(session=db)
+        run_id = str(uuid4())
 
-    try:
-        # For guest principals, create a temporary workspace wrapper
-        if is_guest_principal(principal):
-            from dataclasses import dataclass
-
-            @dataclass
-            class GuestWorkspaceContext:
-                id: UUID
-
-            # Create ephemeral context for guest
-            guest_context = GuestWorkspaceContext(id=ws_uuid)
-            target = await lifecycle.resolve_target(
-                principal=guest_context,
-                auto_create=True,
-                acquire_lease=True,
-                run_id=run_id,
-            )
-        else:
-            target = await lifecycle.resolve_target(
-                principal=principal,
-                auto_create=True,
-                acquire_lease=True,
-                run_id=run_id,
-            )
+        # Pass the already-verified workspace to lifecycle service
+        # This ensures the correct workspace is used, not one looked up by owner_id
+        target = await lifecycle.resolve_target(
+            principal=principal,
+            auto_create=False,  # Workspace already exists and is verified
+            acquire_lease=True,
+            run_id=run_id,
+            workspace=workspace,  # Use the workspace we already verified
+        )
 
         # Handle errors from lifecycle resolution
         if target.error:
@@ -296,9 +281,18 @@ async def resolve_sandbox(
             if routing_result.sandbox:
                 sandbox_id = str(routing_result.sandbox.id)
                 # Map sandbox state to response string
-                state = str(routing_result.sandbox.state.value)
+                # Handle both enum and string types
+                sandbox_state = routing_result.sandbox.state
+                if hasattr(sandbox_state, "value"):
+                    state = str(sandbox_state.value)
+                else:
+                    state = str(sandbox_state)
                 if routing_result.sandbox.health_status:
-                    health = str(routing_result.sandbox.health_status.value)
+                    health_status = routing_result.sandbox.health_status
+                    if hasattr(health_status, "value"):
+                        health = str(health_status.value)
+                    else:
+                        health = str(health_status)
             else:
                 state = "provisioning"
         elif target.error:
@@ -311,18 +305,6 @@ async def resolve_sandbox(
             health=health,
             lease_acquired=target.lease_acquired,
             message=target.error if target.error else "Sandbox resolved successfully",
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": f"Failed to resolve sandbox: {str(e)}",
-                "error_type": "resolution_failure",
-                "action": "Contact support if issue persists",
-            },
         )
 
 
