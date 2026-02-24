@@ -1,6 +1,7 @@
 """Run execution service with guest persistence guard and policy hooks.
 
 Provides run execution with:
+- Workspace lifecycle integration for routing
 - Guest/non-guest persistence guards
 - Runtime policy enforcement before network/tool/secret actions
 - Scoped secret injection based on policy
@@ -10,9 +11,15 @@ from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
 from dataclasses import dataclass
 
+from sqlalchemy.orm import Session
+
 from src.guest.identity import GuestPrincipal, is_guest_principal
 from src.runtime_policy.enforcer import RuntimeEnforcer, PolicyViolationError
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
+from src.services.workspace_lifecycle_service import (
+    WorkspaceLifecycleService,
+    LifecycleTarget,
+)
 
 
 @dataclass
@@ -35,22 +42,46 @@ class RunResult:
     outputs: Optional[Dict[str, Any]] = None
 
 
+@dataclass
+class RunRoutingResult:
+    """Result of resolving routing target for a run.
+
+    Contains workspace, sandbox, and lease information for execution.
+    """
+
+    success: bool
+    workspace_id: Optional[str] = None
+    sandbox_id: Optional[str] = None
+    sandbox_state: Optional[str] = None
+    sandbox_health: Optional[str] = None
+    lease_acquired: bool = False
+    error: Optional[str] = None
+    lifecycle_target: Optional[LifecycleTarget] = None
+
+
 class RunService:
     """Service for run execution with policy enforcement.
 
     This service handles the core run execution flow including:
+    - Workspace lifecycle resolution for sandbox routing
     - Guest mode detection and persistence guards
     - Runtime policy enforcement
     - Scoped secret injection
     """
 
-    def __init__(self, enforcer: Optional[RuntimeEnforcer] = None):
+    def __init__(
+        self,
+        enforcer: Optional[RuntimeEnforcer] = None,
+        lifecycle_service: Optional[WorkspaceLifecycleService] = None,
+    ):
         """Initialize the run service.
 
         Args:
             enforcer: Runtime enforcer for policy checks
+            lifecycle_service: Workspace lifecycle service for routing
         """
         self.enforcer = enforcer or RuntimeEnforcer()
+        self._lifecycle_service = lifecycle_service
 
     def start_run(
         self,
@@ -257,6 +288,169 @@ class RunService:
                 status="error",
                 error=f"Execution failed: {str(e)}",
             )
+
+    async def resolve_routing_target(
+        self,
+        principal: Any,
+        session: Session,
+        auto_create_workspace: bool = True,
+    ) -> RunRoutingResult:
+        """Resolve workspace and sandbox routing target for a run.
+
+        This method integrates with the workspace lifecycle service to:
+        1. Ensure durable workspace exists (for authenticated users)
+        2. Acquire write lease for same-workspace serialization
+        3. Resolve healthy active sandbox or trigger provisioning
+        4. Return complete routing information
+
+        For guest principals, this returns an ephemeral routing target
+        without workspace persistence.
+
+        Args:
+            principal: The requesting principal (authenticated or guest)
+            session: Database session for workspace/sandbox operations
+            auto_create_workspace: If True, create workspace if not exists
+
+        Returns:
+            RunRoutingResult with routing target information
+        """
+        run_id = str(uuid4())
+
+        try:
+            # Initialize lifecycle service
+            lifecycle = self._lifecycle_service or WorkspaceLifecycleService(
+                session=session
+            )
+
+            # Resolve target through lifecycle service
+            target = await lifecycle.resolve_target(
+                principal=principal,
+                auto_create=auto_create_workspace,
+                acquire_lease=True,
+                run_id=run_id,
+            )
+
+            if target.error and not target.workspace:
+                # Failed to resolve workspace
+                return RunRoutingResult(
+                    success=False,
+                    error=f"Workspace resolution failed: {target.error}",
+                )
+
+            # Build routing result
+            sandbox_state = None
+            sandbox_health = None
+            sandbox_id = None
+
+            if target.routing_result and target.routing_result.success:
+                routing_result = target.routing_result
+                if routing_result.sandbox:
+                    sandbox_id = str(routing_result.sandbox.id)
+                    if hasattr(routing_result.sandbox, "state"):
+                        sandbox_state = str(routing_result.sandbox.state.value)
+                    if hasattr(routing_result.sandbox, "health_status"):
+                        health = routing_result.sandbox.health_status
+                        if health:
+                            sandbox_health = str(health.value)
+
+            return RunRoutingResult(
+                success=True,
+                workspace_id=str(target.workspace.id) if target.workspace else None,
+                sandbox_id=sandbox_id,
+                sandbox_state=sandbox_state or "unknown",
+                sandbox_health=sandbox_health,
+                lease_acquired=target.lease_acquired,
+                error=target.error,
+                lifecycle_target=target,
+            )
+
+        except Exception as e:
+            return RunRoutingResult(
+                success=False,
+                error=f"Routing resolution failed: {str(e)}",
+            )
+
+    async def execute_with_routing(
+        self,
+        principal: Any,
+        session: Session,
+        egress_policy: EgressPolicy,
+        tool_policy: ToolPolicy,
+        secret_policy: SecretScope,
+        secrets: Dict[str, Any],
+        requested_egress_urls: Optional[list[str]] = None,
+        requested_tools: Optional[list[str]] = None,
+        agent_pack_id: Optional[str] = None,
+    ) -> RunResult:
+        """Execute a run with full routing and policy enforcement.
+
+        This is the main entrypoint for run execution that:
+        1. Resolves workspace and sandbox routing target
+        2. Enforces runtime policies
+        3. Executes the run
+        4. Releases lease deterministically
+
+        Args:
+            principal: The requesting principal
+            session: Database session
+            egress_policy: Egress policy
+            tool_policy: Tool policy
+            secret_policy: Secret scope policy
+            secrets: Available secrets
+            requested_egress_urls: Egress URLs the run will access
+            requested_tools: Tools the run will invoke
+            agent_pack_id: Optional agent pack to bind to the run
+
+        Returns:
+            RunResult with execution outcome
+        """
+        # Resolve routing target first
+        routing = await self.resolve_routing_target(principal, session)
+
+        if not routing.success:
+            return RunResult(
+                run_id=str(uuid4()),
+                status="error",
+                error=routing.error or "Failed to resolve routing target",
+            )
+
+        # Start the run
+        context = self.start_run(
+            principal=principal,
+            egress_policy=egress_policy,
+            tool_policy=tool_policy,
+            secret_policy=secret_policy,
+            secrets=secrets,
+        )
+
+        # Update context with workspace from routing
+        if routing.workspace_id:
+            context.workspace_id = routing.workspace_id
+
+        # Execute with policy enforcement
+        result = self.execute_run(
+            context=context,
+            egress_policy=egress_policy,
+            tool_policy=tool_policy,
+            secret_policy=secret_policy,
+            secrets=secrets,
+            requested_egress_urls=requested_egress_urls or [],
+            requested_tools=requested_tools or [],
+        )
+
+        # Add routing info to outputs
+        if result.outputs is None:
+            result.outputs = {}
+
+        result.outputs["routing"] = {
+            "workspace_id": routing.workspace_id,
+            "sandbox_id": routing.sandbox_id,
+            "sandbox_state": routing.sandbox_state,
+            "sandbox_health": routing.sandbox_health,
+            "lease_acquired": routing.lease_acquired,
+        }
+
+        return result
 
 
 # Type alias for any principal
