@@ -78,6 +78,10 @@ def client(db_engine) -> Generator[TestClient, None, None]:
         session = TestingSessionLocal()
         try:
             yield session
+            session.commit()  # Commit on successful request completion
+        except Exception:
+            session.rollback()  # Rollback on error
+            raise
         finally:
             session.close()
 
