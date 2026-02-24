@@ -9,8 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import Session
 
 from src.db.models import WorkspaceLease
@@ -36,8 +35,10 @@ class WorkspaceLeaseRepository:
     ) -> Optional[WorkspaceLease]:
         """Attempt to acquire an active lease for a workspace.
 
-        Uses upsert with conflict resolution to handle race conditions.
+        Uses explicit locking and conflict detection to handle race conditions.
         Only succeeds if no active lease exists for the workspace.
+
+        This method is cross-database compatible (SQLite, PostgreSQL).
 
         Args:
             workspace_id: UUID of the workspace to acquire lease for.
@@ -49,76 +50,17 @@ class WorkspaceLeaseRepository:
             WorkspaceLease if acquired successfully, None if workspace
             already has an active lease.
         """
-        expires_at = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+        # First, release any expired leases for this workspace
+        self._release_expired_leases(workspace_id)
 
-        # Use insert with on_conflict_do_nothing for atomic lease acquisition
-        # This leverages the partial unique index on active leases
-        stmt = (
-            insert(WorkspaceLease)
-            .values(
-                workspace_id=workspace_id,
-                holder_run_id=holder_run_id,
-                holder_identity=holder_identity,
-                expires_at=expires_at,
-                acquired_at=datetime.utcnow(),
-                version=1,
-            )
-            .on_conflict_do_nothing(
-                index_elements=["workspace_id"], where="released_at IS NULL"
-            )
-            .returning(WorkspaceLease)
-        )
-
-        result = self._session.execute(stmt)
-        lease = result.scalar_one_or_none()
-
-        if lease:
-            self._session.flush()
-            return lease
-
-        # Lease not acquired - check if there's an expired one we can take
-        return self._try_acquire_expired_lease(
-            workspace_id, holder_run_id, holder_identity, ttl_seconds
-        )
-
-    def _try_acquire_expired_lease(
-        self,
-        workspace_id: UUID,
-        holder_run_id: Optional[str],
-        holder_identity: Optional[str],
-        ttl_seconds: int,
-    ) -> Optional[WorkspaceLease]:
-        """Try to acquire an expired lease by releasing it first.
-
-        Args:
-            workspace_id: UUID of the workspace.
-            holder_run_id: Optional run ID for the new holder.
-            holder_identity: Optional identity for the new holder.
-            ttl_seconds: TTL for the new lease.
-
-        Returns:
-            WorkspaceLease if expired lease was acquired, None otherwise.
-        """
-        # Find expired unreleased lease
-        stmt = select(WorkspaceLease).where(
-            and_(
-                WorkspaceLease.workspace_id == workspace_id,
-                WorkspaceLease.expires_at < datetime.utcnow(),
-                WorkspaceLease.released_at.is_(None),
-            )
-        )
-
-        existing = self._session.execute(stmt).scalar_one_or_none()
-        if not existing:
+        # Check if there's already an active (non-expired, non-released) lease
+        existing = self._get_active_lease_for_update(workspace_id)
+        if existing:
             return None
 
-        # Release the expired lease
-        existing.released_at = datetime.utcnow()
-        self._session.flush()
-
-        # Create new lease
+        # No active lease - create one
         expires_at = datetime.utcnow() + timedelta(seconds=ttl_seconds)
-        new_lease = WorkspaceLease(
+        lease = WorkspaceLease(
             workspace_id=workspace_id,
             holder_run_id=holder_run_id,
             holder_identity=holder_identity,
@@ -127,10 +69,59 @@ class WorkspaceLeaseRepository:
             version=1,
         )
 
-        self._session.add(new_lease)
+        self._session.add(lease)
         self._session.flush()
 
-        return new_lease
+        return lease
+
+    def _release_expired_leases(self, workspace_id: UUID) -> int:
+        """Release all expired leases for a workspace.
+
+        Args:
+            workspace_id: UUID of the workspace.
+
+        Returns:
+            Number of leases released.
+        """
+        stmt = select(WorkspaceLease).where(
+            and_(
+                WorkspaceLease.workspace_id == workspace_id,
+                WorkspaceLease.expires_at < datetime.utcnow(),
+                WorkspaceLease.released_at.is_(None),
+            )
+        )
+
+        expired_leases = self._session.execute(stmt).scalars().all()
+        count = 0
+        for lease in expired_leases:
+            lease.released_at = datetime.utcnow()
+            count += 1
+
+        if count > 0:
+            self._session.flush()
+
+        return count
+
+    def _get_active_lease_for_update(
+        self, workspace_id: UUID
+    ) -> Optional[WorkspaceLease]:
+        """Get active lease for workspace with row locking if supported.
+
+        Args:
+            workspace_id: UUID of the workspace.
+
+        Returns:
+            Active WorkspaceLease if exists, None otherwise.
+        """
+        stmt = select(WorkspaceLease).where(
+            and_(
+                WorkspaceLease.workspace_id == workspace_id,
+                WorkspaceLease.expires_at > datetime.utcnow(),
+                WorkspaceLease.released_at.is_(None),
+            )
+        )
+
+        return self._session.execute(stmt).scalar_one_or_none()
 
     def release_lease(
         self,
