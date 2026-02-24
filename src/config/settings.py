@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     SANDBOX_PROFILE: str = "local_compose"
     """Sandbox provider profile: 'local_compose' or 'daytona'."""
 
+    # Idle TTL Configuration
+    SANDBOX_IDLE_TTL_SECONDS: int = 3600
+    """Idle time-to-live in seconds before auto-stopping sandboxes.
+
+    Sandboxes with no activity for longer than this TTL are eligible
+    for automatic stop. Minimum: 60 seconds, Maximum: 86400 seconds (24 hours).
+    Default: 3600 seconds (1 hour).
+    """
+
     # Daytona Provider Configuration (used when SANDBOX_PROFILE=daytona)
     DAYTONA_API_TOKEN: str = ""
     """Daytona API token for Cloud or self-hosted authentication."""
