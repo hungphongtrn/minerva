@@ -73,14 +73,24 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
     def _to_info(self, ref: str, data: Dict[str, Any]) -> SandboxInfo:
         """Convert internal data to SandboxInfo DTO."""
+        # Pack binding metadata for observability and parity assertions
+        pack_bound = data.get("pack_bound", False)
+        pack_source_path = data.get("pack_source_path")
+
+        metadata = {
+            "compose_file": self._compose_file_path,
+            "local_only": True,
+            "pack_bound": pack_bound,
+        }
+
+        if pack_bound and pack_source_path:
+            metadata["pack_source_path"] = pack_source_path
+
         return SandboxInfo(
             ref=SandboxRef(
                 provider_ref=ref,
                 profile=self.PROFILE,
-                metadata={
-                    "compose_file": self._compose_file_path,
-                    "local_only": True,
-                },
+                metadata=metadata,
             ),
             state=data["state"],
             health=data["health"],
@@ -122,6 +132,10 @@ class LocalComposeSandboxProvider(SandboxProvider):
         1. Start in HYDRATING state
         2. Transition to READY after simulated startup
         3. Mark as HEALTHY
+
+        Pack binding:
+        - If config.pack_source_path is provided, binds pack into sandbox
+        - Pack bind status exposed in provider metadata
         """
         ref = self._generate_ref(config.workspace_id)
 
@@ -137,6 +151,9 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
         now = datetime.now(timezone.utc)
 
+        # Pack binding: store pack info if provided
+        pack_bound = config.pack_source_path is not None
+
         # Start in HYDRATING state
         self._sandboxes[ref] = {
             "workspace_id": config.workspace_id,
@@ -146,6 +163,8 @@ class LocalComposeSandboxProvider(SandboxProvider):
             "last_activity_at": now,
             "config": config,
             "provider_state": "creating",
+            "pack_bound": pack_bound,
+            "pack_source_path": config.pack_source_path,
         }
 
         # Simulate async provisioning delay

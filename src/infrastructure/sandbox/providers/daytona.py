@@ -128,16 +128,26 @@ class DaytonaSandboxProvider(SandboxProvider):
         else:
             health = SandboxHealth.UNKNOWN
 
+        # Pack binding metadata for observability and parity assertions
+        pack_bound = data.get("pack_bound", False)
+        pack_source_path = data.get("pack_source_path")
+
+        metadata = {
+            "base_url": self._base_url,
+            "is_cloud": self._is_cloud,
+            "region": self._target_region,
+            "daytona_state": data.get("provider_state"),
+            "pack_bound": pack_bound,
+        }
+
+        if pack_bound and pack_source_path:
+            metadata["pack_source_path"] = pack_source_path
+
         return SandboxInfo(
             ref=SandboxRef(
                 provider_ref=ref,
                 profile=self.PROFILE,
-                metadata={
-                    "base_url": self._base_url,
-                    "is_cloud": self._is_cloud,
-                    "region": self._target_region,
-                    "daytona_state": data.get("provider_state"),
-                },
+                metadata=metadata,
             ),
             state=data["state"],
             health=health,
@@ -181,6 +191,10 @@ class DaytonaSandboxProvider(SandboxProvider):
         2. Wait for workspace to be ready
         3. Attach workspace
         4. Mark READY
+
+        Pack binding:
+        - If config.pack_source_path is provided, binds pack into workspace
+        - Pack bind status exposed in provider metadata
         """
         ref = self._generate_ref(config.workspace_id)
 
@@ -196,6 +210,9 @@ class DaytonaSandboxProvider(SandboxProvider):
 
         now = datetime.now(timezone.utc)
 
+        # Pack binding: store pack info if provided
+        pack_bound = config.pack_source_path is not None
+
         # Start in HYDRATING state (Daytona "creating")
         self._sandboxes[ref] = {
             "workspace_id": config.workspace_id,
@@ -206,6 +223,8 @@ class DaytonaSandboxProvider(SandboxProvider):
             "config": config,
             "provider_state": "creating",
             "daytona_id": ref,
+            "pack_bound": pack_bound,
+            "pack_source_path": config.pack_source_path,
         }
 
         # Simulate async provisioning

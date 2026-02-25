@@ -301,6 +301,70 @@ class TestSemanticParityLifecycle:
                     f"{provider.profile}: Expected UNHEALTHY health"
                 )
 
+    @pytest.mark.asyncio
+    async def test_pack_binding_metadata_parity_local_compose(self):
+        """Local compose provider exposes pack binding in metadata with expected contract."""
+        provider = LocalComposeSandboxProvider()
+        workspace_id = uuid4()
+        pack_path = "/test/agent/pack"
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=pack_path,
+        )
+
+        info = await provider.provision_sandbox(config)
+
+        # Pack binding semantics
+        assert info.ref.metadata.get("pack_bound") is True, (
+            "Local compose should mark pack_bound=True when pack_source_path provided"
+        )
+        assert info.ref.metadata.get("pack_source_path") == pack_path, (
+            "Local compose should expose pack_source_path in metadata"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pack_binding_metadata_parity_daytona(self):
+        """Daytona provider exposes pack binding in metadata with expected contract."""
+        provider = DaytonaSandboxProvider(api_token="test-token")
+        workspace_id = uuid4()
+        pack_path = "/test/agent/pack"
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=pack_path,
+        )
+
+        info = await provider.provision_sandbox(config)
+
+        # Pack binding semantics
+        assert info.ref.metadata.get("pack_bound") is True, (
+            "Daytona should mark pack_bound=True when pack_source_path provided"
+        )
+        assert info.ref.metadata.get("pack_source_path") == pack_path, (
+            "Daytona should expose pack_source_path in metadata"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pack_binding_noop_when_no_pack_provided(self, providers):
+        """All providers handle no-pack provisioning without errors."""
+        for provider in providers:
+            workspace_id = uuid4()
+            config = SandboxConfig(
+                workspace_id=workspace_id,
+                pack_source_path=None,  # No pack
+            )
+
+            info = await provider.provision_sandbox(config)
+
+            # Pack binding should be False/None
+            assert info.ref.metadata.get("pack_bound") is False, (
+                f"{provider.profile}: pack_bound should be False when no pack"
+            )
+            assert info.ref.metadata.get("pack_source_path") is None, (
+                f"{provider.profile}: pack_source_path should not be in metadata when no pack"
+            )
+
 
 class TestProviderSpecificBehavior:
     """Test provider-specific configuration and behavior."""
