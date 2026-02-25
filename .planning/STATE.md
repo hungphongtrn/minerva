@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 2.1 of 5 (Bridge Agent Pack Sandbox to Picoclaw Runtime)
-- **Plan status:** Phase 2.1 in progress (Plan 01 complete, 02-03 pending)
-- **Execution status:** Plan 2.1-01 complete - bridge service implemented with health-first execution
-- **Progress bar:** [████████░░] 33%
-- **Last completed:** Plan 2.1-01 (Picoclaw bridge service)
+- **Plan status:** Phase 2.1 in progress (Plan 01-02 complete, 03 pending)
+- **Execution status:** Plan 2.1-02 complete - provisioning runtime surface with config generation and materialization
+- **Progress bar:** [██████████] 67%
+- **Last completed:** Plan 2.1-02 (bridge provisioning runtime surface)
 
 ```mermaid
 flowchart LR
@@ -57,7 +57,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 2.1/5
-- **Completed plans:** 22/24 (Phase 2: 21/21, Phase 2.1: 1/3)
+- **Completed plans:** 23/24 (Phase 2: 21/21, Phase 2.1: 2/3)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -162,6 +162,9 @@ flowchart LR
 | D-02-16-002 | 2026-02-25 | 02-16 | TTL Cleanup Enforcement in Routing Path | Request-time TTL cleanup ensures consistent policy enforcement on every routing decision |
 | D-02-16-003 | 2026-02-25 | 02-16 | Observable TTL Metadata in API Responses | TTL cleanup status exposed via response fields for user verification and debugging |
 | D-02-17-001 | 2026-02-25 | 02-17 | Infrastructure Errors Take Precedence Over Workspace Resolution | Provider failures are infrastructure issues (5xx), must be checked before client errors (4xx) to prevent misclassification |
+| D-2.1-02-001 | 2026-02-25 | 2.1-02 | Reuse Existing Pack Digest for Stale Detection | Use AgentPack.source_digest for stale detection instead of inventing new digest algorithm |
+| D-2.1-02-002 | 2026-02-25 | 2.1-02 | Unique Bridge Auth Token Per Sandbox | Generate unique bridge auth token using secrets.token_urlsafe for security isolation |
+| D-2.1-02-003 | 2026-02-25 | 2.1-02 | Credentials From Environment Variables | Sensitive values (API keys, tokens) come from env vars, not embedded in config.json |
 
 ### Roadmap Evolution
 
@@ -198,6 +201,7 @@ flowchart LR
 - [x] Execute Plan 02-15: Close UAT Test 7 gap with bounded lease contention
 - [x] Execute Plan 02-17: Close Truth 11 gap with daytona profile parity and CI evidence
 - [x] Execute Plan 2.1-01: Implement Picoclaw bridge service with health-first fail-closed flow
+- [x] Execute Plan 2.1-02: Extend provisioning with bridge config generation and snapshot materialization
 
 ### Blockers
 
@@ -211,14 +215,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `2.1-01-SUMMARY.md` (Picoclaw bridge service with health-first execution)
-- **Last activity:** 2026-02-25 - Completed plan 2.1-01 (PicoclawBridgeService implementation, 22 tests, bridge configuration)
+- **Last completed artifact:** `2.1-02-SUMMARY.md` (bridge provisioning runtime surface)
+- **Last activity:** 2026-02-25 - Completed plan 2.1-02 (provisioning with config generation and snapshot materialization)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 2.1 - Plans 02 and 03 (provision runtime, wire /runs)
-- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-01-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 2.1-01 complete (bridge service with health polling, bearer auth, typed errors, deterministic retry)
-- **Commits:** 40ffba2 (2.1-01 bridge service implementation)
+- **Next plans:** Phase 2.1 - Plan 03 (wire /runs to execute through bridge)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-02-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 2.1-02 complete (SandboxConfig extended with pack_digest/runtime_bridge_config, snapshot materialization, unique bridge tokens)
+- **Commits:** 6ad63a6 (2.1-02 provisioning runtime surface)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 2.1-01 complete - PicoclawBridgeService with health-first execution, bearer auth, typed errors. All 22 tests pass.)*
+*Updated: 2026-02-25 (Plan 2.1-02 complete - provisioning with bridge config generation, snapshot materialization, stale detection metadata. All tests pass.)*
