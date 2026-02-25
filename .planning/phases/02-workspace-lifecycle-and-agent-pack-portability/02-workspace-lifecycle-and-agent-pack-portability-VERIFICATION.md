@@ -1,22 +1,39 @@
 ---
 phase: 02-workspace-lifecycle-and-agent-pack-portability
-verified: 2026-02-25T06:52:47Z
-status: passed
-score: 9/9 must-haves verified
+verified: 2026-02-25T09:08:47Z
+status: gaps_found
+score: 10/11 must-haves verified
 re_verification:
-  previous_status: passed
-  previous_score: 8/8
+  previous_status: human_needed
+  previous_score: 11/11
   gaps_closed: []
-  gaps_remaining: []
-  regressions: []
+  gaps_remaining:
+    - "Real BYOC profile parity run is failing for daytona on valid-pack routing path"
+  regressions:
+    - "Cross-profile parity truth regressed from pending-human to failed after real BYOC evidence"
+gaps:
+  - truth: "A registered valid agent pack runs with equivalent semantics across local_compose and daytona BYOC profiles"
+    status: failed
+    reason: "Real parity evidence shows profile divergence: local profile passes run-routing suite, daytona profile returns HTTP 400 for valid-pack run path where local does not"
+    artifacts:
+      - path: "src/scripts/phase2_profile_parity_harness.py"
+        issue: "Harness reports overall FAIL with local PASS and daytona FAIL in CI mode under .env-backed credentials"
+      - path: "src/tests/integration/test_phase2_run_routing_errors.py"
+        issue: "`TestFailFastRouting.test_run_does_not_fail_with_pack_error_for_valid_pack` fails under daytona profile (expected [201,503,500], got 400)"
+      - path: "src/api/routes/runs.py"
+        issue: "Run endpoint still emits a 400-class routing result for valid pack in daytona runtime path, violating parity outcome contract"
+    missing:
+      - "Fix daytona valid-pack routing path so successful/infra-failure outcomes match local semantics (no 400 pack/routing client error for valid pack)"
+      - "Add/adjust deterministic test coverage proving valid-pack response parity across local_compose and daytona with real credentials"
+      - "Re-run parity harness in CI mode with .env credentials and capture PASS for both profiles"
 ---
 
 # Phase 2: Workspace Lifecycle and Agent Pack Portability Verification Report
 
 **Phase Goal:** Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring.
-**Verified:** 2026-02-25T06:52:47Z
-**Status:** passed
-**Re-verification:** No - initial verification for this run (previous report existed with no open gaps section)
+**Verified:** 2026-02-25T09:08:47Z
+**Status:** gaps_found
+**Re-verification:** Yes - after human-run parity evidence
 
 ## Goal Achievement
 
@@ -24,41 +41,38 @@ re_verification:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | A user sees continuity across sessions because the same persistent workspace is reused | ✓ VERIFIED | `POST /workspaces/bootstrap` reuses existing workspace (`src/api/routes/workspaces.py:113`, `src/services/workspace_lifecycle_service.py:255`); acceptance test verifies same `workspace_id` on repeated bootstrap (`src/tests/integration/test_phase2_acceptance.py:60`). |
-| 2 | A user can scaffold `AGENT.md`, `SOUL.md`, `IDENTITY.md`, `skills/` and register as an agent pack without manual infra wiring | ✓ VERIFIED | Scaffold route/service implement required artifacts and traversal-safe generation (`src/api/routes/agent_packs.py:142`, `src/services/agent_scaffold_service.py:53`, `src/services/agent_scaffold_service.py:278`); acceptance tests validate scaffold + register flow (`src/tests/integration/test_phase2_acceptance.py:100`). |
-| 3 | The same registered agent pack runs with equivalent semantics in local Compose and Daytona BYOC profiles | ✓ VERIFIED | Cross-profile parity test asserts matching `pack_bound` and `pack_source_path` semantics (`src/tests/integration/test_phase2_acceptance.py:744`); provider-level parity tests also validate both providers (`src/tests/services/test_sandbox_provider_adapters.py:617`, `src/tests/services/test_sandbox_provider_adapters.py:639`). |
-| 4 | Request routing prefers existing healthy sandbox, otherwise provisions/hydrates replacement with workspace attached | ✓ VERIFIED | Orchestrator routes first healthy candidate and provisions replacement when none healthy (`src/services/sandbox_orchestrator_service.py:149`); workspace resolve endpoint delegates through lifecycle with lease and routing (`src/api/routes/workspaces.py:183`, `src/services/workspace_lifecycle_service.py:191`). |
-| 5 | Concurrent writes serialize per workspace, unhealthy sandboxes are excluded, idle TTL auto-stop is enforced | ✓ VERIFIED | Lease acquisition conflict handling in lifecycle (`src/services/workspace_lifecycle_service.py:169`) and lease tests (`src/tests/integration/test_phase2_acceptance.py:304`); unhealthy exclusion in orchestrator (`src/services/sandbox_orchestrator_service.py:203`) and security tests (`src/tests/integration/test_phase2_security_regressions.py:603`); TTL eligibility/stop paths implemented (`src/services/sandbox_orchestrator_service.py:384`, `src/services/sandbox_orchestrator_service.py:432`) and tested (`src/tests/integration/test_phase2_acceptance.py:374`). |
-| 6 | Daytona provider is SDK-backed (not simulated in lifecycle operations) | ✓ VERIFIED | Provider imports and uses real `AsyncDaytona`/`DaytonaConfig` across lifecycle methods (`src/infrastructure/sandbox/providers/daytona.py:18`, `src/infrastructure/sandbox/providers/daytona.py:254`, `src/infrastructure/sandbox/providers/daytona.py:314`, `src/infrastructure/sandbox/providers/daytona.py:397`); SDK call-path tests pass (`src/tests/services/test_sandbox_provider_adapters.py:903`). |
-| 7 | Pack binding is preserved through run/lifecycle/orchestrator into provider metadata across profiles | ✓ VERIFIED | `agent_pack_id` propagates through lifecycle to orchestrator (`src/services/workspace_lifecycle_service.py:196`, `src/services/workspace_lifecycle_service.py:349`), orchestrator resolves `pack_source_path` and passes it to provider config (`src/services/sandbox_orchestrator_service.py:332`, `src/services/sandbox_orchestrator_service.py:347`), providers expose metadata contract (`src/infrastructure/sandbox/providers/local_compose.py:155`, `src/infrastructure/sandbox/providers/daytona.py:310`). |
-| 8 | Fail-closed behavior holds for unknown/error states in Daytona and unknown profiles/config edges | ✓ VERIFIED | Daytona unknown/error state mapping and SDK-error fail-closed behavior in provider (`src/infrastructure/sandbox/providers/daytona.py:146`, `src/infrastructure/sandbox/providers/daytona.py:285`, `src/infrastructure/sandbox/providers/daytona.py:347`) and security tests (`src/tests/integration/test_phase2_security_regressions.py:365`, `src/tests/integration/test_phase2_security_regressions.py:457`); factory rejects unsupported profile and self-hosted Daytona without API key (`src/infrastructure/sandbox/providers/factory.py:66`, `src/infrastructure/sandbox/providers/factory.py:109`). |
-| 9 | Phase 2 completion evidence from gap closures is present and green | ✓ VERIFIED | All 12 summaries (`02-01`..`02-12`) exist; required suites run green: provider adapters `58 passed`, acceptance `27 passed`, security regressions `24 passed` via `uv run pytest src/tests/services/test_sandbox_provider_adapters.py -q`, `uv run pytest src/tests/integration/test_phase2_acceptance.py -q`, `uv run pytest src/tests/integration/test_phase2_security_regressions.py -q`. |
+| 1 | User workspace is durable and reused across sessions | ✓ VERIFIED | Workspace lifecycle reuse path remains implemented and covered (`src/services/workspace_lifecycle_service.py:255`, `src/tests/integration/test_phase2_acceptance.py:60`). |
+| 2 | User can scaffold required template artifacts and register an agent pack | ✓ VERIFIED | Scaffold + register routes/services remain substantive and wired (`src/services/agent_scaffold_service.py:53`, `src/api/routes/agent_packs.py:174`, `src/api/routes/agent_packs.py:287`). |
+| 3 | Routing prefers healthy active sandbox and provisions replacement otherwise | ✓ VERIFIED | Resolve path still routes through orchestrator selection/provisioning (`src/services/sandbox_orchestrator_service.py:205`, `src/services/sandbox_orchestrator_service.py:232`). |
+| 4 | Lease serialization, unhealthy exclusion, and TTL policy are enforced | ✓ VERIFIED | Lease gating and TTL request-path cleanup remain in code and tests (`src/services/workspace_lifecycle_service.py:169`, `src/services/sandbox_orchestrator_service.py:189`). |
+| 5 | Daytona provider is SDK-backed and fail-closed | ✓ VERIFIED | Daytona provider uses `AsyncDaytona` and fail-closed handling (`src/infrastructure/sandbox/providers/daytona.py:18`, `src/infrastructure/sandbox/providers/daytona.py:285`). |
+| 6 | 02-13 durability behavior persists across request boundaries | ✓ VERIFIED | Request-scoped commit/rollback remains wired in DB dependency and integration override (`src/db/session.py:93`, `src/tests/integration/conftest.py:77`). |
+| 7 | 02-13 resolve path reuses healthy sandbox rather than ID churn | ✓ VERIFIED | Reuse assertions remain in durability integration tests (`src/tests/integration/test_phase2_transaction_durability.py:266`). |
+| 8 | 02-14 pack-based run routing preserves deterministic fail-fast contract | ✓ VERIFIED | Error typing/map implementation remains present and wired (`src/services/run_service.py:492`, `src/api/routes/runs.py:162`, `src/api/routes/runs.py:274`). |
+| 9 | 02-15 lease contention is bounded, retryable, and service remains responsive | ✓ VERIFIED | Lease retry/lock-conflict contract remains implemented (`src/services/workspace_lease_service.py:194`, `src/db/repositories/workspace_lease_repository.py:101`). |
+| 10 | 02-16 TTL-expired sandboxes are stopped before routing and exposed in API output | ✓ VERIFIED | TTL cleanup metadata still propagated to resolve response (`src/services/sandbox_orchestrator_service.py:190`, `src/api/routes/workspaces.py:320`). |
+| 11 | Registered valid pack runs with equivalent semantics in local_compose and daytona BYOC | ✗ FAILED | New real parity run with `.env` credentials fails daytona path: harness `--mode ci` => overall FAIL (local PASS/daytona FAIL); direct profile test run shows `SANDBOX_PROFILE=daytona` has 1 failing test (`test_run_does_not_fail_with_pack_error_for_valid_pack`) returning 400 instead of [201,503,500], while local profile is 13/13 passing. |
 
-**Score:** 9/9 truths verified
+**Score:** 10/11 truths verified
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-01-SUMMARY.md` .. `02-12-SUMMARY.md` | All 12 plan summaries exist | ✓ VERIFIED | Verified 12 files present, including gap-closure summaries `02-11-SUMMARY.md` and `02-12-SUMMARY.md`. |
-| `src/infrastructure/sandbox/providers/daytona.py` | SDK-backed Daytona provider with semantic/fail-closed mapping | ✓ VERIFIED | Exists, substantive (580 lines), imports `AsyncDaytona` and executes SDK-backed `get/create/stop` flows; no in-memory sandbox registry. |
-| `src/infrastructure/sandbox/providers/factory.py` | Fail-closed provider factory/config behavior | ✓ VERIFIED | Exists, substantive (170 lines), rejects unsupported profile and self-hosted Daytona missing key (`SandboxConfigurationError`). |
-| `src/tests/services/test_sandbox_provider_adapters.py` | Provider parity and Daytona SDK adapter contract tests | ✓ VERIFIED | Exists, substantive (1295 lines), suite passes with `58 passed`; includes `TestDaytonaSdkBackedProvider`, parity, and fail-closed classes. |
-| `src/tests/integration/test_phase2_acceptance.py` | End-to-end phase acceptance including pack-binding parity | ✓ VERIFIED | Exists, substantive (1114 lines), suite passes with `27 passed`; includes `TestWorkspaceContinuity`, `TestAgentPackScaffoldFlow`, `TestRegisteredPackBindingParity`. |
-| `src/tests/integration/test_phase2_security_regressions.py` | SECU-05 isolation/policy and Daytona fail-closed regressions | ✓ VERIFIED | Exists, substantive (779 lines), suite passes with `24 passed`; includes `TestDaytonaSdkFailClosedHandling`. |
+| `src/services/run_service.py` | Fail-fast routing contract with typed routing errors | ✓ VERIFIED | Exists (587 lines), substantive, returns typed `routing_error_type` for route mapping (`src/services/run_service.py:499`). |
+| `src/api/routes/runs.py` | Deterministic HTTP mapping for routing errors | ⚠️ PARTIAL | Exists (381 lines), substantive and wired, but real daytona valid-pack runtime currently produces a 400 outcome that breaks parity expectation. |
+| `src/scripts/phase2_profile_parity_harness.py` | Automatable local/daytona parity verification workflow | ✓ VERIFIED | Exists (424 lines), substantive, runs both profiles under `SANDBOX_PROFILE` in CI mode (`src/scripts/phase2_profile_parity_harness.py:282`, `src/scripts/phase2_profile_parity_harness.py:295`). |
+| `src/tests/integration/test_phase2_run_routing_errors.py` | Regression coverage for fail-fast and profile parity semantics | ✓ VERIFIED | Exists (415 lines), substantive, includes explicit valid-pack non-400 assertion (`src/tests/integration/test_phase2_run_routing_errors.py:242`). |
+| `src/infrastructure/sandbox/providers/daytona.py` | SDK-backed Daytona lifecycle adapter | ✓ VERIFIED | Exists (580 lines), substantive, uses real SDK context for get/create/health/stop (`src/infrastructure/sandbox/providers/daytona.py:254`, `src/infrastructure/sandbox/providers/daytona.py:314`). |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `src/api/routes/workspaces.py` | `src/services/workspace_lifecycle_service.py` | `resolve_target(...)` | ✓ WIRED | Resolve endpoint routes through lifecycle with lease and verified workspace ownership (`src/api/routes/workspaces.py:254`). |
-| `src/services/workspace_lifecycle_service.py` | `src/services/sandbox_orchestrator_service.py` | `_orchestrator.resolve_sandbox(... agent_pack_id=...)` | ✓ WIRED | Lifecycle converts optional pack ID to UUID and forwards to orchestrator (`src/services/workspace_lifecycle_service.py:334`, `src/services/workspace_lifecycle_service.py:349`). |
-| `src/services/sandbox_orchestrator_service.py` | provider adapters | `provider.get_health(...)` then `provider.provision_sandbox(...)` | ✓ WIRED | Health-aware route-or-provision path implemented (`src/services/sandbox_orchestrator_service.py:185`, `src/services/sandbox_orchestrator_service.py:354`). |
-| `src/services/sandbox_orchestrator_service.py` | pack repository | `AgentPackRepository.get_by_id(...)` validation gates | ✓ WIRED | Fail-closed pack validation (exists/ownership/active/valid) before provisioning (`src/services/sandbox_orchestrator_service.py:285`-`src/services/sandbox_orchestrator_service.py:329`). |
-| `src/infrastructure/sandbox/providers/factory.py` | `src/infrastructure/sandbox/providers/daytona.py` | `_create_daytona_provider()` | ✓ WIRED | Factory instantiates Daytona provider with resolved SDK configuration (`src/infrastructure/sandbox/providers/factory.py:94`). |
-| `src/infrastructure/sandbox/providers/daytona.py` | Daytona SDK | `async with AsyncDaytona(config=...)` and SDK methods | ✓ WIRED | Real SDK context used in active lookup, provision, health, stop, attach, and update activity paths (`src/infrastructure/sandbox/providers/daytona.py:254`, `src/infrastructure/sandbox/providers/daytona.py:314`, `src/infrastructure/sandbox/providers/daytona.py:358`). |
-| `src/tests/integration/test_phase2_acceptance.py` | local/daytona runtime parity | `TestRegisteredPackBindingParity` | ✓ WIRED | Cross-profile test compares both profiles for matching pack-binding semantics (`src/tests/integration/test_phase2_acceptance.py:744`). |
-| `src/tests/integration/test_phase2_security_regressions.py` | Daytona fail-closed routing | `TestDaytonaSdkFailClosedHandling` | ✓ WIRED | Unknown/error SDK responses and unhealthy-routing exclusion are explicitly tested (`src/tests/integration/test_phase2_security_regressions.py:365`, `src/tests/integration/test_phase2_security_regressions.py:526`). |
+| `src/scripts/phase2_profile_parity_harness.py` | `src/tests/integration/test_phase2_run_routing_errors.py` | Profile-switched pytest subprocess (`SANDBOX_PROFILE`) | ✓ WIRED | Harness executes same test file in local/daytona (`src/scripts/phase2_profile_parity_harness.py:149`, `src/scripts/phase2_profile_parity_harness.py:156`). |
+| `src/api/routes/runs.py` | `src/services/run_service.py` | `execute_with_routing` + `_map_routing_error` | ✓ WIRED | Route maps service routing error types into deterministic HTTP responses (`src/api/routes/runs.py:142`, `src/api/routes/runs.py:163`). |
+| `src/services/run_service.py` | `src/services/workspace_lifecycle_service.py` | `resolve_target(...)` | ✓ WIRED | Run service gates execution on lifecycle routing success (`src/services/run_service.py:364`, `src/services/run_service.py:492`). |
+| Real daytona runtime | Valid-pack run API contract | `POST /api/v1/runs` with `agent_pack_id` | ✗ NOT_WIRED (behavioral) | Human-run evidence shows daytona emits 400 for valid pack path where parity contract expects non-400 outcome. |
 
 ### Requirements Coverage
 
@@ -66,7 +80,7 @@ re_verification:
 | --- | --- | --- |
 | AGNT-01 | ✓ SATISFIED | None |
 | AGNT-02 | ✓ SATISFIED | None |
-| AGNT-03 | ✓ SATISFIED | None |
+| AGNT-03 | ✗ BLOCKED | Cross-profile runtime parity is failing in real daytona execution (valid-pack run path returns 400). |
 | WORK-01 | ✓ SATISFIED | None |
 | WORK-02 | ✓ SATISFIED | None |
 | WORK-03 | ✓ SATISFIED | None |
@@ -79,14 +93,15 @@ re_verification:
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `src/services/sandbox_orchestrator_service.py` | 521 | Global idle listing currently returns empty when workspace scope omitted | ⚠️ Warning | Does not block Phase 2 goal (workspace-scoped TTL path is implemented), but limits global sweep behavior. |
-| `src/infrastructure/sandbox/providers/daytona.py` | 549 | `mark_unhealthy()` is synthetic test helper (no SDK-side state mutation) | ℹ️ Info | Test compatibility helper only; production routing still relies on SDK health checks and fail-closed mapping. |
+| `src/api/routes/runs.py` | 255 | Placeholder comment in `get_run` endpoint | ⚠️ Warning | Not a direct blocker for Phase 2 goal, but indicates unfinished non-critical endpoint behavior. |
+| `src/services/run_service.py` | 258 | Placeholder execution note in `execute_run` docstring | ℹ️ Info | Full execution engine deferred to later phases; routing contract is the relevant Phase 2 scope. |
+| Runtime evidence (daytona profile) | N/A | Valid-pack run returns 400 in parity test | 🛑 Blocker | Breaks required local/daytona parity for registered pack execution. |
 
 ### Gaps Summary
 
-No blocker gaps found. Phase 2 goal is achieved in code and verified by passing acceptance/security/provider suites. Required gap-closure artifacts (02-11, 02-12) are substantive and wired: Daytona uses real AsyncDaytona SDK paths, provider factory fail-closes expected misconfiguration/unknown profile cases, cross-profile pack-binding semantics are preserved, and fail-closed routing behavior is covered by security regressions.
+Phase 2 remains structurally implemented, but the new real parity evidence converts the prior human-only uncertainty into a concrete blocker: daytona profile does not preserve valid-pack run outcome parity with local profile. Because the phase goal explicitly requires portability across local Docker Compose and BYOC profiles without manual rewiring, this runtime divergence is a must-have failure and blocks full goal achievement.
 
 ---
 
-_Verified: 2026-02-25T06:52:47Z_
+_Verified: 2026-02-25T09:08:47Z_
 _Verifier: OpenCode (gsd-verifier)_
