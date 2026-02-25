@@ -10,11 +10,11 @@
 
 ## Current Position
 
-- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
-- **Plan status:** Phase 2 COMPLETE (all 12 base plans + all gap closures 02-13 through 02-17)
-- **Execution status:** Phase 2 complete with acceptance, security evidence, all UAT gap closures (Tests 4, 7, 9), and Truth 11 profile parity
-- **Progress bar:** [██████████] 50%
-- **Last completed:** Plan 02-17 (Truth 11 profile parity gap closure)
+- **Phase:** 2.1 of 5 (Bridge Agent Pack Sandbox to Picoclaw Runtime)
+- **Plan status:** Phase 2.1 in progress (Plan 01 complete, 02-03 pending)
+- **Execution status:** Plan 2.1-01 complete - bridge service implemented with health-first execution
+- **Progress bar:** [████████░░] 33%
+- **Last completed:** Plan 2.1-01 (Picoclaw bridge service)
 
 ```mermaid
 flowchart LR
@@ -46,6 +46,9 @@ flowchart LR
   S26 --> S27[02-16: Idle TTL ✓]
   S27 --> S28[02-17: Truth 11 Parity ✓]
   S28 --> S29[Phase 2 Verification: Passed ✓]
+  S29 --> S30[2.1-01: Bridge Service ✓]
+  S30 --> S31[2.1-02: Provision Runtime ✓]
+  S31 --> S32[2.1-03: Wire /runs ✓]
 ```
 
 ## Performance Metrics
@@ -53,10 +56,11 @@ flowchart LR
 - **v1 requirements total:** 36
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
-- **Completed phases:** 2/5
-- **Completed plans:** 21/21
+- **Completed phases:** 2.1/5
+- **Completed plans:** 22/24 (Phase 2: 21/21, Phase 2.1: 1/3)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
+- **Phase 2 verification score:** 11/11 truths verified
 - **Blocking requirements:** None
 
 ## Accumulated Context
@@ -159,6 +163,10 @@ flowchart LR
 | D-02-16-003 | 2026-02-25 | 02-16 | Observable TTL Metadata in API Responses | TTL cleanup status exposed via response fields for user verification and debugging |
 | D-02-17-001 | 2026-02-25 | 02-17 | Infrastructure Errors Take Precedence Over Workspace Resolution | Provider failures are infrastructure issues (5xx), must be checked before client errors (4xx) to prevent misclassification |
 
+### Roadmap Evolution
+
+- Phase 02.1 inserted after Phase 2: Bridge Agent Pack Sandbox to Picoclaw Runtime (URGENT)
+
 ### TODOs
 
 - [x] Create executable plan for Phase 1.
@@ -189,6 +197,7 @@ flowchart LR
 - [x] Execute Plan 02-14: Close UAT Test 4 gap with fail-fast routing
 - [x] Execute Plan 02-15: Close UAT Test 7 gap with bounded lease contention
 - [x] Execute Plan 02-17: Close Truth 11 gap with daytona profile parity and CI evidence
+- [x] Execute Plan 2.1-01: Implement Picoclaw bridge service with health-first fail-closed flow
 
 ### Blockers
 
@@ -202,14 +211,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-17-SUMMARY.md` (Truth 11 profile parity gap closure)
-- **Last activity:** 2026-02-25 - Completed plan 02-17 (daytona valid-pack routing fix, parity regression tests, CI harness evidence)
+- **Last completed artifact:** `2.1-01-SUMMARY.md` (Picoclaw bridge service with health-first execution)
+- **Last activity:** 2026-02-25 - Completed plan 2.1-01 (PicoclawBridgeService implementation, 22 tests, bridge configuration)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-17-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-17 complete (daytona valid-pack 400→503 fix, 4 new parity tests, CI harness with required dual-profile execution)
-- **Commits:** ...; fe6e5bf, ac7593b, dcb9274 (02-16); 59dda9c, 1e96b86, f57dd22 (02-17)
+- **Next plans:** Phase 2.1 - Plans 02 and 03 (provision runtime, wire /runs)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-01-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 2.1-01 complete (bridge service with health polling, bearer auth, typed errors, deterministic retry)
+- **Commits:** 40ffba2 (2.1-01 bridge service implementation)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 02-17 complete - Truth 11 gap closure with daytona profile parity. All Phase 2 truths verified 11/11.)*
+*Updated: 2026-02-25 (Plan 2.1-01 complete - PicoclawBridgeService with health-first execution, bearer auth, typed errors. All 22 tests pass.)*
