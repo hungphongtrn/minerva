@@ -86,8 +86,13 @@ Plans:
 - [x] 02-08-PLAN.md — Re-green Phase 2 acceptance plus SECU-05 suites and capture final gap-closure evidence.
 - [x] 02-09-PLAN.md — Wire run-to-provider `agent_pack_id` propagation with fail-closed validation before provisioning.
 - [x] 02-10-PLAN.md — Implement provider pack-binding parity and close UAT Test 4 with end-to-end acceptance coverage.
-- [ ] 02-11-PLAN.md — Replace Daytona simulated adapter behavior with real API-backed lifecycle interactions.
-- [ ] 02-12-PLAN.md — Add acceptance/security evidence for Daytona API-backed routing and fail-closed semantics.
+- [x] 02-11-PLAN.md — Replace Daytona simulated adapter behavior with real API-backed lifecycle interactions.
+- [x] 02-12-PLAN.md — Add acceptance/security evidence for Daytona API-backed routing and fail-closed semantics.
+- [x] 02-13-PLAN.md — Close transaction durability gap with request-scoped boundaries.
+- [x] 02-14-PLAN.md — Close UAT Test 4 gap with fail-fast routing and pack-specific error semantics.
+- [x] 02-15-PLAN.md — Close UAT Test 7 gap with bounded lease contention handling.
+- [x] 02-16-PLAN.md — Close UAT Test 9 gap with idle TTL enforcement and observability.
+- [x] 02-17-PLAN.md — Close Truth 11 gap with profile parity verification (valid pack never returns 400 in daytona).
 
 ### Phase 3 - Persistence and Checkpoint Recovery
 

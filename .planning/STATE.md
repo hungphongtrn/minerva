@@ -40,6 +40,12 @@ flowchart LR
   S20 --> S21[02-10: Provider Pack Binding ✓]
   S21 --> S22[02-11: Daytona SDK Provider ✓]
   S22 --> S23[02-12: SDK Acceptance/Security ✓]
+  S23 --> S24[02-13: Transaction Boundaries ✓]
+  S24 --> S25[02-14: Fail-Fast Routing ✓]
+  S25 --> S26[02-15: Lease Contention ✓]
+  S26 --> S27[02-16: Idle TTL ✓]
+  S27 --> S28[02-17: Truth 11 Parity ✓]
+  S28 --> S29[Phase 2 Verification: Passed ✓]
 ```
 
 ## Performance Metrics
@@ -48,7 +54,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 2/5
-- **Completed plans:** 19/19
+- **Completed plans:** 21/21
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Blocking requirements:** None
