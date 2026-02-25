@@ -551,7 +551,7 @@ class RunService:
 
         error_lower = error_msg.lower()
 
-        # Pack-specific errors
+        # Pack-specific errors (client errors - 4xx)
         if "agent pack not found" in error_lower:
             return RoutingErrorType.PACK_NOT_FOUND
         if "does not belong to workspace" in error_lower:
@@ -563,18 +563,37 @@ class RunService:
         if "stale" in error_lower:
             return RoutingErrorType.PACK_STALE
 
-        # Lease/concurrency errors
+        # Lease/concurrency errors (409)
         if "lease" in error_lower and (
             "conflict" in error_lower or "acquire" in error_lower
         ):
             return RoutingErrorType.LEASE_CONFLICT
 
-        # Provider/infrastructure errors
-        if "provision failed" in error_lower:
+        # Provider/infrastructure errors (5xx - must be checked BEFORE workspace_resolution)
+        # These are provider/runtime failures, not client errors
+        if "provision" in error_lower and "failed" in error_lower:
             return RoutingErrorType.SANDBOX_PROVISION_FAILED
-        if "provider" in error_lower:
+        if "failed to provision" in error_lower:
+            return RoutingErrorType.SANDBOX_PROVISION_FAILED
+        if (
+            "provider unavailable" in error_lower
+            or "provider" in error_lower
+            and "unavailable" in error_lower
+        ):
             return RoutingErrorType.PROVIDER_UNAVAILABLE
-        if "workspace" in error_lower and "resolution" in error_lower:
+        if "daytona" in error_lower and (
+            "error" in error_lower or "failed" in error_lower
+        ):
+            # Daytona provider errors are infrastructure failures
+            return RoutingErrorType.SANDBOX_PROVISION_FAILED
+
+        # Workspace resolution errors (400) - checked AFTER infrastructure errors
+        # Only match explicit workspace resolution failures, not provider errors
+        if (
+            "workspace" in error_lower
+            and "resolution" in error_lower
+            and "not found" in error_lower
+        ):
             return RoutingErrorType.WORKSPACE_RESOLUTION_FAILED
 
         return RoutingErrorType.ROUTING_FAILED
