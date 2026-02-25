@@ -58,6 +58,28 @@ class Settings(BaseSettings):
     DAYTONA_TARGET_REGION: str = "us"
     """Deprecated: Use DAYTONA_TARGET instead. Backward compatibility."""
 
+    # Picoclaw Bridge Configuration
+    PICOCLAW_BRIDGE_TOKEN: str = ""
+    """Bearer token for Picoclaw gateway authentication.
+    
+    Set per-sandbox via environment variable. Leave empty for development.
+    """
+
+    # Bridge Configuration (accessed as PICOCLAW_BRIDGE dict)
+    PICOCLAW_BRIDGE: dict = {}
+    """Bridge timeout/retry/auth configuration.
+
+    Supports nested configuration:
+    - HEALTH_TIMEOUT: seconds (default: 10)
+    - HEALTH_RETRIES: count (default: 3)
+    - HEALTH_BACKOFF: seconds (default: 1.0)
+    - EXECUTE_TIMEOUT: seconds (default: 300)
+    - EXECUTE_RETRIES: count (default: 0)
+
+    Example:
+        PICOCLAW_BRIDGE='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
+    """
+
 
 # Global settings instance
 settings = Settings()
