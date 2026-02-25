@@ -92,18 +92,35 @@ def _create_local_compose_provider() -> LocalComposeSandboxProvider:
 
 
 def _create_daytona_provider() -> DaytonaSandboxProvider:
-    """Create a DaytonaSandboxProvider with configuration from settings."""
-    # Validate Daytona configuration
-    if settings.SANDBOX_PROFILE == "daytona" and not settings.DAYTONA_API_TOKEN:
-        raise SandboxConfigurationError(
-            "DAYTONA_API_TOKEN is required when SANDBOX_PROFILE=daytona. "
-            "Set the DAYTONA_API_TOKEN environment variable."
-        )
+    """Create a DaytonaSandboxProvider with configuration from settings.
+
+    Validates SDK configuration and fails closed if credentials are missing
+    for non-cloud deployments.
+    """
+    # Resolve API key from new or legacy settings
+    api_key = settings.DAYTONA_API_KEY or settings.DAYTONA_API_TOKEN or None
+
+    # Validate Daytona configuration for self-hosted mode
+    if settings.SANDBOX_PROFILE == "daytona":
+        # Check if we're in self-hosted mode (has custom API URL)
+        api_url = settings.DAYTONA_API_URL or settings.DAYTONA_BASE_URL or None
+        is_cloud = not api_url or "daytona.io" in api_url
+
+        if not is_cloud and not api_key:
+            raise SandboxConfigurationError(
+                "DAYTONA_API_KEY is required for self-hosted Daytona. "
+                "Set DAYTONA_API_KEY environment variable or use Daytona Cloud."
+            )
+
+    # Resolve target region
+    target = settings.DAYTONA_TARGET or settings.DAYTONA_TARGET_REGION or "us"
 
     return DaytonaSandboxProvider(
-        api_token=settings.DAYTONA_API_TOKEN or None,
+        api_key=api_key,
+        api_url=settings.DAYTONA_API_URL or None,
         base_url=settings.DAYTONA_BASE_URL or None,
-        target_region=settings.DAYTONA_TARGET_REGION,
+        target=target,
+        target_region=settings.DAYTONA_TARGET_REGION or None,
     )
 
 

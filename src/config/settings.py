@@ -36,18 +36,27 @@ class Settings(BaseSettings):
     """
 
     # Daytona Provider Configuration (used when SANDBOX_PROFILE=daytona)
+    DAYTONA_API_KEY: str = ""
+    """Daytona API key for Cloud or self-hosted authentication (SDK v2)."""
+
     DAYTONA_API_TOKEN: str = ""
-    """Daytona API token for Cloud or self-hosted authentication."""
+    """Deprecated: Use DAYTONA_API_KEY instead. Backward compatibility."""
 
-    DAYTONA_BASE_URL: str = ""
-    """Daytona API base URL. Leave empty for Daytona Cloud.
+    DAYTONA_API_URL: str = ""
+    """Daytona API URL. Leave empty for Daytona Cloud (SDK v2).
 
-    Set to self-hosted Daytona URL (e.g., 'https://daytona.example.com/v1')
+    Set to self-hosted Daytona URL (e.g., 'https://api.daytona.io')
     for BYOC mode. Empty value defaults to Daytona Cloud.
     """
 
+    DAYTONA_BASE_URL: str = ""
+    """Deprecated: Use DAYTONA_API_URL instead. Backward compatibility."""
+
+    DAYTONA_TARGET: str = "us"
+    """Target region for Daytona Cloud workspaces (default: 'us') (SDK v2)."""
+
     DAYTONA_TARGET_REGION: str = "us"
-    """Target region for Daytona Cloud workspaces (default: 'us')."""
+    """Deprecated: Use DAYTONA_TARGET instead. Backward compatibility."""
 
 
 # Global settings instance
