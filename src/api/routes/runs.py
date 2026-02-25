@@ -153,7 +153,20 @@ async def start_run(
 
     # Handle errors
     if result.status == "error":
-        # Check for lease conflict
+        # Extract routing error type from outputs if present
+        routing_error_type = (
+            result.outputs.get("routing_error_type") if result.outputs else None
+        )
+
+        # Map routing error types to appropriate HTTP status codes and details
+        if routing_error_type:
+            error_mapping = _map_routing_error(routing_error_type, result.error)
+            raise HTTPException(
+                status_code=error_mapping["status_code"],
+                detail=error_mapping["detail"],
+            )
+
+        # Check for lease conflict (legacy check for non-routing errors)
         if result.error and (
             "lease" in result.error.lower() or "conflict" in result.error.lower()
         ):
@@ -162,7 +175,7 @@ async def start_run(
                 detail={
                     "error": result.error,
                     "error_type": "lease_conflict",
-                    "action": "Retry after current operation completes",
+                    "remediation": "Retry after current operation completes",
                 },
             )
         raise HTTPException(
@@ -188,21 +201,27 @@ async def start_run(
 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
-    # Check for routing issues (sandbox unavailable)
+    # Check for infrastructure-level sandbox unavailability
+    # Note: Pack-specific failures are caught earlier with proper 4xx codes
     routing_info = result.outputs.get("routing", {}) if result.outputs else {}
-    if not routing_info.get("sandbox_id") and not is_guest_principal(principal):
-        # Non-guest run without sandbox
+    has_sandbox = routing_info.get("sandbox_id")
+    has_routing_error = result.outputs and result.outputs.get("routing_error_type")
+    is_guest = is_guest_principal(principal)
+
+    if not has_sandbox and not is_guest and not has_routing_error:
+        # Non-guest run without sandbox and no specific routing error type
+        # This indicates an infrastructure-level unavailability
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
                 "error": "No healthy sandbox available",
+                "error_type": "sandbox_unavailable",
                 "workspace_id": routing_info.get("workspace_id"),
-                "action": "Retry request or contact support",
+                "remediation": "Sandbox provider infrastructure unavailable; retry or contact support",
             },
         )
 
     # Build response
-    is_guest = is_guest_principal(principal)
     message = (
         "Run executed in guest mode (non-persistent)"
         if is_guest
@@ -249,4 +268,114 @@ async def get_run(
         "run_id": run_id,
         "status": "not_implemented",
         "message": "Run retrieval not yet implemented",
+    }
+
+
+def _map_routing_error(error_type: str, error_message: str) -> dict:
+    """Map routing error type to HTTP response.
+
+    Provides deterministic error typing and remediation guidance
+    for pack-specific routing failures.
+
+    Args:
+        error_type: The routing error type from RunService.
+        error_message: The error message from routing failure.
+
+    Returns:
+        Dict with status_code and detail for HTTPException.
+    """
+    from src.services.run_service import RoutingErrorType
+
+    # Pack-specific errors (4xx client errors)
+    if error_type == RoutingErrorType.PACK_NOT_FOUND:
+        return {
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "detail": {
+                "error": error_message,
+                "error_type": "pack_not_found",
+                "remediation": "Verify agent_pack_id is correct and the pack is registered",
+            },
+        }
+
+    if error_type == RoutingErrorType.PACK_WORKSPACE_MISMATCH:
+        return {
+            "status_code": status.HTTP_403_FORBIDDEN,
+            "detail": {
+                "error": error_message,
+                "error_type": "pack_workspace_mismatch",
+                "remediation": "Use a pack belonging to the current workspace or switch workspaces",
+            },
+        }
+
+    if error_type == RoutingErrorType.PACK_INVALID:
+        return {
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "detail": {
+                "error": error_message,
+                "error_type": "pack_invalid",
+                "remediation": "Re-register the pack after fixing validation errors (check /agent-packs/validate)",
+            },
+        }
+
+    if error_type == RoutingErrorType.PACK_STALE:
+        return {
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "detail": {
+                "error": error_message,
+                "error_type": "pack_stale",
+                "remediation": "Re-register the pack to refresh from source path",
+            },
+        }
+
+    # Lease/concurrency errors (409)
+    if error_type == RoutingErrorType.LEASE_CONFLICT:
+        return {
+            "status_code": status.HTTP_409_CONFLICT,
+            "detail": {
+                "error": error_message,
+                "error_type": "lease_conflict",
+                "remediation": "Retry after current operation completes",
+            },
+        }
+
+    # Infrastructure errors (503 for true unavailability)
+    if error_type == RoutingErrorType.PROVIDER_UNAVAILABLE:
+        return {
+            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "detail": {
+                "error": error_message,
+                "error_type": "provider_unavailable",
+                "remediation": "Sandbox provider is unavailable; retry or contact support",
+            },
+        }
+
+    if error_type == RoutingErrorType.SANDBOX_PROVISION_FAILED:
+        return {
+            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "detail": {
+                "error": error_message,
+                "error_type": "sandbox_provision_failed",
+                "remediation": "Sandbox provisioning failed; retry or check provider status",
+            },
+        }
+
+    # Workspace resolution errors (400)
+    if error_type == RoutingErrorType.WORKSPACE_RESOLUTION_FAILED:
+        return {
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "detail": {
+                "error": error_message,
+                "error_type": "workspace_resolution_failed",
+                "remediation": "Ensure workspace exists or enable auto_create_workspace",
+            },
+        }
+
+    # Default fallback (generic routing failure)
+    return {
+        "status_code": status.HTTP_400_BAD_REQUEST,
+        "detail": {
+            "error": error_message,
+            "error_type": "routing_failed",
+            "remediation": "Routing failed; check error details and retry",
+        },
     }
