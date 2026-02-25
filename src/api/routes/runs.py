@@ -371,11 +371,14 @@ def _map_routing_error(error_type: str, error_message: str) -> dict:
         }
 
     # Default fallback (generic routing failure)
+    # Use 500 for uncategorized errors to avoid misclassifying infrastructure
+    # failures as client errors. Valid-pack runtime failures should never
+    # fall through to this default (they should be categorized as 503).
     return {
-        "status_code": status.HTTP_400_BAD_REQUEST,
+        "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         "detail": {
             "error": error_message,
             "error_type": "routing_failed",
-            "remediation": "Routing failed; check error details and retry",
+            "remediation": "Routing failed due to unexpected error; check error details and retry",
         },
     }

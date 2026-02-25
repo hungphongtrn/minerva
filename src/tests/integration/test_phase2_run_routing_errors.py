@@ -361,7 +361,13 @@ class TestErrorContract:
 
 
 class TestProfileParity:
-    """Tests for cross-profile parity (local_compose vs daytona)."""
+    """Tests for cross-profile parity (local_compose vs daytona).
+
+    Parity contract: A registered valid agent pack never returns pack/routing
+    client-error semantics (400/403/404 pack_* or workspace_resolution_failed)
+    in either local_compose or daytona profiles. Valid-pack failures, when they
+    occur, must be infrastructure-class (503/500) and equivalent across profiles.
+    """
 
     def test_routing_error_types_consistent_across_profiles(
         self, client: TestClient, owner_headers: dict
@@ -395,6 +401,127 @@ class TestProfileParity:
         # Should fail fast with 400 before any sandbox provisioning
         assert response.status_code == 400
         assert "not valid" in response.json()["detail"]["error"].lower()
+
+    def test_valid_pack_never_returns_pack_client_errors(
+        self,
+        client: TestClient,
+        owner_headers: dict,
+        sample_agent_pack: AgentPack,
+    ):
+        """Valid pack must never return 4xx pack_* or workspace_resolution errors.
+
+        This is the core parity contract: valid packs should only return:
+        - 201: Success
+        - 503: Infrastructure unavailability (provider failure)
+        - 500: Unexpected server error
+
+        They must NOT return:
+        - 404 pack_not_found
+        - 403 pack_workspace_mismatch
+        - 400 pack_invalid, pack_stale, workspace_resolution_failed
+        """
+        response = client.post(
+            "/api/v1/runs",
+            headers=owner_headers,
+            json={
+                "agent_pack_id": str(sample_agent_pack.id),
+                "input": {},
+                "allowed_hosts": ["*"],
+            },
+        )
+
+        # Valid pack must not return pack-specific 4xx errors
+        if response.status_code in [400, 403, 404]:
+            data = response.json()
+            detail = data.get("detail", {})
+            if isinstance(detail, dict):
+                error_type = detail.get("error_type", "")
+                # These are the forbidden error types for valid packs
+                forbidden_types = [
+                    "pack_not_found",
+                    "pack_invalid",
+                    "pack_stale",
+                    "pack_workspace_mismatch",
+                    "workspace_resolution_failed",
+                ]
+                assert error_type not in forbidden_types, (
+                    f"Valid pack returned forbidden error_type '{error_type}'. "
+                    f"Valid packs must not return pack/routing client errors."
+                )
+
+        # Response must be in the acceptable range for valid packs
+        assert response.status_code in [
+            201,
+            503,
+            500,
+        ], f"Valid pack returned {response.status_code}, expected 201, 503, or 500"
+
+    def test_invalid_pack_returns_client_errors_not_infrastructure(
+        self,
+        client: TestClient,
+        owner_headers: dict,
+        invalid_agent_pack: AgentPack,
+    ):
+        """Invalid packs must return client errors (4xx), not infrastructure errors (5xx).
+
+        This verifies that pack validation failures are correctly classified
+        as client errors and don't masquerade as infrastructure failures.
+        """
+        response = client.post(
+            "/api/v1/runs",
+            headers=owner_headers,
+            json={"agent_pack_id": str(invalid_agent_pack.id)},
+        )
+
+        # Invalid pack should return 4xx, not 5xx
+        assert response.status_code in [
+            400,
+            403,
+            404,
+        ], f"Invalid pack returned {response.status_code}, expected 4xx client error"
+
+        data = response.json()
+        detail = data.get("detail", {})
+        error_type = detail.get("error_type", "")
+
+        # Should be a pack-specific error, not infrastructure
+        infrastructure_types = ["provider_unavailable", "sandbox_provision_failed"]
+        assert error_type not in infrastructure_types, (
+            f"Invalid pack returned infrastructure error_type '{error_type}'. "
+            f"Pack validation failures must be client errors."
+        )
+
+    def test_error_type_determinism_for_same_scenario(
+        self,
+        client: TestClient,
+        owner_headers: dict,
+    ):
+        """Same scenario must produce same error type across requests.
+
+        This ensures deterministic behavior for API consumers.
+        """
+        nonexistent_pack_id = str(uuid4())
+
+        # First request
+        response1 = client.post(
+            "/api/v1/runs",
+            headers=owner_headers,
+            json={"agent_pack_id": nonexistent_pack_id},
+        )
+
+        # Second request with same pack_id
+        response2 = client.post(
+            "/api/v1/runs",
+            headers=owner_headers,
+            json={"agent_pack_id": nonexistent_pack_id},
+        )
+
+        # Both should have same status and error_type
+        assert response1.status_code == response2.status_code
+
+        detail1 = response1.json().get("detail", {})
+        detail2 = response2.json().get("detail", {})
+        assert detail1.get("error_type") == detail2.get("error_type")
 
 
 # ============================================================================
