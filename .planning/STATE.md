@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
-- **Plan status:** Phase 2 COMPLETE (all 12 base plans + all gap closures 02-13 through 02-15)
-- **Execution status:** Phase 2 complete with acceptance, security evidence, and all UAT gap closures
-- **Progress bar:** [████████░░] 48%
-- **Last completed:** Plan 02-15 (UAT Test 7 lease contention blocker closure)
+- **Plan status:** Phase 2 COMPLETE (all 12 base plans + all gap closures 02-13 through 02-16)
+- **Execution status:** Phase 2 complete with acceptance, security evidence, and all UAT gap closures (Tests 4, 7, 9)
+- **Progress bar:** [██████████] 50%
+- **Last completed:** Plan 02-16 (UAT Test 9 idle TTL enforcement closure)
 
 ```mermaid
 flowchart LR
@@ -148,6 +148,9 @@ flowchart LR
 | D-02-15-001 | 2026-02-25 | 02-15 | Bounded Lease Contention with Exponential Backoff | 10s max wait with exponential backoff (50ms-500ms) prevents indefinite hangs while giving legitimate operations time to complete |
 | D-02-15-002 | 2026-02-25 | 02-15 | Explicit FOR UPDATE Row Locking | Pessimistic row locking ensures deterministic serialization without relying on unique constraint races |
 | D-02-15-003 | 2026-02-25 | 02-15 | CONFLICT_RETRYABLE with Retry Guidance | Contention timeout returns explicit retry_after_seconds guidance instead of generic errors |
+| D-02-16-001 | 2026-02-25 | 02-16 | Provider Singleton Pattern for Integration Tests | Integration tests need shared provider state to properly validate health check behavior |
+| D-02-16-002 | 2026-02-25 | 02-16 | TTL Cleanup Enforcement in Routing Path | Request-time TTL cleanup ensures consistent policy enforcement on every routing decision |
+| D-02-16-003 | 2026-02-25 | 02-16 | Observable TTL Metadata in API Responses | TTL cleanup status exposed via response fields for user verification and debugging |
 
 ### TODOs
 
@@ -174,6 +177,8 @@ flowchart LR
 - [x] Execute Plan 02-11: Replace Daytona simulation with SDK-backed lifecycle
 - [x] Execute Plan 02-12: Add acceptance and security evidence for Daytona SDK
 - [x] Execute Plan 02-13: Close durability gap with transaction boundaries and regression coverage
+- [x] Execute Plan 02-14: Close UAT Test 4 gap with fail-fast routing and pack-specific errors
+- [x] Execute Plan 02-16: Close UAT Test 9 with idle TTL enforcement and observability
 - [x] Execute Plan 02-14: Close UAT Test 4 gap with fail-fast routing
 - [x] Execute Plan 02-15: Close UAT Test 7 gap with bounded lease contention
 
@@ -189,14 +194,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-15-SUMMARY.md` (UAT Test 7 lease contention blocker closure)
-- **Last activity:** 2026-02-25 - Completed plan 02-15 (8 new tests, bounded contention contract, DB lock safeguards)
+- **Last completed artifact:** `02-16-SUMMARY.md` (UAT Test 9 idle TTL enforcement closure)
+- **Last activity:** 2026-02-25 - Completed plan 02-16 (9 new tests, TTL cleanup enforcement, response observability)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-15-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-15 complete (bounded lease contention, fail-fast lock timeouts, 8 concurrency regression tests)
-- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); cc6de40, 686a589, ce684ae, a48e3f3 (02-13); f661268, 6fcdd45, aca0d6b (02-14); a8186af, 60ecea0, 6a00f0c (02-15)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-16-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 02-16 complete (idle TTL enforcement in routing path, TTL cleanup observability API, 9 persistence regression tests)
+- **Commits:** ...; a8186af, 60ecea0, 6a00f0c (02-15); fe6e5bf, ac7593b, dcb9274 (02-16)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 02-15 complete - UAT Test 7 gap closure with bounded lease contention, DB lock safeguards, and 8 concurrency regression tests)*
+*Updated: 2026-02-25 (Plan 02-16 complete - UAT Test 9 gap closure with idle TTL enforcement, response observability, 9 TTL regression tests. Phase 2 COMPLETE.)*
