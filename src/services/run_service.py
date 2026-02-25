@@ -42,6 +42,29 @@ class RunResult:
     outputs: Optional[Dict[str, Any]] = None
 
 
+class RoutingErrorType:
+    """Error type constants for routing failures.
+
+        Provides deterministic error categorization for API consumers
+    to handle different routing failure scenarios programmatically.
+    """
+
+    # Pack-specific errors (4xx range)
+    PACK_NOT_FOUND = "pack_not_found"
+    PACK_WORKSPACE_MISMATCH = "pack_workspace_mismatch"
+    PACK_INVALID = "pack_invalid"
+    PACK_STALE = "pack_stale"
+
+    # Lease/Concurrency errors (409)
+    LEASE_CONFLICT = "lease_conflict"
+
+    # Infrastructure errors (5xx range)
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
+    SANDBOX_PROVISION_FAILED = "sandbox_provision_failed"
+    WORKSPACE_RESOLUTION_FAILED = "workspace_resolution_failed"
+    ROUTING_FAILED = "routing_failed"
+
+
 @dataclass
 class RunRoutingResult:
     """Result of resolving routing target for a run.
@@ -56,6 +79,7 @@ class RunRoutingResult:
     sandbox_health: Optional[str] = None
     lease_acquired: bool = False
     error: Optional[str] = None
+    error_type: Optional[str] = None
     lifecycle_target: Optional[LifecycleTarget] = None
 
 
@@ -345,52 +369,84 @@ class RunService:
                 agent_pack_id=agent_pack_id,
             )
 
-            if target.error and not target.workspace:
-                # Failed to resolve workspace
+            # Fail-fast: workspace must exist for non-guest runs
+            if not target.workspace:
                 return RunRoutingResult(
                     success=False,
-                    error=f"Workspace resolution failed: {target.error}",
+                    error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
+                    error=f"Workspace resolution failed: {target.error or 'No workspace found'}",
                 )
 
-            # Build routing result
+            # Fail-fast: routing result must be successful
+            if not target.routing_result or not target.routing_result.success:
+                error_msg = target.error or (
+                    target.routing_result.message
+                    if target.routing_result
+                    else "Routing failed: no healthy sandbox available"
+                )
+                error_type = self._categorize_routing_error(error_msg)
+                return RunRoutingResult(
+                    success=False,
+                    workspace_id=str(target.workspace.id),
+                    error_type=error_type,
+                    error=error_msg,
+                    lease_acquired=target.lease_acquired,
+                    lifecycle_target=target,
+                )
+
+            # Fail-fast: sandbox must exist for successful routing
+            routing_result = target.routing_result
+            if not routing_result.sandbox:
+                error_type = self._categorize_routing_error(
+                    routing_result.message or ""
+                )
+                return RunRoutingResult(
+                    success=False,
+                    workspace_id=str(target.workspace.id),
+                    error_type=error_type,
+                    error=routing_result.message
+                    or "Routing failed: no sandbox provisioned",
+                    lease_acquired=target.lease_acquired,
+                    lifecycle_target=target,
+                )
+
+            # Extract sandbox info from successful routing
+            sandbox_id = str(routing_result.sandbox.id)
             sandbox_state = None
             sandbox_health = None
-            sandbox_id = None
 
-            if target.routing_result and target.routing_result.success:
-                routing_result = target.routing_result
-                if routing_result.sandbox:
-                    sandbox_id = str(routing_result.sandbox.id)
-                    if hasattr(routing_result.sandbox, "state"):
-                        state_val = routing_result.sandbox.state
-                        # Handle both enum (PostgreSQL) and string (SQLite) types
-                        if hasattr(state_val, "value"):
-                            sandbox_state = str(state_val.value)
-                        else:
-                            sandbox_state = str(state_val)
-                    if hasattr(routing_result.sandbox, "health_status"):
-                        health = routing_result.sandbox.health_status
-                        if health:
-                            # Handle both enum (PostgreSQL) and string (SQLite) types
-                            if hasattr(health, "value"):
-                                sandbox_health = str(health.value)
-                            else:
-                                sandbox_health = str(health)
+            if hasattr(routing_result.sandbox, "state"):
+                state_val = routing_result.sandbox.state
+                # Handle both enum (PostgreSQL) and string (SQLite) types
+                if hasattr(state_val, "value"):
+                    sandbox_state = str(state_val.value)
+                else:
+                    sandbox_state = str(state_val)
+            if hasattr(routing_result.sandbox, "health_status"):
+                health = routing_result.sandbox.health_status
+                if health:
+                    # Handle both enum (PostgreSQL) and string (SQLite) types
+                    if hasattr(health, "value"):
+                        sandbox_health = str(health.value)
+                    else:
+                        sandbox_health = str(health)
 
             return RunRoutingResult(
                 success=True,
-                workspace_id=str(target.workspace.id) if target.workspace else None,
+                workspace_id=str(target.workspace.id),
                 sandbox_id=sandbox_id,
                 sandbox_state=sandbox_state or "unknown",
                 sandbox_health=sandbox_health,
                 lease_acquired=target.lease_acquired,
-                error=target.error,
+                error=None,
+                error_type=None,
                 lifecycle_target=target,
             )
 
         except Exception as e:
             return RunRoutingResult(
                 success=False,
+                error_type=RoutingErrorType.ROUTING_FAILED,
                 error=f"Routing resolution failed: {str(e)}",
             )
 
@@ -434,11 +490,14 @@ class RunService:
         )
 
         if not routing.success:
-            return RunResult(
+            result = RunResult(
                 run_id=str(uuid4()),
                 status="error",
                 error=routing.error or "Failed to resolve routing target",
             )
+            # Include routing error type for API error mapping
+            result.outputs = {"routing_error_type": routing.error_type}
+            return result
 
         # Start the run
         context = self.start_run(
@@ -477,6 +536,48 @@ class RunService:
         }
 
         return result
+
+    def _categorize_routing_error(self, error_msg: str) -> str:
+        """Categorize routing error message into deterministic error type.
+
+        Args:
+            error_msg: The error message from routing failure.
+
+        Returns:
+            Error type constant from RoutingErrorType.
+        """
+        if not error_msg:
+            return RoutingErrorType.ROUTING_FAILED
+
+        error_lower = error_msg.lower()
+
+        # Pack-specific errors
+        if "agent pack not found" in error_lower:
+            return RoutingErrorType.PACK_NOT_FOUND
+        if "does not belong to workspace" in error_lower:
+            return RoutingErrorType.PACK_WORKSPACE_MISMATCH
+        if "is not valid" in error_lower:
+            return RoutingErrorType.PACK_INVALID
+        if "is not active" in error_lower:
+            return RoutingErrorType.PACK_STALE
+        if "stale" in error_lower:
+            return RoutingErrorType.PACK_STALE
+
+        # Lease/concurrency errors
+        if "lease" in error_lower and (
+            "conflict" in error_lower or "acquire" in error_lower
+        ):
+            return RoutingErrorType.LEASE_CONFLICT
+
+        # Provider/infrastructure errors
+        if "provision failed" in error_lower:
+            return RoutingErrorType.SANDBOX_PROVISION_FAILED
+        if "provider" in error_lower:
+            return RoutingErrorType.PROVIDER_UNAVAILABLE
+        if "workspace" in error_lower and "resolution" in error_lower:
+            return RoutingErrorType.WORKSPACE_RESOLUTION_FAILED
+
+        return RoutingErrorType.ROUTING_FAILED
 
 
 # Type alias for any principal
