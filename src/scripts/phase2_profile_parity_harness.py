@@ -269,12 +269,24 @@ def check_parity(local_result: ProfileResult, daytona_result: ProfileResult) -> 
 def run_ci_mode(args) -> int:
     """Run in CI mode: execute both profiles and check parity.
 
+    CI mode requires:
+    1. local_compose profile tests must pass
+    2. daytona profile tests must pass (credentials required)
+    3. Parity check must pass (both profiles have equivalent outcomes)
+
+    Unlike local mode, CI mode will FAIL if Daytona credentials are missing.
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
     print("=" * 70)
     print("PHASE 2 PROFILE PARITY HARNESS - CI MODE")
     print("=" * 70)
+    print("[HARNESS] CI mode requires both local_compose and daytona profiles")
+    print(
+        "[HARNESS] Truth 11: Valid pack runs with equivalent semantics across profiles"
+    )
+    print()
 
     report = ParityReport()
 
@@ -285,31 +297,40 @@ def run_ci_mode(args) -> int:
         test_filter=args.test_filter,
     )
 
-    # Check if Daytona credentials are available
+    # Check if Daytona credentials are available (REQUIRED in CI mode)
     daytona_api_key = os.environ.get("DAYTONA_API_KEY") or os.environ.get(
         "DAYTONA_API_TOKEN"
     )
 
-    if daytona_api_key:
-        # Run daytona profile
-        report.daytona_result = run_tests_for_profile(
-            "daytona",
-            verbose=args.verbose,
-            test_filter=args.test_filter,
+    if not daytona_api_key:
+        print("\n[HARNESS] ERROR: DAYTONA_API_KEY not set")
+        print(
+            "[HARNESS] CI mode requires Daytona credentials for profile parity verification"
         )
+        print("[HARNESS] Set DAYTONA_API_KEY environment variable")
+        report.overall_success = False
+        report.parity_check_passed = False
+        report.print_summary()
+        return 1
 
-        # Check parity
-        report.parity_check_passed = check_parity(
-            report.local_result, report.daytona_result
-        )
-    else:
-        print("\n[HARNESS] DAYTONA_API_KEY not set, skipping Daytona profile tests")
-        print("[HARNESS] Set DAYTONA_API_KEY to enable Daytona parity checks")
-        # Without Daytona, parity check is marked as N/A but not failed
-        report.parity_check_passed = True
+    # Run daytona profile (required in CI mode)
+    report.daytona_result = run_tests_for_profile(
+        "daytona",
+        verbose=args.verbose,
+        test_filter=args.test_filter,
+    )
 
-    # Overall success: local_compose must pass, parity must pass if Daytona available
-    report.overall_success = report.local_result.success and report.parity_check_passed
+    # Check parity between profiles
+    report.parity_check_passed = check_parity(
+        report.local_result, report.daytona_result
+    )
+
+    # Overall success: BOTH profiles must pass AND parity must pass
+    report.overall_success = (
+        report.local_result.success
+        and report.daytona_result.success
+        and report.parity_check_passed
+    )
 
     # Print summary
     report.print_summary()
@@ -317,6 +338,11 @@ def run_ci_mode(args) -> int:
     # Export results if requested
     if args.output:
         import json
+
+        # Ensure output directory exists
+        output_dir = os.path.dirname(args.output)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         with open(args.output, "w") as f:
             json.dump(report.to_dict(), f, indent=2)
