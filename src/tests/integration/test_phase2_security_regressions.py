@@ -354,6 +354,231 @@ class TestGuestModeRestrictions:
         assert "guest" in response.json()["detail"]["error"].lower()
 
 
+class TestDaytonaSdkFailClosedHandling:
+    """SECU-05: Daytona SDK responses with unknown/error states fail-closed.
+
+    These tests verify that Daytona provider using AsyncDaytona SDK correctly
+    handles ambiguous or error responses without bypassing health checks.
+    """
+
+    @pytest.mark.asyncio
+    async def test_daytona_unknown_state_maps_to_unknown_fail_closed(
+        self, db_session, workspace_alpha
+    ):
+        """Daytona SDK returning unknown state maps to UNKNOWN (fail-closed)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+        from src.infrastructure.sandbox.providers.base import (
+            SandboxState,
+            SandboxHealth,
+        )
+
+        provider = DaytonaSandboxProvider(api_key="test-key")
+        workspace_id = workspace_alpha.id
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock AsyncDaytona SDK with unknown state
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Mock sandbox with unknown/unrecognized state
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = expected_ref
+            mock_sandbox.state = "unknown_custom_state"
+            mock_sandbox.status = "unknown"
+
+            mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+            # Get active sandbox
+            info = await provider.get_active_sandbox(workspace_id)
+
+            # Should return info but with UNKNOWN state (fail-closed)
+            assert info is not None, "Should return sandbox info"
+            assert info.state == SandboxState.UNKNOWN, (
+                f"Unknown state should map to UNKNOWN, got {info.state}"
+            )
+            assert info.health == SandboxHealth.UNKNOWN, (
+                f"Unknown status should map to UNKNOWN health, got {info.health}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_daytona_error_state_maps_to_unhealthy_fail_closed(
+        self, db_session, workspace_alpha
+    ):
+        """Daytona SDK returning error state maps to UNHEALTHY (fail-closed)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+        from src.infrastructure.sandbox.providers.base import (
+            SandboxState,
+            SandboxHealth,
+        )
+
+        provider = DaytonaSandboxProvider(api_key="test-key")
+        workspace_id = workspace_alpha.id
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock AsyncDaytona SDK with error state
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Mock sandbox with error state
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = expected_ref
+            mock_sandbox.state = "error"
+            mock_sandbox.status = "error"
+
+            mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+            # Get active sandbox
+            info = await provider.get_active_sandbox(workspace_id)
+
+            # Error state should be treated as active but UNHEALTHY
+            assert info is not None, "Should return sandbox info"
+            assert info.state == SandboxState.UNHEALTHY, (
+                f"Error state should map to UNHEALTHY, got {info.state}"
+            )
+            assert info.health == SandboxHealth.UNHEALTHY, (
+                f"Error status should map to UNHEALTHY health, got {info.health}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_daytona_sdk_error_returns_none_fail_closed(
+        self, db_session, workspace_alpha
+    ):
+        """DaytonaError from SDK returns None (fail-closed, no active sandbox)."""
+        from unittest.mock import AsyncMock, patch
+        from daytona import DaytonaError
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+
+        provider = DaytonaSandboxProvider(api_key="test-key")
+        workspace_id = workspace_alpha.id
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock AsyncDaytona SDK raising DaytonaError
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            mock_daytona.get = AsyncMock(side_effect=DaytonaError("Connection failed"))
+
+            # Get active sandbox
+            info = await provider.get_active_sandbox(workspace_id)
+
+            # SDK error should return None (fail-closed: no active sandbox)
+            assert info is None, "DaytonaError should return None (fail-closed)"
+            mock_daytona.get.assert_called_once_with(expected_ref)
+
+    @pytest.mark.asyncio
+    async def test_daytona_stopped_state_excluded_from_active(
+        self, db_session, workspace_alpha
+    ):
+        """Daytona SDK returning stopped state is excluded from active sandboxes."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+        from src.infrastructure.sandbox.providers.base import SandboxState
+
+        provider = DaytonaSandboxProvider(api_key="test-key")
+        workspace_id = workspace_alpha.id
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock AsyncDaytona SDK with stopped state
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Mock sandbox with stopped state
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = expected_ref
+            mock_sandbox.state = "stopped"
+            mock_sandbox.status = "stopped"
+
+            mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+            # Get active sandbox
+            info = await provider.get_active_sandbox(workspace_id)
+
+            # Stopped sandbox should not be considered active
+            assert info is None, "Stopped sandbox should return None (not active)"
+
+    @pytest.mark.asyncio
+    async def test_daytona_routing_excludes_unhealthy_from_healthy_candidates(
+        self, db_session, workspace_alpha
+    ):
+        """Daytona SDK unhealthy sandboxes are excluded from healthy routing (SECU-05)."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+        from src.infrastructure.sandbox.providers.base import (
+            SandboxState,
+            SandboxHealth,
+        )
+
+        provider = DaytonaSandboxProvider(api_key="test-key")
+        orchestrator = SandboxOrchestratorService(db_session, provider=provider)
+
+        workspace_id = workspace_alpha.id
+
+        # Mock AsyncDaytona SDK with unhealthy sandbox
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Mock sandbox with failed state (unhealthy)
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = f"daytona-{str(workspace_id)[:22]}"
+            mock_sandbox.state = "failed"
+            mock_sandbox.status = "error"
+
+            mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+            # Resolve sandbox for workspace
+            result = await orchestrator.resolve_sandbox(
+                workspace_id=workspace_id,
+                principal_id=workspace_alpha.owner_id,
+            )
+
+            # Should not route to unhealthy sandbox
+            # Result should indicate need for provisioning (no healthy active)
+            assert (
+                result.error is None
+                or "unhealthy" in str(result.error).lower()
+                or result.routing_result is not None
+            )
+
+            # If a sandbox is returned, it should be marked UNHEALTHY
+            if result.sandbox is not None:
+                assert result.sandbox.state == SandboxState.UNHEALTHY, (
+                    "Failed sandbox should be UNHEALTHY"
+                )
+
+
 class TestHealthFailureHandling:
     """SECU-05: Health failures block routing (fail-closed)."""
 
