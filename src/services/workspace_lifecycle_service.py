@@ -122,6 +122,7 @@ class WorkspaceLifecycleService:
         lease_ttl_seconds: Optional[int] = None,
         env_vars: Optional[Dict[str, str]] = None,
         workspace: Optional[Workspace] = None,
+        agent_pack_id: Optional[str] = None,
     ) -> LifecycleTarget:
         """Resolve workspace and routing target for a principal.
 
@@ -139,6 +140,7 @@ class WorkspaceLifecycleService:
             lease_ttl_seconds: Lease TTL override (default: 5 minutes).
             env_vars: Optional environment variables for sandbox provisioning.
             workspace: Optional specific workspace to use (bypasses lookup).
+            agent_pack_id: Optional agent pack ID to bind to the sandbox.
 
         Returns:
             LifecycleTarget with workspace, lease status, and routing info.
@@ -186,11 +188,12 @@ class WorkspaceLifecycleService:
                         else "Lease acquisition failed",
                     )
 
-            # Step 3: Resolve sandbox target
+            # Step 3: Resolve sandbox target (with optional agent pack binding)
             routing_result = await self._resolve_sandbox(
                 workspace=workspace,
                 run_id=generated_run_id,
                 env_vars=env_vars,
+                agent_pack_id=agent_pack_id,
             )
 
             return LifecycleTarget(
@@ -307,6 +310,7 @@ class WorkspaceLifecycleService:
         workspace: Workspace,
         run_id: str,
         env_vars: Optional[Dict[str, str]] = None,
+        agent_pack_id: Optional[str] = None,
     ) -> Optional[SandboxRoutingResult]:
         """Resolve sandbox target for workspace.
 
@@ -314,6 +318,7 @@ class WorkspaceLifecycleService:
             workspace: Workspace to resolve sandbox for.
             run_id: Run identifier for tracking.
             env_vars: Optional environment variables.
+            agent_pack_id: Optional agent pack ID to bind to the sandbox.
 
         Returns:
             SandboxRoutingResult or None if resolution fails.
@@ -326,9 +331,25 @@ class WorkspaceLifecycleService:
             )
 
         try:
+            # Convert agent_pack_id string to UUID if provided
+            pack_id_uuid: Optional[UUID] = None
+            if agent_pack_id:
+                try:
+                    pack_id_uuid = UUID(agent_pack_id)
+                except ValueError:
+                    return SandboxRoutingResult(
+                        success=False,
+                        result=None,  # type: ignore
+                        sandbox=None,
+                        provider_info=None,
+                        message=f"Invalid agent_pack_id format: {agent_pack_id}",
+                        excluded_unhealthy=[],
+                    )
+
             result = await self._orchestrator.resolve_sandbox(
                 workspace_id=workspace.id,
                 env_vars=env_vars,
+                agent_pack_id=pack_id_uuid,
             )
             return result
         except Exception as e:

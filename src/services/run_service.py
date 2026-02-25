@@ -294,6 +294,7 @@ class RunService:
         principal: Any,
         session: Session,
         auto_create_workspace: bool = True,
+        agent_pack_id: Optional[str] = None,
     ) -> RunRoutingResult:
         """Resolve workspace and sandbox routing target for a run.
 
@@ -310,6 +311,7 @@ class RunService:
             principal: The requesting principal (authenticated or guest)
             session: Database session for workspace/sandbox operations
             auto_create_workspace: If True, create workspace if not exists
+            agent_pack_id: Optional agent pack ID to bind to the sandbox
 
         Returns:
             RunRoutingResult with routing target information
@@ -340,6 +342,7 @@ class RunService:
                 auto_create=auto_create_workspace,
                 acquire_lease=True,
                 run_id=run_id,
+                agent_pack_id=agent_pack_id,
             )
 
             if target.error and not target.workspace:
@@ -425,8 +428,10 @@ class RunService:
         Returns:
             RunResult with execution outcome
         """
-        # Resolve routing target first
-        routing = await self.resolve_routing_target(principal, session)
+        # Resolve routing target first, passing agent_pack_id for pack binding
+        routing = await self.resolve_routing_target(
+            principal, session, agent_pack_id=agent_pack_id
+        )
 
         if not routing.success:
             return RunResult(
