@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
-- **Plan status:** Phase 2 at 100% (all 12 plans complete)
-- **Execution status:** Phase 2 complete with acceptance and security evidence - 51 integration tests passing
+- **Plan status:** Phase 2 at 100% (all 12 base plans + gap closures 02-13 through 02-14 complete)
+- **Execution status:** Phase 2 complete with acceptance, security evidence, and UAT gap closures
 - **Progress bar:** [████████--] 48%
-- **Last completed:** Plan 02-12 (Acceptance and security evidence for Daytona SDK)
+- **Last completed:** Plan 02-14 (UAT Test 4 routing/error-contract gap closure)
 
 ```mermaid
 flowchart LR
@@ -138,6 +138,13 @@ flowchart LR
 | D-02-11-004 | 2026-02-25 | 02-11 | Pack Binding Metadata Preservation | Store pack binding info in metadata for routing layer observability |
 | D-02-12-001 | 2026-02-25 | 02-12 | SDK Mocking in Integration Tests | Use patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") for all Daytona SDK mocking |
 | D-02-12-002 | 2026-02-25 | 02-12 | Fix Missing Exception Imports | Auto-fix missing SandboxHealthCheckError and SandboxProviderError imports |
+| D-02-13-001 | 2026-02-25 | 02-13 | Request-Scoped Transaction Boundaries | Centralize commit/rollback in get_db() dependency for consistent durability across all mutating routes |
+| D-02-13-002 | 2026-02-25 | 02-13 | Production-Equivalent Test Transactions | Integration tests must exercise same commit/rollback lifecycle as production via aligned override_get_db |
+| D-02-13-003 | 2026-02-25 | 02-13 | Cross-Request Durability Verification | Durability regressions use separate HTTP requests to force verification of committed (not just flushed) state |
+| D-02-14-001 | 2026-02-25 | 02-14 | Fail-Fast Routing Semantics | Non-guest runs return success=False when lifecycle routing fails; prevents execution with null/invalid sandbox |
+| D-02-14-002 | 2026-02-25 | 02-14 | Error Type Constants Over String Matching | Use centralized RoutingErrorType class for deterministic error categorization |
+| D-02-14-003 | 2026-02-25 | 02-14 | 503 Reserved for Infrastructure Only | HTTP 503 reserved for provider/infrastructure unavailability, not pack validation failures (4xx) |
+| D-02-14-004 | 2026-02-25 | 02-14 | Remediation Guidance in Error Responses | All routing errors include 'remediation' field with actionable guidance for self-service debugging |
 
 ### TODOs
 
@@ -163,6 +170,7 @@ flowchart LR
 - [x] Execute Plan 02-10: Close UAT Test 4 gap with provider pack binding parity
 - [x] Execute Plan 02-11: Replace Daytona simulation with SDK-backed lifecycle
 - [x] Execute Plan 02-12: Add acceptance and security evidence for Daytona SDK
+- [x] Execute Plan 02-13: Close durability gap with transaction boundaries and regression coverage
 
 ### Blockers
 
@@ -176,14 +184,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-12-SUMMARY.md` (Phase 2 complete with 51 integration tests)
-- **Last activity:** 2026-02-25 - Completed plan 02-12 (Acceptance and security evidence for Daytona SDK)
+- **Last completed artifact:** `02-14-SUMMARY.md` (UAT Test 4 gap closure with fail-fast routing, pack-specific errors, and parity harness)
+- **Last activity:** 2026-02-25 - Completed plan 02-14 (13 new tests, fail-fast routing, automated parity harness)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-12-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-12 complete (51/51 integration tests passing, Phase 2 DONE)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08); 9a699a6, bb45c7e, 2eb7808, e7c09b4, 8b2c01a (02-09); 376b509, a84e965, e411abc (02-10); c428b18, 67b4542 (02-11); eb38f2e, bce24ad, f7a203b, 00fce49 (02-12)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (or continue Phase 2 gap closures)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-14-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 02-14 complete (fail-fast routing, pack-specific API errors, profile parity harness)
+- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); f661268, 6fcdd45, aca0d6b (02-14)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 02-11 complete - Daytona SDK-backed provider with 58 tests passing)*
+*Updated: 2026-02-25 (Plan 02-14 complete - UAT Test 4 gap closure with fail-fast routing, pack-specific errors, and 13 new tests)*
