@@ -1,6 +1,10 @@
-"""Database session management."""
+"""Database session management.
 
-from sqlalchemy import create_engine
+Provides request-scoped database sessions with transaction boundaries
+and lock-wait safeguards for contention handling.
+"""
+
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 from src.config.settings import settings
@@ -12,16 +16,47 @@ Base = declarative_base()
 _engine = None
 _SessionLocal = None
 
+# Default lock timeout in seconds (prevents indefinite waits)
+DEFAULT_LOCK_TIMEOUT_SECONDS = 5
+
 
 def get_engine():
-    """Get or create SQLAlchemy engine (lazy initialization)."""
+    """Get or create SQLAlchemy engine (lazy initialization).
+
+    Configures engine with database-specific lock timeout safeguards
+    to prevent indefinite waits during concurrent lease acquisition.
+    """
     global _engine
     if _engine is None:
+        connect_args = {}
+
+        # Configure lock timeouts based on database type
+        if settings.DATABASE_URL.startswith("sqlite"):
+            # SQLite: Use busy_timeout (milliseconds)
+            connect_args["timeout"] = DEFAULT_LOCK_TIMEOUT_SECONDS
+        elif settings.DATABASE_URL.startswith("postgresql"):
+            # PostgreSQL: Set lock_timeout (will apply per connection)
+            # Note: We use connect_args with options for PostgreSQL
+            connect_args["connect_timeout"] = DEFAULT_LOCK_TIMEOUT_SECONDS
+
         _engine = create_engine(
             settings.DATABASE_URL,
             echo=settings.DEBUG,
             future=True,
+            connect_args=connect_args,
         )
+
+        # Set PostgreSQL lock timeout via event listener for each connection
+        if settings.DATABASE_URL.startswith("postgresql"):
+
+            @event.listens_for(_engine, "connect")
+            def set_pg_lock_timeout(dbapi_conn, connection_record):
+                """Set lock timeout on PostgreSQL connections."""
+                with dbapi_conn.cursor() as cursor:
+                    cursor.execute(
+                        f"SET lock_timeout = '{DEFAULT_LOCK_TIMEOUT_SECONDS}s'"
+                    )
+
     return _engine
 
 
