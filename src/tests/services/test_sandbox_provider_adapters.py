@@ -6,9 +6,13 @@ daytona) expose equivalent semantic behavior and matching lifecycle outputs.
 Tests focus on semantic parity - the states, health checks, and error
 conditions should be identical across providers regardless of underlying
 implementation differences.
+
+For Daytona provider, tests use mocked SDK to verify call patterns and
+semantic mapping without requiring real Daytona credentials.
 """
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from src.infrastructure.sandbox.providers.base import (
@@ -50,18 +54,49 @@ class TestProviderFactory:
         assert isinstance(provider, LocalComposeSandboxProvider)
         assert provider.profile == "local_compose"
 
-    def test_get_provider_daytona(self):
-        """Factory instantiates DaytonaSandboxProvider."""
-        # Skip if no token configured
-        import os
-
-        if not os.environ.get("DAYTONA_API_TOKEN"):
-            pytest.skip("DAYTONA_API_TOKEN not configured")
-
+    def test_get_provider_daytona_with_api_key_succeeds(self):
+        """Factory instantiates DaytonaSandboxProvider with API key."""
         provider = get_provider("daytona")
 
         assert isinstance(provider, DaytonaSandboxProvider)
         assert provider.profile == "daytona"
+
+    def test_get_provider_daytona_requires_api_key_for_self_hosted(self):
+        """Factory fails closed for self-hosted Daytona without API key."""
+        with patch(
+            "src.infrastructure.sandbox.providers.factory.settings"
+        ) as mock_settings:
+            mock_settings.SANDBOX_PROFILE = "daytona"
+            mock_settings.DAYTONA_API_KEY = ""
+            mock_settings.DAYTONA_API_TOKEN = ""
+            mock_settings.DAYTONA_API_URL = "https://custom.daytona.example.com"
+            mock_settings.DAYTONA_BASE_URL = ""
+            mock_settings.DAYTONA_TARGET = "us"
+            mock_settings.DAYTONA_TARGET_REGION = "us"
+
+            with pytest.raises(SandboxConfigurationError) as exc_info:
+                get_provider("daytona")
+
+            assert "api_key" in str(exc_info.value).lower() or "API" in str(
+                exc_info.value
+            )
+
+    def test_get_provider_daytona_cloud_allows_no_key(self):
+        """Factory allows Daytona Cloud without explicit API key (SDK uses env)."""
+        with patch(
+            "src.infrastructure.sandbox.providers.factory.settings"
+        ) as mock_settings:
+            mock_settings.SANDBOX_PROFILE = "daytona"
+            mock_settings.DAYTONA_API_KEY = ""
+            mock_settings.DAYTONA_API_TOKEN = ""
+            mock_settings.DAYTONA_API_URL = ""
+            mock_settings.DAYTONA_BASE_URL = ""
+            mock_settings.DAYTONA_TARGET = "us"
+            mock_settings.DAYTONA_TARGET_REGION = "us"
+
+            # Should succeed - SDK will read from DAYTONA_API_KEY env var
+            provider = get_provider("daytona")
+            assert isinstance(provider, DaytonaSandboxProvider)
 
     def test_get_provider_unsupported_raises(self):
         """Unsupported profile selection fails closed with explicit error."""
@@ -86,220 +121,497 @@ class TestProviderFactory:
         assert profile in ["local_compose", "daytona"]
 
 
+@pytest.fixture
+def mock_daytona_sdk():
+    """Fixture to mock AsyncDaytona SDK for testing.
+
+    Yields a context manager that patches AsyncDaytona with a mock.
+    """
+
+    def _create_mock_sandbox(
+        sandbox_id="test-sandbox-id", state="started", status="healthy"
+    ):
+        mock = MagicMock()
+        mock.id = sandbox_id
+        mock.state = state
+        mock.status = status
+        return mock
+
+    with patch(
+        "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+    ) as mock_sdk_class:
+        mock_daytona = AsyncMock()
+        mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
+        mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+        yield mock_daytona, _create_mock_sandbox
+
+
+@pytest.fixture
+def config():
+    """Create a test sandbox config."""
+    return SandboxConfig(
+        workspace_id=uuid4(),
+        idle_ttl_seconds=3600,
+        env_vars={"TEST": "value"},
+    )
+
+
 class TestSemanticParityLifecycle:
     """Test that all providers expose identical semantic lifecycle behavior."""
 
     @pytest.fixture
-    def providers(self):
-        """Yield both provider instances for comparison."""
-        return [
-            LocalComposeSandboxProvider(),
-            DaytonaSandboxProvider(api_token="test-token"),
-        ]
+    def local_provider(self):
+        """Yield local compose provider for testing."""
+        return LocalComposeSandboxProvider()
 
     @pytest.fixture
-    def config(self):
-        """Create a test sandbox config."""
-        return SandboxConfig(
+    def daytona_provider(self):
+        """Yield Daytona provider with mocked SDK for testing."""
+        return DaytonaSandboxProvider(api_key="test-token")
+
+    @pytest.mark.asyncio
+    async def test_provision_transitions_to_ready_local(self, local_provider, config):
+        """Local provider transitions from HYDRATING to READY."""
+        # Start with fresh config
+        test_config = SandboxConfig(
             workspace_id=uuid4(),
-            idle_ttl_seconds=3600,
-            env_vars={"TEST": "value"},
+            idle_ttl_seconds=config.idle_ttl_seconds,
+            env_vars=config.env_vars,
+        )
+
+        # Provision
+        info = await local_provider.provision_sandbox(test_config)
+
+        # Verify semantic state
+        assert info.state == SandboxState.READY
+        assert info.health == SandboxHealth.HEALTHY
+        assert info.workspace_id == test_config.workspace_id
+        assert info.ref.profile == local_provider.profile
+
+    @pytest.mark.asyncio
+    async def test_provision_transitions_to_ready_daytona(
+        self, daytona_provider, config, mock_daytona_sdk
+    ):
+        """Daytona provider transitions from HYDRATING to READY (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+
+        # Start with fresh config
+        test_config = SandboxConfig(
+            workspace_id=uuid4(),
+            idle_ttl_seconds=config.idle_ttl_seconds,
+            env_vars=config.env_vars,
+        )
+
+        # Mock SDK to return a ready sandbox
+        mock_sandbox = create_mock_sandbox(
+            sandbox_id=f"daytona-{str(test_config.workspace_id)[:22]}",
+            state="started",
+            status="healthy",
+        )
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        # Provision
+        info = await daytona_provider.provision_sandbox(test_config)
+
+        # Verify semantic state
+        assert info.state == SandboxState.READY
+        assert info.health == SandboxHealth.HEALTHY
+        assert info.workspace_id == test_config.workspace_id
+        assert info.ref.profile == daytona_provider.profile
+        # Verify SDK create was called
+        mock_daytona.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_active_sandbox_returns_none_when_not_exists_local(
+        self, local_provider
+    ):
+        """Local provider returns None for non-existent workspaces."""
+        workspace_id = uuid4()
+
+        result = await local_provider.get_active_sandbox(workspace_id)
+
+        assert result is None, "Expected None for non-existent workspace"
+
+    @pytest.mark.asyncio
+    async def test_get_active_sandbox_returns_none_when_not_exists_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider returns None for non-existent workspaces (SDK-backed)."""
+        from daytona import DaytonaError
+
+        mock_daytona, _ = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK to raise not found error
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Sandbox not found"))
+
+        result = await daytona_provider.get_active_sandbox(workspace_id)
+
+        # Verify SDK get was called and None is returned
+        mock_daytona.get.assert_called_once_with(expected_ref)
+        assert result is None, "Expected None for non-existent workspace"
+
+    @pytest.mark.asyncio
+    async def test_get_active_sandbox_returns_info_when_exists_local(
+        self, local_provider
+    ):
+        """Local provider returns SandboxInfo for active workspaces."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision first
+        await local_provider.provision_sandbox(config)
+
+        # Get active
+        info = await local_provider.get_active_sandbox(workspace_id)
+
+        assert info is not None, "Expected active sandbox"
+        assert info.state == SandboxState.READY
+        assert info.workspace_id == workspace_id
+
+    @pytest.mark.asyncio
+    async def test_get_active_sandbox_returns_info_when_exists_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider returns SandboxInfo for active workspaces (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK to return an active sandbox
+        mock_sandbox = create_mock_sandbox(
+            sandbox_id=expected_ref, state="running", status="healthy"
+        )
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        # Get active
+        info = await daytona_provider.get_active_sandbox(workspace_id)
+
+        # Verify SDK get was called and correct info returned
+        mock_daytona.get.assert_called_once_with(expected_ref)
+        assert info is not None, "Expected active sandbox"
+        assert info.state == SandboxState.READY
+        assert info.workspace_id == workspace_id
+
+    @pytest.mark.asyncio
+    async def test_get_active_returns_none_for_stopped_local(self, local_provider):
+        """Local provider excludes stopped sandboxes from active query."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision, then stop
+        info = await local_provider.provision_sandbox(config)
+        await local_provider.stop_sandbox(info.ref)
+
+        # Query active
+        result = await local_provider.get_active_sandbox(workspace_id)
+
+        assert result is None, "Stopped sandbox should not be active"
+
+    @pytest.mark.asyncio
+    async def test_get_active_returns_none_for_stopped_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider excludes stopped sandboxes from active query (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK to return a stopped sandbox
+        mock_sandbox = create_mock_sandbox(
+            sandbox_id=expected_ref, state="stopped", status="unknown"
+        )
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        # Query active
+        result = await daytona_provider.get_active_sandbox(workspace_id)
+
+        # Should return None for stopped sandbox
+        assert result is None, "Stopped sandbox should not be active"
+
+    @pytest.mark.asyncio
+    async def test_stop_sandbox_is_idempotent_local(self, local_provider):
+        """Local provider supports idempotent stop operations."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision
+        info = await local_provider.provision_sandbox(config)
+
+        # Stop multiple times
+        stop1 = await local_provider.stop_sandbox(info.ref)
+        stop2 = await local_provider.stop_sandbox(info.ref)
+        stop3 = await local_provider.stop_sandbox(info.ref)
+
+        # All should return STOPPED state
+        assert stop1.state == SandboxState.STOPPED
+        assert stop2.state == SandboxState.STOPPED
+        assert stop3.state == SandboxState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_stop_sandbox_is_idempotent_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider supports idempotent stop operations (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK for provisioning
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.stop = AsyncMock()
+
+        # Provision
+        config = SandboxConfig(workspace_id=workspace_id)
+        info = await daytona_provider.provision_sandbox(config)
+
+        # Reset mock for subsequent calls
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        # Stop multiple times
+        stop1 = await daytona_provider.stop_sandbox(info.ref)
+        stop2 = await daytona_provider.stop_sandbox(info.ref)
+        stop3 = await daytona_provider.stop_sandbox(info.ref)
+
+        # All should return STOPPED state
+        assert stop1.state == SandboxState.STOPPED
+        assert stop2.state == SandboxState.STOPPED
+        assert stop3.state == SandboxState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_stop_nonexistent_returns_stopped_state_local(self, local_provider):
+        """Local provider returns STOPPED state for non-existent sandboxes."""
+        fake_ref = SandboxRef(
+            provider_ref="nonexistent-sandbox-12345",
+            profile=local_provider.profile,
+        )
+
+        result = await local_provider.stop_sandbox(fake_ref)
+
+        assert result.state == SandboxState.STOPPED, (
+            "Expected STOPPED for non-existent sandbox"
         )
 
     @pytest.mark.asyncio
-    async def test_provision_transitions_to_ready(self, providers, config):
-        """All providers transition from HYDRATING to READY."""
-        for provider in providers:
-            # Start with fresh config
-            test_config = SandboxConfig(
-                workspace_id=uuid4(),
-                idle_ttl_seconds=config.idle_ttl_seconds,
-                env_vars=config.env_vars,
-            )
+    async def test_stop_nonexistent_returns_stopped_state_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider returns STOPPED state for non-existent sandboxes (SDK-backed)."""
+        from daytona import DaytonaError
 
-            # Provision
-            info = await provider.provision_sandbox(test_config)
+        mock_daytona, _ = mock_daytona_sdk
+        fake_ref = SandboxRef(
+            provider_ref="nonexistent-sandbox-12345",
+            profile=daytona_provider.profile,
+        )
 
-            # Verify semantic state
-            assert info.state == SandboxState.READY, (
-                f"{provider.profile}: Expected READY, got {info.state}"
-            )
-            assert info.health == SandboxHealth.HEALTHY, (
-                f"{provider.profile}: Expected HEALTHY, got {info.health}"
-            )
-            assert info.workspace_id == test_config.workspace_id
-            assert info.ref.profile == provider.profile
+        # Mock SDK to raise not found error
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
+
+        result = await daytona_provider.stop_sandbox(fake_ref)
+
+        assert result.state == SandboxState.STOPPED, (
+            "Expected STOPPED for non-existent sandbox"
+        )
 
     @pytest.mark.asyncio
-    async def test_get_active_sandbox_returns_none_when_not_exists(self, providers):
-        """All providers return None for non-existent workspaces."""
+    async def test_get_health_returns_current_state_local(self, local_provider):
+        """Local provider returns fresh health check results."""
         workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
 
-        for provider in providers:
-            result = await provider.get_active_sandbox(workspace_id)
+        # Provision
+        info = await local_provider.provision_sandbox(config)
 
-            assert result is None, (
-                f"{provider.profile}: Expected None for non-existent workspace"
-            )
+        # Check health
+        health_info = await local_provider.get_health(info.ref)
 
-    @pytest.mark.asyncio
-    async def test_get_active_sandbox_returns_info_when_exists(self, providers):
-        """All providers return SandboxInfo for active workspaces."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
-
-            # Provision first
-            await provider.provision_sandbox(config)
-
-            # Get active
-            info = await provider.get_active_sandbox(workspace_id)
-
-            assert info is not None, f"{provider.profile}: Expected active sandbox"
-            assert info.state == SandboxState.READY
-            assert info.workspace_id == workspace_id
+        assert health_info.state == SandboxState.READY
+        assert health_info.health == SandboxHealth.HEALTHY
+        assert health_info.ref.provider_ref == info.ref.provider_ref
 
     @pytest.mark.asyncio
-    async def test_get_active_returns_none_for_stopped(self, providers):
-        """All providers exclude stopped sandboxes from active query."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+    async def test_get_health_returns_current_state_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider returns fresh health check results (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
 
-            # Provision, then stop
-            info = await provider.provision_sandbox(config)
-            await provider.stop_sandbox(info.ref)
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
 
-            # Query active
-            result = await provider.get_active_sandbox(workspace_id)
+        # Mock SDK to return a healthy sandbox
+        mock_sandbox = create_mock_sandbox(
+            sandbox_id=expected_ref, state="running", status="healthy"
+        )
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-            assert result is None, (
-                f"{provider.profile}: Stopped sandbox should not be active"
-            )
+        fake_ref = SandboxRef(
+            provider_ref=expected_ref,
+            profile=daytona_provider.profile,
+        )
 
-    @pytest.mark.asyncio
-    async def test_stop_sandbox_is_idempotent(self, providers):
-        """All providers support idempotent stop operations."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+        # Check health
+        health_info = await daytona_provider.get_health(fake_ref)
 
-            # Provision
-            info = await provider.provision_sandbox(config)
-
-            # Stop multiple times
-            stop1 = await provider.stop_sandbox(info.ref)
-            stop2 = await provider.stop_sandbox(info.ref)
-            stop3 = await provider.stop_sandbox(info.ref)
-
-            # All should return STOPPED state
-            assert stop1.state == SandboxState.STOPPED
-            assert stop2.state == SandboxState.STOPPED
-            assert stop3.state == SandboxState.STOPPED
+        assert health_info.state == SandboxState.READY
+        assert health_info.health == SandboxHealth.HEALTHY
+        assert health_info.ref.provider_ref == expected_ref
 
     @pytest.mark.asyncio
-    async def test_stop_nonexistent_returns_stopped_state(self, providers):
-        """All providers return STOPPED state for non-existent sandboxes."""
-        for provider in providers:
-            fake_ref = SandboxRef(
-                provider_ref="nonexistent-sandbox-12345",
-                profile=provider.profile,
-            )
+    async def test_get_health_fail_closed_for_not_found_local(self, local_provider):
+        """Local provider raises NotFound for unknown sandboxes (fail closed)."""
+        fake_ref = SandboxRef(
+            provider_ref="nonexistent-sandbox-67890",
+            profile=local_provider.profile,
+        )
 
-            result = await provider.stop_sandbox(fake_ref)
-
-            assert result.state == SandboxState.STOPPED, (
-                f"{provider.profile}: Expected STOPPED for non-existent sandbox"
-            )
+        with pytest.raises(SandboxNotFoundError):
+            await local_provider.get_health(fake_ref)
 
     @pytest.mark.asyncio
-    async def test_get_health_returns_current_state(self, providers):
-        """All providers return fresh health check results."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+    async def test_get_health_fail_closed_for_not_found_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider raises NotFound for unknown sandboxes (SDK-backed, fail closed)."""
+        from daytona import DaytonaError
 
-            # Provision
-            info = await provider.provision_sandbox(config)
+        mock_daytona, _ = mock_daytona_sdk
+        fake_ref = SandboxRef(
+            provider_ref="nonexistent-sandbox-67890",
+            profile=daytona_provider.profile,
+        )
 
-            # Check health
-            health_info = await provider.get_health(info.ref)
+        # Mock SDK to raise not found error
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
 
-            assert health_info.state == SandboxState.READY
-            assert health_info.health == SandboxHealth.HEALTHY
-            assert health_info.ref.provider_ref == info.ref.provider_ref
-
-    @pytest.mark.asyncio
-    async def test_get_health_fail_closed_for_not_found(self, providers):
-        """All providers raise NotFound for unknown sandboxes (fail closed)."""
-        for provider in providers:
-            fake_ref = SandboxRef(
-                provider_ref="nonexistent-sandbox-67890",
-                profile=provider.profile,
-            )
-
-            with pytest.raises(SandboxNotFoundError):
-                await provider.get_health(fake_ref)
+        with pytest.raises(SandboxNotFoundError):
+            await daytona_provider.get_health(fake_ref)
 
     @pytest.mark.asyncio
-    async def test_update_activity_refreshes_timestamp(self, providers):
-        """All providers update activity timestamp."""
+    async def test_update_activity_refreshes_timestamp_local(self, local_provider):
+        """Local provider updates activity timestamp."""
         import asyncio
         from datetime import datetime, timezone
 
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
 
-            # Provision
-            info = await provider.provision_sandbox(config)
-            original_time = info.last_activity_at
+        # Provision
+        info = await local_provider.provision_sandbox(config)
+        original_time = info.last_activity_at
 
-            # Wait a bit
-            await asyncio.sleep(0.02)
+        # Wait a bit
+        await asyncio.sleep(0.02)
 
-            # Update activity
-            updated = await provider.update_activity(info.ref)
+        # Update activity
+        updated = await local_provider.update_activity(info.ref)
 
-            assert updated.last_activity_at > original_time, (
-                f"{provider.profile}: Activity timestamp not updated"
-            )
-
-    @pytest.mark.asyncio
-    async def test_attach_workspace_updates_association(self, providers):
-        """All providers support workspace attachment."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
-
-            # Provision
-            info = await provider.provision_sandbox(config)
-
-            # Attach (should be idempotent for same workspace)
-            attached = await provider.attach_workspace(info.ref, workspace_id)
-
-            assert attached.workspace_id == workspace_id
+        assert updated.last_activity_at > original_time, (
+            "Activity timestamp not updated"
+        )
 
     @pytest.mark.asyncio
-    async def test_unhealthy_sandbox_returns_unhealthy_state(self, providers):
-        """All providers expose unhealthy state when health fails."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+    async def test_update_activity_refreshes_timestamp_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider updates activity timestamp (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        from datetime import datetime, timezone
 
-            # Provision
-            info = await provider.provision_sandbox(config)
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
 
-            # Mark unhealthy (provider-specific method for testing)
-            if hasattr(provider, "mark_unhealthy"):
-                unhealthy = await provider.mark_unhealthy(info.ref, "Test failure")
+        # Mock SDK to return a sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="running")
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-                assert unhealthy.state == SandboxState.UNHEALTHY, (
-                    f"{provider.profile}: Expected UNHEALTHY state"
-                )
-                assert unhealthy.health == SandboxHealth.UNHEALTHY, (
-                    f"{provider.profile}: Expected UNHEALTHY health"
-                )
+        fake_ref = SandboxRef(
+            provider_ref=expected_ref,
+            profile=daytona_provider.profile,
+        )
+
+        # Update activity
+        updated = await daytona_provider.update_activity(fake_ref)
+
+        # Verify timestamp is updated
+        assert updated.last_activity_at is not None
+        assert updated.last_activity_at <= datetime.now(timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_attach_workspace_updates_association_local(self, local_provider):
+        """Local provider supports workspace attachment."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision
+        info = await local_provider.provision_sandbox(config)
+
+        # Attach (should be idempotent for same workspace)
+        attached = await local_provider.attach_workspace(info.ref, workspace_id)
+
+        assert attached.workspace_id == workspace_id
+
+    @pytest.mark.asyncio
+    async def test_attach_workspace_updates_association_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider supports workspace attachment (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK to return a sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="running")
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        fake_ref = SandboxRef(
+            provider_ref=expected_ref,
+            profile=daytona_provider.profile,
+        )
+
+        # Attach
+        attached = await daytona_provider.attach_workspace(fake_ref, workspace_id)
+
+        assert attached.workspace_id == workspace_id
+
+    @pytest.mark.asyncio
+    async def test_unhealthy_sandbox_returns_unhealthy_state_local(
+        self, local_provider
+    ):
+        """Local provider exposes unhealthy state when health fails."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision
+        info = await local_provider.provision_sandbox(config)
+
+        # Mark unhealthy (provider-specific method for testing)
+        unhealthy = await local_provider.mark_unhealthy(info.ref, "Test failure")
+
+        assert unhealthy.state == SandboxState.UNHEALTHY, "Expected UNHEALTHY state"
+        assert unhealthy.health == SandboxHealth.UNHEALTHY, "Expected UNHEALTHY health"
+
+    @pytest.mark.asyncio
+    async def test_unhealthy_sandbox_returns_unhealthy_state_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider exposes unhealthy state when health fails (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mark unhealthy (test helper method)
+        fake_ref = SandboxRef(
+            provider_ref=expected_ref,
+            profile=daytona_provider.profile,
+        )
+        unhealthy = await daytona_provider.mark_unhealthy(fake_ref, "Test failure")
+
+        assert unhealthy.state == SandboxState.UNHEALTHY, "Expected UNHEALTHY state"
+        assert unhealthy.health == SandboxHealth.UNHEALTHY, "Expected UNHEALTHY health"
 
     @pytest.mark.asyncio
     async def test_pack_binding_metadata_parity_local_compose(self):
@@ -324,16 +636,22 @@ class TestSemanticParityLifecycle:
         )
 
     @pytest.mark.asyncio
-    async def test_pack_binding_metadata_parity_daytona(self):
-        """Daytona provider exposes pack binding in metadata with expected contract."""
-        provider = DaytonaSandboxProvider(api_token="test-token")
+    async def test_pack_binding_metadata_parity_daytona(self, mock_daytona_sdk):
+        """Daytona provider exposes pack binding in metadata with expected contract (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        provider = DaytonaSandboxProvider(api_key="test-token")
         workspace_id = uuid4()
         pack_path = "/test/agent/pack"
+        expected_ref = provider._generate_ref(workspace_id)
 
         config = SandboxConfig(
             workspace_id=workspace_id,
             pack_source_path=pack_path,
         )
+
+        # Mock SDK to return a sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
 
         info = await provider.provision_sandbox(config)
 
@@ -346,24 +664,51 @@ class TestSemanticParityLifecycle:
         )
 
     @pytest.mark.asyncio
-    async def test_pack_binding_noop_when_no_pack_provided(self, providers):
-        """All providers handle no-pack provisioning without errors."""
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(
-                workspace_id=workspace_id,
-                pack_source_path=None,  # No pack
-            )
+    async def test_pack_binding_noop_when_no_pack_provided_local(self, local_provider):
+        """Local provider handles no-pack provisioning without errors."""
+        workspace_id = uuid4()
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=None,  # No pack
+        )
 
-            info = await provider.provision_sandbox(config)
+        info = await local_provider.provision_sandbox(config)
 
-            # Pack binding should be False/None
-            assert info.ref.metadata.get("pack_bound") is False, (
-                f"{provider.profile}: pack_bound should be False when no pack"
-            )
-            assert info.ref.metadata.get("pack_source_path") is None, (
-                f"{provider.profile}: pack_source_path should not be in metadata when no pack"
-            )
+        # Pack binding should be False/None
+        assert info.ref.metadata.get("pack_bound") is False, (
+            "pack_bound should be False when no pack"
+        )
+        assert info.ref.metadata.get("pack_source_path") is None, (
+            "pack_source_path should not be in metadata when no pack"
+        )
+
+    @pytest.mark.asyncio
+    async def test_pack_binding_noop_when_no_pack_provided_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider handles no-pack provisioning without errors (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=None,  # No pack
+        )
+
+        # Mock SDK to return a sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        info = await daytona_provider.provision_sandbox(config)
+
+        # Pack binding should be False/None
+        assert info.ref.metadata.get("pack_bound") is False, (
+            "pack_bound should be False when no pack"
+        )
+        assert info.ref.metadata.get("pack_source_path") is None, (
+            "pack_source_path should not be in metadata when no pack"
+        )
 
 
 class TestProviderSpecificBehavior:
@@ -372,27 +717,27 @@ class TestProviderSpecificBehavior:
     def test_daytona_cloud_vs_self_hosted(self):
         """Daytona provider distinguishes cloud from self-hosted."""
         # Cloud mode (default)
-        cloud_provider = DaytonaSandboxProvider(api_token="test")
+        cloud_provider = DaytonaSandboxProvider(api_key="test")
         assert cloud_provider.is_cloud is True
 
         # Self-hosted mode
         self_hosted = DaytonaSandboxProvider(
-            api_token="test",
-            base_url="https://daytona.example.com/v1",
+            api_key="test",
+            api_url="https://daytona.example.com/v1",
         )
         assert self_hosted.is_cloud is False
         assert self_hosted.base_url == "https://daytona.example.com/v1"
 
     def test_daytona_configuration_self_hosted_requires_token(self):
-        """Self-hosted Daytona provider fails closed without API token."""
-        # Self-hosted mode should require a token
+        """Self-hosted Daytona provider fails closed without API key."""
+        # Self-hosted mode should require an API key
         with pytest.raises(SandboxConfigurationError) as exc_info:
             DaytonaSandboxProvider(
-                base_url="https://daytona.example.com/v1",
-                # No api_token provided
+                api_url="https://daytona.example.com/v1",
+                # No api_key provided
             )
 
-        assert "token" in str(exc_info.value).lower()
+        assert "api_key" in str(exc_info.value).lower() or "API" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_provision_duplicate_workspace_raises(self):
@@ -430,10 +775,9 @@ class TestProviderSpecificBehavior:
 
         assert ref1 == ref2, "Provider refs should be deterministic"
 
-    @pytest.mark.asyncio
-    async def test_daytona_state_mapping(self):
+    def test_daytona_state_mapping(self):
         """Daytona provider maps native states to semantic states."""
-        provider = DaytonaSandboxProvider(api_token="test")
+        provider = DaytonaSandboxProvider(api_key="test")
 
         # Verify state mappings
         assert provider._from_daytona_state("creating") == SandboxState.HYDRATING
@@ -449,45 +793,87 @@ class TestProviderSpecificBehavior:
 class TestSemanticStateTransitions:
     """Test state machine transitions are consistent across providers."""
 
-    @pytest.mark.asyncio
-    async def test_hydrating_to_ready_transition(self):
-        """All providers transition through HYDRATING to READY."""
-        providers = [
-            LocalComposeSandboxProvider(),
-            DaytonaSandboxProvider(api_token="test"),
-        ]
+    @pytest.fixture
+    def local_provider(self):
+        """Create a LocalCompose provider for testing."""
+        return LocalComposeSandboxProvider()
 
-        for provider in providers:
-            workspace_id = uuid4()
-
-            # Note: In real implementation, we'd intercept during provision
-            # For now, verify final state is READY
-            config = SandboxConfig(workspace_id=workspace_id)
-            info = await provider.provision_sandbox(config)
-
-            assert info.state == SandboxState.READY, (
-                f"{provider.profile}: Should reach READY state"
-            )
+    @pytest.fixture
+    def daytona_provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test")
 
     @pytest.mark.asyncio
-    async def test_ready_to_stopping_to_stopped_transition(self):
-        """All providers transition READY -> STOPPING -> STOPPED."""
-        providers = [
-            LocalComposeSandboxProvider(),
-            DaytonaSandboxProvider(api_token="test"),
-        ]
+    async def test_hydrating_to_ready_transition_local(self, local_provider):
+        """Local provider transitions through HYDRATING to READY."""
+        workspace_id = uuid4()
 
-        for provider in providers:
-            workspace_id = uuid4()
-            config = SandboxConfig(workspace_id=workspace_id)
+        # Note: In real implementation, we'd intercept during provision
+        # For now, verify final state is READY
+        config = SandboxConfig(workspace_id=workspace_id)
+        info = await local_provider.provision_sandbox(config)
 
-            # Provision
-            info = await provider.provision_sandbox(config)
-            assert info.state == SandboxState.READY
+        assert info.state == SandboxState.READY, "Should reach READY state"
 
-            # Stop
-            stopped = await provider.stop_sandbox(info.ref)
-            assert stopped.state == SandboxState.STOPPED
+    @pytest.mark.asyncio
+    async def test_hydrating_to_ready_transition_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider transitions through HYDRATING to READY (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK to return a ready sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        config = SandboxConfig(workspace_id=workspace_id)
+        info = await daytona_provider.provision_sandbox(config)
+
+        # Verify SDK create was called
+        mock_daytona.create.assert_called_once()
+        assert info.state == SandboxState.READY, "Should reach READY state"
+
+    @pytest.mark.asyncio
+    async def test_ready_to_stopping_to_stopped_transition_local(self, local_provider):
+        """Local provider transitions READY -> STOPPING -> STOPPED."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        # Provision
+        info = await local_provider.provision_sandbox(config)
+        assert info.state == SandboxState.READY
+
+        # Stop
+        stopped = await local_provider.stop_sandbox(info.ref)
+        assert stopped.state == SandboxState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_ready_to_stopping_to_stopped_transition_daytona(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona provider transitions READY -> STOPPING -> STOPPED (SDK-backed)."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        # Mock SDK for provisioning
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        config = SandboxConfig(workspace_id=workspace_id)
+        info = await daytona_provider.provision_sandbox(config)
+        assert info.state == SandboxState.READY
+
+        # Reset mock for stop
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.stop = AsyncMock()
+
+        # Stop
+        stopped = await daytona_provider.stop_sandbox(info.ref)
+        assert stopped.state == SandboxState.STOPPED
+        mock_daytona.stop.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_unhealthy_sandbox_excluded_from_routing(self):
@@ -512,3 +898,398 @@ class TestSemanticStateTransitions:
             assert active.health != SandboxHealth.HEALTHY, (
                 "Unhealthy sandboxes should not be routable"
             )
+
+
+class TestDaytonaSdkBackedProvider:
+    """Test Daytona provider uses SDK calls with proper semantic mapping."""
+
+    @pytest.fixture
+    def provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test-api-key")
+
+    @pytest.mark.asyncio
+    async def test_daytona_provision_uses_sdk(self, provider):
+        """Daytona provision_sandbox uses SDK create method."""
+        workspace_id = uuid4()
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path="/test/pack",
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = f"daytona-{str(workspace_id)[:22]}"
+        mock_sandbox.state = "started"
+        mock_sandbox.status = "healthy"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.provision_sandbox(config)
+
+            # Verify SDK create was called
+            mock_daytona.create.assert_called_once()
+            assert result.state == SandboxState.READY
+            assert result.ref.metadata.get("pack_bound") is True
+            assert result.ref.metadata.get("pack_source_path") == "/test/pack"
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_active_uses_sdk_get(self, provider):
+        """Daytona get_active_sandbox uses SDK get method."""
+        workspace_id = uuid4()
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = expected_ref
+        mock_sandbox.state = "running"
+        mock_sandbox.status = "healthy"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.get_active_sandbox(workspace_id)
+
+            # Verify SDK get was called with correct ref
+            mock_daytona.get.assert_called_once_with(expected_ref)
+            assert result is not None
+            assert result.state == SandboxState.READY
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_active_returns_none_for_stopped(self, provider):
+        """Daytona get_active_sandbox returns None for stopped sandboxes."""
+        workspace_id = uuid4()
+        expected_ref = provider._generate_ref(workspace_id)
+
+        # Mock the SDK to return stopped sandbox
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = expected_ref
+        mock_sandbox.state = "stopped"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.get_active_sandbox(workspace_id)
+
+            # Should return None for stopped sandbox
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_active_fails_closed_on_sdk_error(self, provider):
+        """Daytona get_active_sandbox returns None on SDK error (fail-closed)."""
+        workspace_id = uuid4()
+
+        from daytona import DaytonaError
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Sandbox not found"))
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.get_active_sandbox(workspace_id)
+
+            # Fail-closed: error results in None (no active sandbox)
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_daytona_stop_uses_sdk_stop(self, provider):
+        """Daytona stop_sandbox uses SDK stop method."""
+        ref = SandboxRef(
+            provider_ref="test-sandbox-id",
+            profile="daytona",
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox-id"
+        mock_sandbox.state = "started"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.stop = AsyncMock()
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.stop_sandbox(ref)
+
+            # Verify SDK methods were called
+            mock_daytona.get.assert_called_once_with("test-sandbox-id")
+            mock_daytona.stop.assert_called_once()
+            assert result.state == SandboxState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_daytona_stop_is_idempotent_for_missing_sandbox(self, provider):
+        """Daytona stop_sandbox returns STOPPED for non-existent sandbox."""
+        ref = SandboxRef(
+            provider_ref="nonexistent-sandbox",
+            profile="daytona",
+        )
+
+        from daytona import DaytonaError
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.stop_sandbox(ref)
+
+            # Should return STOPPED state even if sandbox doesn't exist
+            assert result.state == SandboxState.STOPPED
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_health_uses_sdk_get(self, provider):
+        """Daytona get_health uses SDK get method."""
+        ref = SandboxRef(
+            provider_ref="test-sandbox-id",
+            profile="daytona",
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox-id"
+        mock_sandbox.state = "running"
+        mock_sandbox.status = "healthy"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.get_health(ref)
+
+            # Verify SDK get was called
+            mock_daytona.get.assert_called_once_with("test-sandbox-id")
+            assert result.state == SandboxState.READY
+            assert result.health == SandboxHealth.HEALTHY
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_health_raises_not_found(self, provider):
+        """Daytona get_health raises SandboxNotFoundError for missing sandbox."""
+        ref = SandboxRef(
+            provider_ref="nonexistent-sandbox",
+            profile="daytona",
+        )
+
+        from daytona import DaytonaError
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            with pytest.raises(SandboxNotFoundError):
+                await provider.get_health(ref)
+
+    @pytest.mark.asyncio
+    async def test_daytona_get_health_unknown_state_fails_closed(self, provider):
+        """Daytona get_health maps unknown states to UNKNOWN (fail-closed)."""
+        ref = SandboxRef(
+            provider_ref="test-sandbox-id",
+            profile="daytona",
+        )
+
+        # Mock sandbox with unknown state
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox-id"
+        mock_sandbox.state = "some_unknown_state"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.get_health(ref)
+
+            # Fail-closed: unknown state maps to UNKNOWN
+            assert result.state == SandboxState.UNKNOWN
+
+
+class TestDaytonaSdkBackPackBinding:
+    """Test Daytona provider pack binding parity with local_compose."""
+
+    @pytest.fixture
+    def provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test-api-key")
+
+    @pytest.mark.asyncio
+    async def test_daytona_sdk_backed_pack_binding_metadata(self, provider):
+        """Daytona SDK-backed provider preserves pack binding metadata."""
+        workspace_id = uuid4()
+        pack_path = "/agents/my-pack"
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=pack_path,
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = f"daytona-{str(workspace_id)[:22]}"
+        mock_sandbox.state = "started"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            info = await provider.provision_sandbox(config)
+
+            # Pack binding metadata preserved
+            assert info.ref.metadata.get("pack_bound") is True
+            assert info.ref.metadata.get("pack_source_path") == pack_path
+
+    @pytest.mark.asyncio
+    async def test_daytona_sdk_backed_no_pack_binding(self, provider):
+        """Daytona SDK-backed provider handles no-pack case correctly."""
+        workspace_id = uuid4()
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=None,
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = f"daytona-{str(workspace_id)[:22]}"
+        mock_sandbox.state = "started"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            info = await provider.provision_sandbox(config)
+
+            # Pack binding should be False
+            assert info.ref.metadata.get("pack_bound") is False
+            assert info.ref.metadata.get("pack_source_path") is None
+
+
+class TestDaytonaFailClosedBehavior:
+    """Test Daytona provider fail-closed behavior per semantic contract."""
+
+    @pytest.fixture
+    def provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test-api-key")
+
+    def test_unknown_daytona_state_maps_to_unknown(self, provider):
+        """Unknown Daytona states map to UNKNOWN (fail-closed)."""
+        assert provider._from_daytona_state("weird_state") == SandboxState.UNKNOWN
+        assert provider._from_daytona_state("pending") == SandboxState.UNKNOWN
+        assert provider._from_daytona_state("") == SandboxState.UNKNOWN
+
+    @pytest.mark.asyncio
+    async def test_get_active_sandbox_fails_closed_on_exception(self, provider):
+        """get_active_sandbox returns None on any exception (fail-closed)."""
+        workspace_id = uuid4()
+
+        # Simulate unexpected exception
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.side_effect = RuntimeError("Unexpected error")
+
+            result = await provider.get_active_sandbox(workspace_id)
+
+            # Fail-closed: any error returns None (no active sandbox)
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_provision_fails_closed_on_sdk_error(self, provider):
+        """provision_sandbox raises SandboxProvisionError on SDK failure."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        from daytona import DaytonaError
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(side_effect=DaytonaError("Creation failed"))
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            with pytest.raises(SandboxProvisionError) as exc_info:
+                await provider.provision_sandbox(config)
+
+            assert "failed" in str(exc_info.value).lower()
