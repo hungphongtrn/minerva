@@ -86,6 +86,18 @@ class SandboxResolveResponse(BaseModel):
     health: Optional[str] = Field(None, description="Sandbox health status")
     lease_acquired: bool = Field(..., description="Whether write lease was acquired")
     message: str = Field(..., description="Resolution message")
+    ttl_cleanup_applied: bool = Field(
+        False, description="Whether idle TTL cleanup was applied"
+    )
+    ttl_stopped_count: int = Field(
+        0, description="Number of sandboxes stopped due to idle TTL"
+    )
+    ttl_stopped_ids: Optional[list] = Field(
+        None, description="IDs of sandboxes stopped during TTL cleanup"
+    )
+    ttl_cleanup_reason: Optional[str] = Field(
+        None, description="Reason for TTL cleanup if applied"
+    )
 
 
 class SandboxResolveError(BaseModel):
@@ -305,6 +317,16 @@ async def resolve_sandbox(
             health=health,
             lease_acquired=target.lease_acquired,
             message=target.error if target.error else "Sandbox resolved successfully",
+            ttl_cleanup_applied=getattr(
+                target.routing_result, "ttl_cleanup_applied", False
+            ),
+            ttl_stopped_count=len(
+                getattr(target.routing_result, "stopped_sandbox_ids", []) or []
+            ),
+            ttl_stopped_ids=getattr(target.routing_result, "stopped_sandbox_ids", None),
+            ttl_cleanup_reason=getattr(
+                target.routing_result, "ttl_cleanup_reason", None
+            ),
         )
 
 
