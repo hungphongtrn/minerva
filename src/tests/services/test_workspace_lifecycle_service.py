@@ -309,6 +309,40 @@ class TestSandboxRoutingIntegration:
     """Tests for sandbox routing integration."""
 
     @pytest.mark.asyncio
+    async def test_resolve_target_passes_agent_pack_id_to_orchestrator(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_workspace: Workspace,
+        lifecycle_service: WorkspaceLifecycleService,
+        mock_orchestrator,
+    ):
+        """Test that agent_pack_id is forwarded from lifecycle to orchestrator."""
+        from uuid import uuid4
+
+        mock_orchestrator.resolve_sandbox.return_value = SandboxRoutingResult(
+            success=True,
+            result=RoutingResult.ROUTED_EXISTING,
+            sandbox=None,
+            provider_info=None,
+            message="Routed successfully",
+            excluded_unhealthy=[],
+        )
+
+        pack_id = str(uuid4())
+        await lifecycle_service.resolve_target(
+            principal=test_user,
+            auto_create=True,
+            acquire_lease=False,
+            agent_pack_id=pack_id,
+        )
+
+        # Verify orchestrator was called with agent_pack_id
+        mock_orchestrator.resolve_sandbox.assert_called_once()
+        call_kwargs = mock_orchestrator.resolve_sandbox.call_args.kwargs
+        assert call_kwargs.get("agent_pack_id") == pack_id
+
+    @pytest.mark.asyncio
     async def test_resolve_with_sandbox_routing(
         self,
         db_session: Session,

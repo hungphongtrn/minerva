@@ -437,6 +437,193 @@ class TestHealthAwareRouting:
         assert result.result == RoutingResult.PROVISIONED_NEW
         assert result.sandbox is not None
 
+    @pytest.mark.asyncio
+    async def test_resolve_sandbox_populates_pack_source_path_from_agent_pack_id(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that pack source_path is resolved and passed to provider config."""
+        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+
+        # Create a valid agent pack
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Test Pack",
+            source_path="/test/pack/path",
+            source_digest="abc123",
+        )
+        # Mark as valid and active
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = True
+        db_session.flush()
+
+        # Capture the config passed to provider
+        captured_config = None
+
+        async def capture_provision(config):
+            nonlocal captured_config
+            captured_config = config
+            return SandboxInfo(
+                ref=SandboxRef(provider_ref="new-sandbox", profile="local_compose"),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.provision_sandbox.side_effect = capture_provision
+
+        # Resolve sandbox with pack
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        assert result.success is True
+        assert result.result == RoutingResult.PROVISIONED_NEW
+        assert captured_config is not None
+        assert captured_config.pack_source_path == "/test/pack/path"
+
+    @pytest.mark.asyncio
+    async def test_resolve_sandbox_rejects_cross_workspace_agent_pack_binding(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that pack from different workspace is rejected (fail-closed)."""
+        from src.db.models import AgentPack, AgentPackValidationStatus, Workspace
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+
+        # Create another workspace
+        other_workspace = Workspace(
+            id=uuid4(),
+            name="Other Workspace",
+            slug="other-workspace",
+            owner_id=test_user.id,
+        )
+        db_session.add(other_workspace)
+        db_session.commit()
+
+        # Create a pack in the OTHER workspace
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=other_workspace.id,  # Different workspace!
+            name="Other Pack",
+            source_path="/other/pack/path",
+            source_digest="def456",
+        )
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = True
+        db_session.flush()
+
+        # Attempt to use cross-workspace pack
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,  # Requesting for different workspace
+            agent_pack_id=pack.id,
+        )
+
+        # Should fail closed - no provisioning
+        assert result.success is False
+        assert result.result == RoutingResult.PROVISION_FAILED
+        assert "does not belong to workspace" in result.message
+        # Provider should not have been called
+        mock_provider.provision_sandbox.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resolve_sandbox_rejects_missing_agent_pack(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that missing pack ID fails closed."""
+        nonexistent_pack_id = uuid4()
+
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=nonexistent_pack_id,
+        )
+
+        assert result.success is False
+        assert result.result == RoutingResult.PROVISION_FAILED
+        assert "not found" in result.message.lower()
+        mock_provider.provision_sandbox.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resolve_sandbox_rejects_inactive_agent_pack(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that inactive pack fails closed."""
+        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Inactive Pack",
+            source_path="/inactive/path",
+            source_digest="abc123",
+        )
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = False  # Inactive!
+        db_session.flush()
+
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        assert result.success is False
+        assert result.result == RoutingResult.PROVISION_FAILED
+        assert "not active" in result.message.lower()
+        mock_provider.provision_sandbox.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resolve_sandbox_rejects_invalid_agent_pack_status(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that non-VALID pack status fails closed."""
+        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Pending Pack",
+            source_path="/pending/path",
+            source_digest="abc123",
+        )
+        pack.validation_status = AgentPackValidationStatus.PENDING  # Not valid!
+        pack.is_active = True
+        db_session.flush()
+
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        assert result.success is False
+        assert result.result == RoutingResult.PROVISION_FAILED
+        assert "not valid" in result.message.lower()
+        mock_provider.provision_sandbox.assert_not_called()
+
 
 class TestIdempotentStop:
     """Tests for idempotent stop operations."""
