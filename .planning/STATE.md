@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
-- **Plan status:** Phase 2 complete; all plans 02-01 through 02-09 complete
-- **Execution status:** Phase 2 verified passed (6/6 must-haves, 42/42 acceptance+security tests passing, pack binding wired)
+- **Plan status:** Phase 2 complete; all plans 02-01 through 02-10 complete
+- **Execution status:** Phase 2 verified passed (6/6 must-haves, 42/42 acceptance+security tests passing, pack binding wired and proven)
 - **Progress bar:** [████------] 40%
-- **Last completed:** Plan 02-09 (Agent pack runtime wiring with fail-closed validation)
+- **Last completed:** Plan 02-10 (Provider pack binding and cross-profile parity - UAT Test 4 gap closed)
 
 ```mermaid
 flowchart LR
@@ -36,6 +36,8 @@ flowchart LR
   S16 --> S17[02-06: UUID Ownership Fix ✓]
   S17 --> S18[02-07: Scaffold/Portability Gaps ✓]
   S18 --> S19[02-08: Acceptance/Security Green ✓]
+  S19 --> S20[02-09: Pack Runtime Wiring ✓]
+  S20 --> S21[02-10: Provider Pack Binding ✓]
 ```
 
 ## Performance Metrics
@@ -126,6 +128,8 @@ flowchart LR
 | D-02-09-001 | 2026-02-25 | 02-09 | Convert agent_pack_id to UUID at service boundary | Type safety prevents format errors deeper in stack |
 | D-02-09-002 | 2026-02-25 | 02-09 | Fail-closed validation before provider provisioning | Security and cost - no orphaned sandboxes on validation failure |
 | D-02-09-003 | 2026-02-25 | 02-09 | Handle AgentPackValidationStatus as string constants | SQLite stores as strings, .value attribute caused AttributeError |
+| D-02-10-001 | 2026-02-25 | 02-10 | Provider Metadata for Pack Observability | Expose pack binding via provider metadata for provider-agnostic contract |
+| D-02-10-002 | 2026-02-25 | 02-10 | Equivalent but Profile-Specific Implementation | Both providers implement same semantic contract with profile-specific internals |
 
 ### TODOs
 
@@ -148,6 +152,7 @@ flowchart LR
 - [x] Execute Plan 02-06: UUID ownership normalization and dead branch removal
 - [x] Execute Plan 02-08: Drive acceptance and security suites to green
 - [x] Execute Plan 02-09: Close agent pack runtime wiring gap with fail-closed validation
+- [x] Execute Plan 02-10: Close UAT Test 4 gap with provider pack binding parity
 
 ### Blockers
 
@@ -161,13 +166,13 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-09-SUMMARY.md` (status: `complete`)
-- **Last activity:** 2026-02-25 - Completed Phase 2 Plan 09 (Agent pack runtime wiring with fail-closed validation)
+- **Last completed artifact:** `02-10-SUMMARY.md` (status: `complete`)
+- **Last activity:** 2026-02-25 - Completed Phase 2 Plan 10 (Provider pack binding and cross-profile parity - UAT Test 4 gap closed)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-09-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-09 complete (pack binding wired, 40 service tests passing)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08); 9a699a6, bb45c7e, 2eb7808, e7c09b4, 8b2c01a (02-09)
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-10-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 02-10 complete (UAT Test 4 gap closed, 26/26 Phase 2 acceptance tests passing)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08); 9a699a6, bb45c7e, 2eb7808, e7c09b4, 8b2c01a (02-09); 376b509, a84e965, e411abc (02-10)
 
 ---
 *Initialized: 2026-02-23*

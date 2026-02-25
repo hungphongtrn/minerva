@@ -34,9 +34,8 @@ result: pass
 
 ### 4. Same pack works across local and BYOC profiles
 expected: The registered pack runs with equivalent behavior in Local Compose and Daytona/BYOC profile selection without manual infrastructure rewiring.
-result: issue
-reported: "Subagent found profile adapter parity passing, but end-to-end run-time pack binding across local_compose and daytona is not verifiably wired."
-severity: major
+result: pass
+reported: "Provider-side pack binding implemented in both local_compose and daytona with equivalent semantics. Cross-profile parity verified by TestRegisteredPackBindingParity acceptance tests."
 
 ### 5. Sandbox routing reuses healthy runtime or hydrates new
 expected: If a healthy active sandbox exists for the workspace, routing reuses it; otherwise the system creates or hydrates one and attaches workspace state.
@@ -56,32 +55,21 @@ result: pass
 
 ## Summary
 
+**Status**: COMPLETE - All 8 tests passing
+
 total: 8
-passed: 7
-issues: 1
+passed: 8
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "Registered pack runs with equivalent behavior in Local Compose and Daytona/BYOC profile selection without manual infrastructure rewiring."
-  status: failed
-  reason: "Subagent reported: profile adapter parity passes, but end-to-end pack binding to runtime across profiles is not verifiably wired."
-  severity: major
-  test: 4
-  root_cause: "Agent pack binding is only persisted in schema; runtime provisioning never resolves pack source path into SandboxConfig or provider mount/bind flow, so cross-profile execution parity for real registered packs is not guaranteed."
-  artifacts:
-    - path: "src/services/sandbox_orchestrator_service.py"
-      issue: "Creates SandboxConfig without pack_source_path even when agent_pack_id is provided."
-    - path: "src/infrastructure/sandbox/providers/local_compose.py"
-      issue: "Provisioning path does not bind or mount registered pack source into runtime sandbox."
-    - path: "src/infrastructure/sandbox/providers/daytona.py"
-      issue: "Provisioning path does not bind or mount registered pack source into runtime sandbox."
-    - path: "src/tests/integration/test_phase2_acceptance.py"
-      issue: "Profile parity tests cover adapter contract but not end-to-end registered pack execution parity."
-  missing:
-    - "Resolve AgentPack source_path in orchestrator from agent_pack_id before provisioning."
-    - "Populate SandboxConfig.pack_source_path and pass through provider provisioning path."
-    - "Implement provider-side pack bind/mount behavior for local_compose and daytona adapters."
-    - "Add acceptance test: register pack, run via local_compose and daytona, assert equivalent pack execution semantics."
-  debug_session: ".planning/debug/phase02-pack-binding-gap.md"
+**Status**: CLOSED - All gaps addressed in plans 02-09 and 02-10
+
+- **Plan 02-09**: Service-layer pack wiring with fail-closed validation ✓
+- **Plan 02-10**: Provider-side pack binding with cross-profile parity ✓
+
+All UAT Test 4 gaps now resolved. See:
+- `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-09-SUMMARY.md`
+- `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-10-SUMMARY.md`
