@@ -10,11 +10,11 @@
 
 ## Current Position
 
-- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - GAP CLOSURE IN PROGRESS
-- **Plan status:** Phase 2 at 92% (plans 02-01 through 02-11 complete, 02-12 remaining)
-- **Execution status:** Phase 2 gap closure in progress - 02-11 complete (Daytona SDK-backed provider), 02-12 next
-- **Progress bar:** [███████---] 46%
-- **Last completed:** Plan 02-11 (Daytona SDK-backed lifecycle with provider parity)
+- **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
+- **Plan status:** Phase 2 at 100% (all 12 plans complete)
+- **Execution status:** Phase 2 complete with acceptance and security evidence - 51 integration tests passing
+- **Progress bar:** [████████--] 48%
+- **Last completed:** Plan 02-12 (Acceptance and security evidence for Daytona SDK)
 
 ```mermaid
 flowchart LR
@@ -39,6 +39,7 @@ flowchart LR
   S19 --> S20[02-09: Pack Runtime Wiring ✓]
   S20 --> S21[02-10: Provider Pack Binding ✓]
   S21 --> S22[02-11: Daytona SDK Provider ✓]
+  S22 --> S23[02-12: SDK Acceptance/Security ✓]
 ```
 
 ## Performance Metrics
@@ -135,6 +136,8 @@ flowchart LR
 | D-02-11-002 | 2026-02-25 | 02-11 | Backward-Compatible Constructor | Support both old (api_token) and new (api_key) parameter names for smooth migration |
 | D-02-11-003 | 2026-02-25 | 02-11 | Fail-Closed SDK Error Handling | get_active_sandbox returns None on SDK errors to prevent cascading failures |
 | D-02-11-004 | 2026-02-25 | 02-11 | Pack Binding Metadata Preservation | Store pack binding info in metadata for routing layer observability |
+| D-02-12-001 | 2026-02-25 | 02-12 | SDK Mocking in Integration Tests | Use patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") for all Daytona SDK mocking |
+| D-02-12-002 | 2026-02-25 | 02-12 | Fix Missing Exception Imports | Auto-fix missing SandboxHealthCheckError and SandboxProviderError imports |
 
 ### TODOs
 
@@ -159,6 +162,7 @@ flowchart LR
 - [x] Execute Plan 02-09: Close agent pack runtime wiring gap with fail-closed validation
 - [x] Execute Plan 02-10: Close UAT Test 4 gap with provider pack binding parity
 - [x] Execute Plan 02-11: Replace Daytona simulation with SDK-backed lifecycle
+- [x] Execute Plan 02-12: Add acceptance and security evidence for Daytona SDK
 
 ### Blockers
 
@@ -172,13 +176,13 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-11-SUMMARY.md` (Daytona SDK-backed provider, 58 tests passing)
-- **Last activity:** 2026-02-25 - Completed plan 02-11 (Daytona SDK-backed lifecycle with provider parity)
+- **Last completed artifact:** `02-12-SUMMARY.md` (Phase 2 complete with 51 integration tests)
+- **Last activity:** 2026-02-25 - Completed plan 02-12 (Acceptance and security evidence for Daytona SDK)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Plan 02-12 (gap closure), then Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-11-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-11 complete (Daytona SDK-backed provider, 58/58 tests passing)
-- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08); 9a699a6, bb45c7e, 2eb7808, e7c09b4, 8b2c01a (02-09); 376b509, a84e965, e411abc (02-10); c428b18, 67b4542 (02-11)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-12-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 02-12 complete (51/51 integration tests passing, Phase 2 DONE)
+- **Commits:** a3a5303, fbe424a, 2f1b8e8 (02-01); 715c0a1, 9f2f340, afe0228 (02-02); f72394e, 7f00871, a966542 (02-04); d4b3be5, e3828b4, c42b996 (02-03); a4a7ce0, 8e56ff0, 0fa6b2f (02-05); e596d59, 4298861 (02-06); 7da52ee, df3c24e, 5cfa91f, dc8239d (02-07); 056c73e, 4092176, 1047c35, 83bee49, 5f0e0fa, 4f8f2bb (02-08); 9a699a6, bb45c7e, 2eb7808, e7c09b4, 8b2c01a (02-09); 376b509, a84e965, e411abc (02-10); c428b18, 67b4542 (02-11); eb38f2e, bce24ad, f7a203b, 00fce49 (02-12)
 
 ---
 *Initialized: 2026-02-23*
