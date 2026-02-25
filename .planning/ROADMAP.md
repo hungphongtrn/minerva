@@ -94,6 +94,22 @@ Plans:
 - [x] 02-16-PLAN.md — Close UAT Test 9 gap with idle TTL enforcement and observability.
 - [x] 02-17-PLAN.md — Close Truth 11 gap with profile parity verification (valid pack never returns 400 in daytona).
 
+### Phase 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime (INSERTED)
+
+**Goal:** Urgent bridge work from sandbox-mounted agent packs to in-sandbox Picoclaw runtime invocation and request execution.
+
+**Depends on:** Phase 2
+
+**Plans:** 3 plans
+
+Plans:
+- [x] 2.1-01-PLAN.md — Build the Picoclaw HTTP bridge client with health-first bearer auth and typed timeout/retry failures.
+- [x] 2.1-02-PLAN.md — Provision sandbox bridge runtime surface with per-sandbox config generation, snapshot materialization, and stale detection metadata.
+- [x] 2.1-03-PLAN.md — Wire `/runs` to execute through the bridge with workspace+pack session scoping, final output response, and integration evidence.
+
+**Details:**
+To be added during planning.
+
 ### Phase 3 - Persistence and Checkpoint Recovery
 
 **Goal:** Runtime state is durably stored and recoverable through milestone checkpoints with immutable audit history.
@@ -179,8 +195,9 @@ flowchart TD
 |------|--------|------------|
 | 1 - Identity and Policy Baseline | Complete | 100% |
 | 2 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
+| 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
 | 3 - Persistence and Checkpoint Recovery | Not Started | 0% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
-**Overall Progress:** 40%
+**Overall Progress:** 50%
