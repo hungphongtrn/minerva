@@ -348,6 +348,7 @@ class SandboxOrchestratorService:
             stopped_sandbox_ids = []
 
         pack_source_path: Optional[str] = None
+        pack_digest: Optional[str] = None
 
         # Resolve and validate agent pack if provided (fail-closed)
         if agent_pack_id:
@@ -412,6 +413,14 @@ class SandboxOrchestratorService:
                 )
 
             pack_source_path = pack.source_path
+            pack_digest = pack.source_digest
+
+        # Generate runtime bridge config for Picoclaw gateway
+        runtime_bridge_config = self._generate_runtime_bridge_config(
+            workspace_id=workspace_id,
+            agent_pack_id=agent_pack_id,
+            env_vars=env_vars or {},
+        )
 
         try:
             # Create database record first
@@ -425,12 +434,14 @@ class SandboxOrchestratorService:
             # Update state to CREATING
             self._repository.update_state(sandbox.id, SandboxState.CREATING)
 
-            # Provision via provider with pack source path
+            # Provision via provider with pack source path and runtime config
             config = SandboxConfig(
                 workspace_id=workspace_id,
                 idle_ttl_seconds=self._idle_ttl_seconds,
                 env_vars=env_vars or {},
                 pack_source_path=pack_source_path,
+                pack_digest=pack_digest,
+                runtime_bridge_config=runtime_bridge_config,
             )
 
             provider_info = await self._provider.provision_sandbox(config)
@@ -642,3 +653,64 @@ class SandboxOrchestratorService:
             Updated sandbox instance.
         """
         return self._repository.update_activity(sandbox_id)
+
+    def _generate_runtime_bridge_config(
+        self,
+        workspace_id: UUID,
+        agent_pack_id: Optional[UUID],
+        env_vars: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Generate runtime bridge configuration for Picoclaw gateway.
+
+        This creates the per-sandbox configuration needed for the Picoclaw
+        runtime to operate in bridge mode with isolated credentials.
+
+        Args:
+            workspace_id: Workspace UUID for scoping.
+            agent_pack_id: Optional agent pack ID for workspace mapping.
+            env_vars: Existing environment variables to include in config.
+
+        Returns:
+            Runtime bridge configuration dict for provider use.
+        """
+        import secrets
+
+        # Generate unique bridge auth token for this sandbox
+        bridge_auth_token = secrets.token_urlsafe(32)
+
+        # Build the runtime config that providers will use to generate config.json
+        config = {
+            "workspace_id": str(workspace_id),
+            "agent_pack_id": str(agent_pack_id) if agent_pack_id else None,
+            "bridge": {
+                "enabled": True,
+                "auth_token": bridge_auth_token,
+                # Gateway port - standard Picoclaw gateway port
+                "gateway_port": 18790,
+            },
+            # Environment variables to inject (for sensitive credentials)
+            # Note: Sensitive values should come from env vars, not be embedded
+            "env_vars": env_vars,
+            # Channel configuration - bridge-only, public channels disabled
+            "channels": {
+                "bridge": {"enabled": True},
+                "telegram": {"enabled": False},
+                "discord": {"enabled": False},
+                "slack": {"enabled": False},
+                "line": {"enabled": False},
+                "wecom": {"enabled": False},
+                "feishu": {"enabled": False},
+                "dingtalk": {"enabled": False},
+                "qq": {"enabled": False},
+                "onebot": {"enabled": False},
+                "whatsapp": {"enabled": False},
+                "maixcam": {"enabled": False},
+            },
+            # Gateway configuration
+            "gateway": {
+                "host": "0.0.0.0",
+                "port": 18790,
+            },
+        }
+
+        return config

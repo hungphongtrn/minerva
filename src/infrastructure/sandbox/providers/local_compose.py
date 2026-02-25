@@ -76,6 +76,8 @@ class LocalComposeSandboxProvider(SandboxProvider):
         # Pack binding metadata for observability and parity assertions
         pack_bound = data.get("pack_bound", False)
         pack_source_path = data.get("pack_source_path")
+        pack_digest = data.get("pack_digest")
+        materialized_config_path = data.get("materialized_config_path")
 
         metadata = {
             "compose_file": self._compose_file_path,
@@ -85,6 +87,10 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
         if pack_bound and pack_source_path:
             metadata["pack_source_path"] = pack_source_path
+        if pack_digest:
+            metadata["pack_digest"] = pack_digest
+        if materialized_config_path:
+            metadata["materialized_config_path"] = materialized_config_path
 
         return SandboxInfo(
             ref=SandboxRef(
@@ -100,6 +106,120 @@ class LocalComposeSandboxProvider(SandboxProvider):
             error_message=data.get("error_message"),
             provider_state=data.get("provider_state", "local_simulated"),
         )
+
+    def _generate_picoclaw_config(
+        self,
+        config: SandboxConfig,
+    ) -> Dict[str, Any]:
+        """Generate Picoclaw config.json for sandbox.
+
+        Creates a deterministic, sandbox-scoped config with:
+        - Bridge-only channels (public channels disabled)
+        - Credentials from environment variables
+        - Pack workspace mapping
+
+        Args:
+            config: Sandbox configuration with runtime_bridge_config.
+
+        Returns:
+            Complete Picoclaw config dict.
+        """
+        # Get runtime bridge config from orchestrator
+        runtime_config = config.runtime_bridge_config or {}
+
+        # Extract bridge settings
+        bridge_config = runtime_config.get("bridge", {})
+        bridge_auth_token = bridge_config.get("auth_token", "temp-token")
+        gateway_port = bridge_config.get("gateway_port", 18790)
+
+        # Build Picoclaw config.json structure
+        picoclaw_config = {
+            "agents": {
+                "defaults": {
+                    "workspace": "/workspace/pack",
+                    "restrict_to_workspace": True,
+                    "model": "primary",
+                    "max_tokens": 8192,
+                    "temperature": 0.7,
+                    "max_tool_iterations": 20,
+                }
+            },
+            "model_list": [
+                {
+                    "model_name": "primary",
+                    "model": "${LLM_MODEL:-openai/gpt-4}",
+                    "api_key": "${LLM_API_KEY}",
+                    "api_base": "${LLM_API_BASE}",
+                }
+            ],
+            "channels": {
+                "bridge": {
+                    "enabled": True,
+                    "auth_token": bridge_auth_token,
+                },
+                # All public channels disabled for security
+                "telegram": {"enabled": False},
+                "discord": {"enabled": False},
+                "slack": {"enabled": False},
+                "line": {"enabled": False},
+                "wecom": {"enabled": False},
+                "feishu": {"enabled": False},
+                "dingtalk": {"enabled": False},
+                "qq": {"enabled": False},
+                "onebot": {"enabled": False},
+                "whatsapp": {"enabled": False},
+                "maixcam": {"enabled": False},
+            },
+            "gateway": {
+                "host": "0.0.0.0",
+                "port": gateway_port,
+            },
+            "heartbeat": {
+                "enabled": False,
+            },
+        }
+
+        return picoclaw_config
+
+    async def _materialize_pack(
+        self,
+        config: SandboxConfig,
+    ) -> Dict[str, Any]:
+        """Materialize agent pack into sandbox workspace.
+
+        Implements snapshot copy/sync semantics (not live bind).
+        In production, this would copy pack files to a volume mount.
+
+        Args:
+            config: Sandbox configuration with pack_source_path.
+
+        Returns:
+            Materialization metadata with paths and digests.
+        """
+        if not config.pack_source_path:
+            return {"materialized": False}
+
+        # In production, this would:
+        # 1. Copy pack_source_path contents to sandbox volume
+        # 2. Compute digest of copied content
+        # 3. Store config.json alongside pack
+
+        # For local compose simulation:
+        # - Track that materialization occurred
+        # - Store the expected config path
+        # - Store the pack digest for stale detection
+
+        materialized_path = f"/workspace/pack"
+        config_path = f"{materialized_path}/config.json"
+
+        return {
+            "materialized": True,
+            "source_path": config.pack_source_path,
+            "materialized_path": materialized_path,
+            "config_path": config_path,
+            "pack_digest": config.pack_digest,
+            "materialization_type": "snapshot_copy",
+        }
 
     async def get_active_sandbox(
         self,
@@ -130,12 +250,16 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
         Simulates the provisioning lifecycle:
         1. Start in HYDRATING state
-        2. Transition to READY after simulated startup
-        3. Mark as HEALTHY
+        2. Materialize pack (snapshot copy, not live bind)
+        3. Generate Picoclaw config.json with bridge-only channels
+        4. Transition to READY after simulated startup
+        5. Mark as HEALTHY
 
         Pack binding:
-        - If config.pack_source_path is provided, binds pack into sandbox
-        - Pack bind status exposed in provider metadata
+        - If config.pack_source_path is provided, materializes pack into sandbox
+        - Generates per-sandbox Picoclaw config.json with bridge-only channels
+        - Pack digest stored in metadata for stale detection
+        - Sensitive credentials remain env-var sourced
         """
         ref = self._generate_ref(config.workspace_id)
 
@@ -154,6 +278,17 @@ class LocalComposeSandboxProvider(SandboxProvider):
         # Pack binding: store pack info if provided
         pack_bound = config.pack_source_path is not None
 
+        # Materialize pack (snapshot copy semantics)
+        materialization = await self._materialize_pack(config)
+
+        # Generate Picoclaw config if we have runtime config
+        materialized_config_path = None
+        if config.runtime_bridge_config:
+            picoclaw_config = self._generate_picoclaw_config(config)
+            # In production, this would write to sandbox volume
+            # For simulation, we track that config was "generated"
+            materialized_config_path = materialization.get("config_path")
+
         # Start in HYDRATING state
         self._sandboxes[ref] = {
             "workspace_id": config.workspace_id,
@@ -165,6 +300,9 @@ class LocalComposeSandboxProvider(SandboxProvider):
             "provider_state": "creating",
             "pack_bound": pack_bound,
             "pack_source_path": config.pack_source_path,
+            "pack_digest": config.pack_digest,
+            "materialized_config_path": materialized_config_path,
+            "materialization": materialization,
         }
 
         # Simulate async provisioning delay

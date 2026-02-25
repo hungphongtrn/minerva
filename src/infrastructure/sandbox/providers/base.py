@@ -116,6 +116,12 @@ class SandboxConfig:
     pack_source_path: Optional[str] = None
     """Path to agent pack source for mounting/copying."""
 
+    pack_digest: Optional[str] = None
+    """SHA-256 digest of the agent pack at provisioning time for stale detection."""
+
+    runtime_bridge_config: Optional[Dict[str, Any]] = None
+    """Runtime bridge configuration for Picoclaw gateway (model, channels, etc.)."""
+
 
 class SandboxProviderError(Exception):
     """Base exception for sandbox provider failures."""

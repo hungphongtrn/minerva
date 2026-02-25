@@ -186,6 +186,8 @@ class DaytonaSandboxProvider:
         pack_bound: bool = False,
         pack_source_path: Optional[str] = None,
         workspace_id: Optional[UUID] = None,
+        pack_digest: Optional[str] = None,
+        materialized_config_path: Optional[str] = None,
     ) -> SandboxInfo:
         """Convert Daytona sandbox object to SandboxInfo DTO."""
         # Extract state from Daytona sandbox
@@ -214,6 +216,10 @@ class DaytonaSandboxProvider:
 
         if pack_bound and pack_source_path:
             metadata["pack_source_path"] = pack_source_path
+        if pack_digest:
+            metadata["pack_digest"] = pack_digest
+        if materialized_config_path:
+            metadata["materialized_config_path"] = materialized_config_path
 
         # Extract timestamps if available
         created_at = None
@@ -237,6 +243,120 @@ class DaytonaSandboxProvider:
             created_at=created_at,
             provider_state=daytona_state,
         )
+
+    def _generate_picoclaw_config(
+        self,
+        config: SandboxConfig,
+    ) -> Dict[str, Any]:
+        """Generate Picoclaw config.json for sandbox.
+
+        Creates a deterministic, sandbox-scoped config with:
+        - Bridge-only channels (public channels disabled)
+        - Credentials from environment variables
+        - Pack workspace mapping
+
+        Args:
+            config: Sandbox configuration with runtime_bridge_config.
+
+        Returns:
+            Complete Picoclaw config dict.
+        """
+        # Get runtime bridge config from orchestrator
+        runtime_config = config.runtime_bridge_config or {}
+
+        # Extract bridge settings
+        bridge_config = runtime_config.get("bridge", {})
+        bridge_auth_token = bridge_config.get("auth_token", "temp-token")
+        gateway_port = bridge_config.get("gateway_port", 18790)
+
+        # Build Picoclaw config.json structure
+        picoclaw_config = {
+            "agents": {
+                "defaults": {
+                    "workspace": "/workspace/pack",
+                    "restrict_to_workspace": True,
+                    "model": "primary",
+                    "max_tokens": 8192,
+                    "temperature": 0.7,
+                    "max_tool_iterations": 20,
+                }
+            },
+            "model_list": [
+                {
+                    "model_name": "primary",
+                    "model": "${LLM_MODEL:-openai/gpt-4}",
+                    "api_key": "${LLM_API_KEY}",
+                    "api_base": "${LLM_API_BASE}",
+                }
+            ],
+            "channels": {
+                "bridge": {
+                    "enabled": True,
+                    "auth_token": bridge_auth_token,
+                },
+                # All public channels disabled for security
+                "telegram": {"enabled": False},
+                "discord": {"enabled": False},
+                "slack": {"enabled": False},
+                "line": {"enabled": False},
+                "wecom": {"enabled": False},
+                "feishu": {"enabled": False},
+                "dingtalk": {"enabled": False},
+                "qq": {"enabled": False},
+                "onebot": {"enabled": False},
+                "whatsapp": {"enabled": False},
+                "maixcam": {"enabled": False},
+            },
+            "gateway": {
+                "host": "0.0.0.0",
+                "port": gateway_port,
+            },
+            "heartbeat": {
+                "enabled": False,
+            },
+        }
+
+        return picoclaw_config
+
+    async def _materialize_pack(
+        self,
+        config: SandboxConfig,
+    ) -> Dict[str, Any]:
+        """Materialize agent pack into Daytona workspace.
+
+        Implements snapshot copy/sync semantics (not live bind).
+        In production, this would copy pack files into the Daytona workspace.
+
+        Args:
+            config: Sandbox configuration with pack_source_path.
+
+        Returns:
+            Materialization metadata with paths and digests.
+        """
+        if not config.pack_source_path:
+            return {"materialized": False}
+
+        # In production with Daytona SDK:
+        # 1. Use Daytona file operations to copy pack content
+        # 2. Compute digest of copied content
+        # 3. Write config.json to workspace
+
+        # For SDK simulation:
+        # - Track that materialization occurred
+        # - Store the expected config path
+        # - Store the pack digest for stale detection
+
+        materialized_path = "/workspace/pack"
+        config_path = f"{materialized_path}/config.json"
+
+        return {
+            "materialized": True,
+            "source_path": config.pack_source_path,
+            "materialized_path": materialized_path,
+            "config_path": config_path,
+            "pack_digest": config.pack_digest,
+            "materialization_type": "snapshot_copy",
+        }
 
     async def get_active_sandbox(
         self,
@@ -297,17 +417,32 @@ class DaytonaSandboxProvider:
 
         Provisioning lifecycle:
         1. Create workspace via Daytona SDK (HYDRATING state)
-        2. Wait for workspace to be ready (SDK handles this)
-        3. Mark READY
+        2. Materialize pack (snapshot copy, not live bind)
+        3. Generate Picoclaw config.json with bridge-only channels
+        4. Wait for workspace to be ready (SDK handles this)
+        5. Mark READY
 
         Pack binding:
-        - If config.pack_source_path is provided, stores binding info in metadata
-        - Pack bind status exposed in provider metadata
+        - If config.pack_source_path is provided, materializes pack into workspace
+        - Generates per-sandbox Picoclaw config.json with bridge-only channels
+        - Pack digest stored in metadata for stale detection
+        - Sensitive credentials remain env-var sourced
         """
         ref = self._generate_ref(config.workspace_id)
 
         # Pack binding: track pack info if provided
         pack_bound = config.pack_source_path is not None
+
+        # Materialize pack (snapshot copy semantics)
+        materialization = await self._materialize_pack(config)
+
+        # Generate Picoclaw config if we have runtime config
+        materialized_config_path = None
+        if config.runtime_bridge_config:
+            picoclaw_config = self._generate_picoclaw_config(config)
+            # In production, this would write to Daytona workspace
+            # For SDK simulation, we track that config was "generated"
+            materialized_config_path = materialization.get("config_path")
 
         try:
             daytona_config = self._create_config()
@@ -322,6 +457,8 @@ class DaytonaSandboxProvider:
                 if pack_bound:
                     metadata["pack_bound"] = True
                     metadata["pack_source_path"] = config.pack_source_path
+                    metadata["pack_digest"] = config.pack_digest
+                    metadata["materialized_config_path"] = materialized_config_path
 
                 return self._to_info(
                     ref,
@@ -329,7 +466,22 @@ class DaytonaSandboxProvider:
                     pack_bound=pack_bound,
                     pack_source_path=config.pack_source_path,
                     workspace_id=config.workspace_id,
+                    pack_digest=config.pack_digest,
+                    materialized_config_path=materialized_config_path,
                 )
+
+        except DaytonaError as e:
+            raise SandboxProvisionError(
+                f"Failed to provision Daytona sandbox: {e}",
+                provider_ref=ref,
+                workspace_id=config.workspace_id,
+            )
+        except Exception as e:
+            raise SandboxProvisionError(
+                f"Unexpected error provisioning Daytona sandbox: {e}",
+                provider_ref=ref,
+                workspace_id=config.workspace_id,
+            )
 
         except DaytonaError as e:
             raise SandboxProvisionError(

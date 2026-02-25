@@ -14,7 +14,10 @@ semantic mapping without requiring real Daytona credentials.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 
+from src.db.models import Base, User, Workspace
 from src.infrastructure.sandbox.providers.base import (
     SandboxConfig,
     SandboxConfigurationError,
@@ -24,7 +27,10 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxProvisionError,
     SandboxRef,
     SandboxState,
+    SandboxHealth as ProviderSandboxHealth,
+    SandboxState as ProviderSandboxState,
 )
+from src.infrastructure.sandbox.providers.base import SandboxInfo
 from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
 from src.infrastructure.sandbox.providers.factory import (
     get_current_profile,
@@ -34,6 +40,46 @@ from src.infrastructure.sandbox.providers.factory import (
 from src.infrastructure.sandbox.providers.local_compose import (
     LocalComposeSandboxProvider,
 )
+
+
+# Fixtures for TestPackStaleDetection
+@pytest.fixture(scope="function")
+def db_session():
+    """Create a fresh in-memory SQLite database for each test."""
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    session = SessionLocal()
+    yield session
+    session.close()
+
+
+@pytest.fixture
+def test_user(db_session: Session) -> User:
+    """Create a test user."""
+    user = User(
+        id=uuid4(),
+        email=f"test_{uuid4().hex[:8]}@example.com",
+        is_active=True,
+        is_guest=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+@pytest.fixture
+def test_workspace(db_session: Session, test_user: User) -> Workspace:
+    """Create a test workspace."""
+    workspace = Workspace(
+        id=uuid4(),
+        name="Test Workspace",
+        slug=f"test-workspace-{uuid4().hex[:8]}",
+        owner_id=test_user.id,
+    )
+    db_session.add(workspace)
+    db_session.commit()
+    return workspace
 
 
 class TestProviderFactory:
@@ -1293,3 +1339,335 @@ class TestDaytonaFailClosedBehavior:
                 await provider.provision_sandbox(config)
 
             assert "failed" in str(exc_info.value).lower()
+
+
+class TestPicoclawConfigGeneration:
+    """Test Picoclaw config generation for bridge-only channels."""
+
+    @pytest.fixture
+    def local_provider(self):
+        """Create a LocalCompose provider for testing."""
+        return LocalComposeSandboxProvider()
+
+    @pytest.fixture
+    def daytona_provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test-api-key")
+
+    def test_local_compose_generates_bridge_only_config(self, local_provider):
+        """Local compose generates config with bridge-only channels enabled."""
+        config = SandboxConfig(
+            workspace_id=uuid4(),
+            runtime_bridge_config={
+                "bridge": {
+                    "enabled": True,
+                    "auth_token": "test-token-123",
+                    "gateway_port": 18790,
+                },
+                "channels": {
+                    "bridge": {"enabled": True},
+                    "telegram": {"enabled": False},
+                },
+            },
+        )
+
+        picoclaw_config = local_provider._generate_picoclaw_config(config)
+
+        # Verify bridge channel is enabled
+        assert picoclaw_config["channels"]["bridge"]["enabled"] is True
+
+        # Verify all public channels are disabled
+        assert picoclaw_config["channels"]["telegram"]["enabled"] is False
+        assert picoclaw_config["channels"]["discord"]["enabled"] is False
+        assert picoclaw_config["channels"]["slack"]["enabled"] is False
+
+        # Verify gateway config
+        assert picoclaw_config["gateway"]["port"] == 18790
+
+        # Verify env var placeholders for credentials
+        assert "${LLM_API_KEY}" in str(picoclaw_config["model_list"])
+
+    def test_daytona_generates_bridge_only_config(self, daytona_provider):
+        """Daytona generates config with bridge-only channels enabled."""
+        config = SandboxConfig(
+            workspace_id=uuid4(),
+            runtime_bridge_config={
+                "bridge": {
+                    "enabled": True,
+                    "auth_token": "test-token-456",
+                    "gateway_port": 18790,
+                },
+            },
+        )
+
+        picoclaw_config = daytona_provider._generate_picoclaw_config(config)
+
+        # Verify bridge channel is enabled
+        assert picoclaw_config["channels"]["bridge"]["enabled"] is True
+
+        # Verify all public channels are disabled
+        assert picoclaw_config["channels"]["telegram"]["enabled"] is False
+        assert picoclaw_config["channels"]["discord"]["enabled"] is False
+
+    def test_config_is_sandbox_scoped(self, local_provider):
+        """Config generation produces sandbox-scoped configuration."""
+        workspace_id_1 = uuid4()
+        workspace_id_2 = uuid4()
+
+        config_1 = SandboxConfig(
+            workspace_id=workspace_id_1,
+            runtime_bridge_config={
+                "workspace_id": str(workspace_id_1),
+                "bridge": {"auth_token": "token-1"},
+            },
+        )
+        config_2 = SandboxConfig(
+            workspace_id=workspace_id_2,
+            runtime_bridge_config={
+                "workspace_id": str(workspace_id_2),
+                "bridge": {"auth_token": "token-2"},
+            },
+        )
+
+        picoclaw_config_1 = local_provider._generate_picoclaw_config(config_1)
+        picoclaw_config_2 = local_provider._generate_picoclaw_config(config_2)
+
+        # Each config should have unique bridge token
+        assert (
+            picoclaw_config_1["channels"]["bridge"]["auth_token"]
+            != picoclaw_config_2["channels"]["bridge"]["auth_token"]
+        )
+
+
+class TestPackMaterialization:
+    """Test pack materialization with snapshot copy semantics."""
+
+    @pytest.fixture
+    def local_provider(self):
+        """Create a LocalCompose provider for testing."""
+        return LocalComposeSandboxProvider()
+
+    @pytest.fixture
+    def daytona_provider(self):
+        """Create a Daytona provider for testing."""
+        return DaytonaSandboxProvider(api_key="test-api-key")
+
+    @pytest.mark.asyncio
+    async def test_local_compose_materializes_pack_snapshot(self, local_provider):
+        """Local compose materializes pack with snapshot copy, not live bind."""
+        pack_path = "/test/agent/pack"
+        pack_digest = "abc123def456"
+
+        config = SandboxConfig(
+            workspace_id=uuid4(),
+            pack_source_path=pack_path,
+            pack_digest=pack_digest,
+            runtime_bridge_config={
+                "bridge": {"enabled": True, "auth_token": "test-token"},
+                "workspace_id": "test-workspace",
+            },
+        )
+
+        info = await local_provider.provision_sandbox(config)
+
+        # Verify pack materialization metadata
+        assert info.ref.metadata.get("pack_bound") is True
+        assert info.ref.metadata.get("pack_source_path") == pack_path
+        assert info.ref.metadata.get("pack_digest") == pack_digest
+        assert (
+            info.ref.metadata.get("materialized_config_path")
+            == "/workspace/pack/config.json"
+        )
+
+    @pytest.mark.asyncio
+    async def test_daytona_materializes_pack_snapshot(
+        self, daytona_provider, mock_daytona_sdk
+    ):
+        """Daytona materializes pack with snapshot copy, not live bind."""
+        mock_daytona, create_mock_sandbox = mock_daytona_sdk
+
+        pack_path = "/test/agent/pack"
+        pack_digest = "abc123def456"
+        workspace_id = uuid4()
+        expected_ref = daytona_provider._generate_ref(workspace_id)
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=pack_path,
+            pack_digest=pack_digest,
+            runtime_bridge_config={
+                "bridge": {"enabled": True, "auth_token": "test-token"},
+                "workspace_id": "test-workspace",
+            },
+        )
+
+        # Mock SDK to return a sandbox
+        mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+        info = await daytona_provider.provision_sandbox(config)
+
+        # Verify pack materialization metadata
+        assert info.ref.metadata.get("pack_bound") is True
+        assert info.ref.metadata.get("pack_source_path") == pack_path
+        assert info.ref.metadata.get("pack_digest") == pack_digest
+        assert (
+            info.ref.metadata.get("materialized_config_path")
+            == "/workspace/pack/config.json"
+        )
+
+    @pytest.mark.asyncio
+    async def test_materialization_noop_without_pack(self, local_provider):
+        """Materialization is no-op when no pack is provided."""
+        config = SandboxConfig(
+            workspace_id=uuid4(),
+            pack_source_path=None,
+            pack_digest=None,
+            runtime_bridge_config={
+                "bridge": {"enabled": True, "auth_token": "test-token"},
+            },
+        )
+
+        info = await local_provider.provision_sandbox(config)
+
+        # Verify no materialization occurred
+        assert info.ref.metadata.get("pack_bound") is False
+        assert info.ref.metadata.get("pack_digest") is None
+        assert info.ref.metadata.get("materialized_config_path") is None
+
+
+class TestPackStaleDetection:
+    """Test stale pack detection for fail-closed routing."""
+
+    @pytest.fixture
+    def mock_provider(self):
+        """Create a mock sandbox provider."""
+        provider = MagicMock()
+        provider.profile = "local_compose"
+        provider.get_health = AsyncMock()
+        provider.provision_sandbox = AsyncMock()
+        provider.stop_sandbox = AsyncMock()
+        return provider
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_passes_pack_digest_to_provider(
+        self, db_session, test_user, test_workspace, mock_provider
+    ):
+        """Orchestrator passes pack digest for stale detection."""
+        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+        from src.services.sandbox_orchestrator_service import (
+            SandboxOrchestratorService,
+            RoutingResult,
+        )
+
+        # Create a valid agent pack with digest
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Test Pack",
+            source_path="/test/pack/path",
+            source_digest="sha256abc123",
+        )
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = True
+        db_session.flush()
+
+        # Capture the config passed to provider
+        captured_config = None
+
+        async def capture_provision(config):
+            nonlocal captured_config
+            captured_config = config
+            return SandboxInfo(
+                ref=SandboxRef(provider_ref="new-sandbox", profile="local_compose"),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.provision_sandbox.side_effect = capture_provision
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        # Resolve sandbox with pack
+        result = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        assert result.success is True
+        assert captured_config is not None
+        # Verify pack_digest is passed for stale detection
+        assert captured_config.pack_digest == "sha256abc123"
+        # Verify runtime_bridge_config is generated
+        assert captured_config.runtime_bridge_config is not None
+        assert captured_config.runtime_bridge_config["bridge"]["enabled"] is True
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_generates_unique_bridge_tokens(
+        self, db_session, test_user, test_workspace, mock_provider
+    ):
+        """Each sandbox gets unique bridge auth token."""
+        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+        from src.services.sandbox_orchestrator_service import (
+            SandboxOrchestratorService,
+            RoutingResult,
+        )
+
+        # Create a valid agent pack
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Test Pack",
+            source_path="/test/pack/path",
+            source_digest="sha256abc123",
+        )
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = True
+        db_session.flush()
+
+        captured_configs = []
+
+        async def capture_provision(config):
+            captured_configs.append(config)
+            return SandboxInfo(
+                ref=SandboxRef(
+                    provider_ref=f"new-sandbox-{len(captured_configs)}",
+                    profile="local_compose",
+                ),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.provision_sandbox.side_effect = capture_provision
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        # Provision first sandbox
+        result1 = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        # Provision second sandbox
+        result2 = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            agent_pack_id=pack.id,
+        )
+
+        # Verify each sandbox has unique bridge token
+        token1 = captured_configs[0].runtime_bridge_config["bridge"]["auth_token"]
+        token2 = captured_configs[1].runtime_bridge_config["bridge"]["auth_token"]
+
+        assert token1 != token2, "Each sandbox should have unique bridge token"
