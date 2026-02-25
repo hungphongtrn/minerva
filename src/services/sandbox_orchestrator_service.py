@@ -14,11 +14,14 @@ from sqlalchemy.orm import Session
 
 from src.config.settings import settings
 from src.db.models import (
+    AgentPack,
+    AgentPackValidationStatus,
     SandboxInstance,
     SandboxState,
     SandboxHealthStatus,
     SandboxProfile,
 )
+from src.db.repositories.agent_pack_repository import AgentPackRepository
 from src.db.repositories.sandbox_instance_repository import SandboxInstanceRepository
 from src.infrastructure.sandbox.providers.base import (
     SandboxProvider,
@@ -274,6 +277,59 @@ class SandboxOrchestratorService:
         Returns:
             SandboxRoutingResult with provisioning outcome.
         """
+        pack_source_path: Optional[str] = None
+
+        # Resolve and validate agent pack if provided (fail-closed)
+        if agent_pack_id:
+            pack_repo = AgentPackRepository(self._session)
+            pack = pack_repo.get_by_id(agent_pack_id)
+
+            # Validation: pack must exist
+            if not pack:
+                return SandboxRoutingResult(
+                    success=False,
+                    result=RoutingResult.PROVISION_FAILED,
+                    sandbox=None,
+                    provider_info=None,
+                    message=f"Agent pack not found: {agent_pack_id}",
+                    excluded_unhealthy=excluded_unhealthy,
+                )
+
+            # Validation: pack must belong to the workspace
+            if pack.workspace_id != workspace_id:
+                return SandboxRoutingResult(
+                    success=False,
+                    result=RoutingResult.PROVISION_FAILED,
+                    sandbox=None,
+                    provider_info=None,
+                    message=f"Agent pack {agent_pack_id} does not belong to workspace {workspace_id}",
+                    excluded_unhealthy=excluded_unhealthy,
+                )
+
+            # Validation: pack must be active
+            if not pack.is_active:
+                return SandboxRoutingResult(
+                    success=False,
+                    result=RoutingResult.PROVISION_FAILED,
+                    sandbox=None,
+                    provider_info=None,
+                    message=f"Agent pack {agent_pack_id} is not active",
+                    excluded_unhealthy=excluded_unhealthy,
+                )
+
+            # Validation: pack must be valid (not pending, invalid, or stale)
+            if pack.validation_status != AgentPackValidationStatus.VALID:
+                return SandboxRoutingResult(
+                    success=False,
+                    result=RoutingResult.PROVISION_FAILED,
+                    sandbox=None,
+                    provider_info=None,
+                    message=f"Agent pack {agent_pack_id} is not valid (status: {pack.validation_status.value})",
+                    excluded_unhealthy=excluded_unhealthy,
+                )
+
+            pack_source_path = pack.source_path
+
         try:
             # Create database record first
             sandbox = self._repository.create(
@@ -286,11 +342,12 @@ class SandboxOrchestratorService:
             # Update state to CREATING
             self._repository.update_state(sandbox.id, SandboxState.CREATING)
 
-            # Provision via provider
+            # Provision via provider with pack source path
             config = SandboxConfig(
                 workspace_id=workspace_id,
                 idle_ttl_seconds=self._idle_ttl_seconds,
                 env_vars=env_vars or {},
+                pack_source_path=pack_source_path,
             )
 
             provider_info = await self._provider.provision_sandbox(config)
