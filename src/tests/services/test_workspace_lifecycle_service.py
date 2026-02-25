@@ -318,7 +318,7 @@ class TestSandboxRoutingIntegration:
         mock_orchestrator,
     ):
         """Test that agent_pack_id is forwarded from lifecycle to orchestrator."""
-        from uuid import uuid4
+        from uuid import uuid4, UUID
 
         mock_orchestrator.resolve_sandbox.return_value = SandboxRoutingResult(
             success=True,
@@ -337,10 +337,10 @@ class TestSandboxRoutingIntegration:
             agent_pack_id=pack_id,
         )
 
-        # Verify orchestrator was called with agent_pack_id
+        # Verify orchestrator was called with agent_pack_id (converted to UUID)
         mock_orchestrator.resolve_sandbox.assert_called_once()
         call_kwargs = mock_orchestrator.resolve_sandbox.call_args.kwargs
-        assert call_kwargs.get("agent_pack_id") == pack_id
+        assert call_kwargs.get("agent_pack_id") == UUID(pack_id)
 
     @pytest.mark.asyncio
     async def test_resolve_with_sandbox_routing(
