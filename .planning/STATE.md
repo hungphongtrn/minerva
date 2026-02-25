@@ -190,7 +190,7 @@ flowchart LR
 - **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (or continue Phase 2 gap closures)
 - **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-14-SUMMARY.md`
 - **Last session:** 2026-02-25 - Plan 02-14 complete (fail-fast routing, pack-specific API errors, profile parity harness)
-- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); f661268, 6fcdd45, aca0d6b (02-14)
+- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); cc6de40, 686a589, ce684ae, a48e3f3 (02-13); f661268, 6fcdd45, aca0d6b (02-14)
 
 ---
 *Initialized: 2026-02-23*
