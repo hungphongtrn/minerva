@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 2 of 5 (Workspace Lifecycle and Agent Pack Portability) - COMPLETE
-- **Plan status:** Phase 2 at 100% (all 12 base plans + gap closures 02-13 through 02-14 complete)
-- **Execution status:** Phase 2 complete with acceptance, security evidence, and UAT gap closures
-- **Progress bar:** [████████--] 48%
-- **Last completed:** Plan 02-14 (UAT Test 4 routing/error-contract gap closure)
+- **Plan status:** Phase 2 COMPLETE (all 12 base plans + all gap closures 02-13 through 02-15)
+- **Execution status:** Phase 2 complete with acceptance, security evidence, and all UAT gap closures
+- **Progress bar:** [████████░░] 48%
+- **Last completed:** Plan 02-15 (UAT Test 7 lease contention blocker closure)
 
 ```mermaid
 flowchart LR
@@ -145,6 +145,9 @@ flowchart LR
 | D-02-14-002 | 2026-02-25 | 02-14 | Error Type Constants Over String Matching | Use centralized RoutingErrorType class for deterministic error categorization |
 | D-02-14-003 | 2026-02-25 | 02-14 | 503 Reserved for Infrastructure Only | HTTP 503 reserved for provider/infrastructure unavailability, not pack validation failures (4xx) |
 | D-02-14-004 | 2026-02-25 | 02-14 | Remediation Guidance in Error Responses | All routing errors include 'remediation' field with actionable guidance for self-service debugging |
+| D-02-15-001 | 2026-02-25 | 02-15 | Bounded Lease Contention with Exponential Backoff | 10s max wait with exponential backoff (50ms-500ms) prevents indefinite hangs while giving legitimate operations time to complete |
+| D-02-15-002 | 2026-02-25 | 02-15 | Explicit FOR UPDATE Row Locking | Pessimistic row locking ensures deterministic serialization without relying on unique constraint races |
+| D-02-15-003 | 2026-02-25 | 02-15 | CONFLICT_RETRYABLE with Retry Guidance | Contention timeout returns explicit retry_after_seconds guidance instead of generic errors |
 
 ### TODOs
 
@@ -171,6 +174,8 @@ flowchart LR
 - [x] Execute Plan 02-11: Replace Daytona simulation with SDK-backed lifecycle
 - [x] Execute Plan 02-12: Add acceptance and security evidence for Daytona SDK
 - [x] Execute Plan 02-13: Close durability gap with transaction boundaries and regression coverage
+- [x] Execute Plan 02-14: Close UAT Test 4 gap with fail-fast routing
+- [x] Execute Plan 02-15: Close UAT Test 7 gap with bounded lease contention
 
 ### Blockers
 
@@ -184,14 +189,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `02-14-SUMMARY.md` (UAT Test 4 gap closure with fail-fast routing, pack-specific errors, and parity harness)
-- **Last activity:** 2026-02-25 - Completed plan 02-14 (13 new tests, fail-fast routing, automated parity harness)
+- **Last completed artifact:** `02-15-SUMMARY.md` (UAT Test 7 lease contention blocker closure)
+- **Last activity:** 2026-02-25 - Completed plan 02-15 (8 new tests, bounded contention contract, DB lock safeguards)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (or continue Phase 2 gap closures)
-- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-14-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 02-14 complete (fail-fast routing, pack-specific API errors, profile parity harness)
-- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); cc6de40, 686a589, ce684ae, a48e3f3 (02-13); f661268, 6fcdd45, aca0d6b (02-14)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
+- **Recovery note:** If context is lost, resume from `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-15-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 02-15 complete (bounded lease contention, fail-fast lock timeouts, 8 concurrency regression tests)
+- **Commits:** ...; eb38f2e, bce24ad, f7a203b, 00fce49 (02-12); cc6de40, 686a589, ce684ae, a48e3f3 (02-13); f661268, 6fcdd45, aca0d6b (02-14); a8186af, 60ecea0, 6a00f0c (02-15)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 02-14 complete - UAT Test 4 gap closure with fail-fast routing, pack-specific errors, and 13 new tests)*
+*Updated: 2026-02-25 (Plan 02-15 complete - UAT Test 7 gap closure with bounded lease contention, DB lock safeguards, and 8 concurrency regression tests)*
