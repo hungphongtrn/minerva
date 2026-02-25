@@ -4,7 +4,8 @@ Provides service-level orchestration for lease acquisition, renewal, and release
 with transaction-safe conflict behavior and expiration-based recovery.
 """
 
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from typing import Optional
@@ -13,7 +14,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from src.db.models import WorkspaceLease
-from src.db.repositories.workspace_lease_repository import WorkspaceLeaseRepository
+from src.db.repositories.workspace_lease_repository import (
+    LeaseAcquisitionError,
+    WorkspaceLeaseRepository,
+)
 
 
 class LeaseResult(Enum):
@@ -21,6 +25,7 @@ class LeaseResult(Enum):
 
     ACQUIRED = auto()  # Lease acquired successfully
     CONFLICT = auto()  # Another holder has active lease (retryable)
+    CONFLICT_RETRYABLE = auto()  # Contention resolved with retry guidance
     EXPIRED_RECOVERED = auto()  # Expired lease recovered and acquired
     NOT_FOUND = auto()  # No active lease found for operation
     HOLDER_MISMATCH = auto()  # Holder identity mismatch
@@ -36,6 +41,8 @@ class LeaseAcquisitionResult:
     result: LeaseResult
     lease: Optional[WorkspaceLease]
     message: str
+    retry_after_seconds: Optional[int] = field(default=None)
+    contention_waited_ms: Optional[int] = field(default=None)
 
 
 @dataclass
@@ -65,6 +72,7 @@ class WorkspaceLeaseService:
     This service provides the control-plane layer for workspace write
     serialization with:
     - Transaction-safe lease acquisition with conflict detection
+    - Bounded contention handling with retry guidance
     - Automatic expiration recovery for crashed holders
     - Heartbeat/renewal for long-running operations
     - Deterministic release in all success/failure branches
@@ -81,6 +89,12 @@ class WorkspaceLeaseService:
 
     # Maximum allowed TTL: 1 hour (prevents indefinite locks)
     MAX_LEASE_TTL_SECONDS = 3600
+
+    # Contention handling: bounded retry with exponential backoff
+    MAX_CONTENTION_WAIT_SECONDS = 10  # Maximum total wait time under contention
+    INITIAL_RETRY_DELAY_MS = 50  # Initial retry delay in milliseconds
+    MAX_RETRY_DELAY_MS = 500  # Maximum retry delay in milliseconds
+    EXPONENTIAL_BACKOFF_FACTOR = 2.0  # Backoff multiplier between retries
 
     def __init__(self, session: Session):
         """Initialize the lease service.
@@ -104,6 +118,9 @@ class WorkspaceLeaseService:
         holder has an active lease, returns a retryable CONFLICT result.
         If an expired lease exists, it is recovered and a new lease acquired.
 
+        Uses bounded contention handling: if initial acquisition fails due to
+        contention, waits with exponential backoff up to MAX_CONTENTION_WAIT_SECONDS.
+
         Args:
             workspace_id: UUID of the workspace to acquire lease for.
             holder_run_id: Unique identifier for the run acquiring the lease.
@@ -112,82 +129,145 @@ class WorkspaceLeaseService:
 
         Returns:
             LeaseAcquisitionResult with success status and lease details.
+            If contention persists after max wait, returns CONFLICT_RETRYABLE
+            with retry_after_seconds guidance.
 
         Raises:
             ValueError: If ttl_seconds is outside allowed range.
         """
         ttl = self._validate_ttl(ttl_seconds)
 
-        try:
-            # Attempt to acquire lease atomically
-            lease = self._repository.acquire_active_lease(
-                workspace_id=workspace_id,
-                holder_run_id=holder_run_id,
-                holder_identity=holder_identity,
-                ttl_seconds=ttl,
-            )
+        start_time = time.monotonic()
+        attempt = 0
+        retry_delay_ms = self.INITIAL_RETRY_DELAY_MS
+        last_conflict_lease = None
 
-            if lease:
-                # Check if this was an expired lease recovery
-                # (we can tell by checking if there were previous leases)
-                existing_active = self._repository.get_active_lease(workspace_id)
-                if existing_active and existing_active.id == lease.id:
-                    # Check the age - if acquired very recently, might be recovery
-                    time_since_acquisition = datetime.utcnow() - lease.acquired_at
-                    if time_since_acquisition.total_seconds() < 1:
-                        # Check if there was a previous expired lease by looking
-                        # at version > 1 or checking for released leases
-                        if lease.version > 1:
-                            return LeaseAcquisitionResult(
-                                success=True,
-                                result=LeaseResult.EXPIRED_RECOVERED,
-                                lease=lease,
-                                message=(
-                                    f"Lease acquired after recovering expired lease "
-                                    f"for workspace {workspace_id}"
-                                ),
-                            )
+        while True:
+            attempt += 1
+            elapsed_ms = int((time.monotonic() - start_time) * 1000)
 
-                return LeaseAcquisitionResult(
-                    success=True,
-                    result=LeaseResult.ACQUIRED,
-                    lease=lease,
-                    message=f"Lease acquired for workspace {workspace_id}",
+            try:
+                # Attempt to acquire lease atomically
+                lease = self._repository.acquire_active_lease(
+                    workspace_id=workspace_id,
+                    holder_run_id=holder_run_id,
+                    holder_identity=holder_identity,
+                    ttl_seconds=ttl,
+                    use_locking=True,
                 )
 
-            # No lease acquired - check if there's an active lease
-            active_lease = self._repository.get_active_lease(workspace_id)
-            if active_lease:
+                if lease:
+                    # Check if this was an expired lease recovery
+                    existing_active = self._repository.get_active_lease(workspace_id)
+                    if existing_active and existing_active.id == lease.id:
+                        time_since_acquisition = datetime.utcnow() - lease.acquired_at
+                        if time_since_acquisition.total_seconds() < 1:
+                            if lease.version > 1:
+                                return LeaseAcquisitionResult(
+                                    success=True,
+                                    result=LeaseResult.EXPIRED_RECOVERED,
+                                    lease=lease,
+                                    message=(
+                                        f"Lease acquired after recovering expired lease "
+                                        f"for workspace {workspace_id}"
+                                    ),
+                                    contention_waited_ms=elapsed_ms
+                                    if attempt > 1
+                                    else None,
+                                )
+
+                    return LeaseAcquisitionResult(
+                        success=True,
+                        result=LeaseResult.ACQUIRED,
+                        lease=lease,
+                        message=f"Lease acquired for workspace {workspace_id}",
+                        contention_waited_ms=elapsed_ms if attempt > 1 else None,
+                    )
+
+                # No lease acquired - check if there's an active lease
+                active_lease = self._repository.get_active_lease(workspace_id)
+                if active_lease:
+                    # Check if we've exceeded max contention wait time
+                    elapsed_seconds = time.monotonic() - start_time
+                    if elapsed_seconds >= self.MAX_CONTENTION_WAIT_SECONDS:
+                        # Return conflict with retry guidance
+                        return LeaseAcquisitionResult(
+                            success=False,
+                            result=LeaseResult.CONFLICT_RETRYABLE,
+                            lease=None,
+                            message=(
+                                f"Workspace {workspace_id} has active lease held by "
+                                f"{active_lease.holder_identity} "
+                                f"(expires at {active_lease.expires_at.isoformat()}). "
+                                f"Contention timeout after {elapsed_ms}ms. "
+                                f"Retry after lease expires or is released."
+                            ),
+                            retry_after_seconds=ttl,
+                            contention_waited_ms=elapsed_ms,
+                        )
+
+                    # Store conflict info and wait before retry
+                    last_conflict_lease = active_lease
+
+                    # Sleep with exponential backoff
+                    sleep_seconds = min(
+                        retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0
+                    )
+                    time.sleep(sleep_seconds)
+                    retry_delay_ms = min(
+                        int(retry_delay_ms * self.EXPONENTIAL_BACKOFF_FACTOR),
+                        self.MAX_RETRY_DELAY_MS,
+                    )
+                    continue
+
+                # No active lease found - this is ambiguous, fail closed
                 return LeaseAcquisitionResult(
                     success=False,
-                    result=LeaseResult.CONFLICT,
+                    result=LeaseResult.NOT_FOUND,
                     lease=None,
                     message=(
-                        f"Workspace {workspace_id} has active lease held by "
-                        f"{active_lease.holder_identity} "
-                        f"(expires at {active_lease.expires_at.isoformat()})"
+                        f"Lease acquisition failed for workspace {workspace_id}: "
+                        f"ambiguous state - no active lease but acquisition refused"
                     ),
                 )
 
-            # No active lease found - this is ambiguous, fail closed
-            return LeaseAcquisitionResult(
-                success=False,
-                result=LeaseResult.NOT_FOUND,
-                lease=None,
-                message=(
-                    f"Lease acquisition failed for workspace {workspace_id}: "
-                    f"ambiguous state - no active lease but acquisition refused"
-                ),
-            )
+            except LeaseAcquisitionError as e:
+                # Lock contention error - check if we should retry
+                elapsed_seconds = time.monotonic() - start_time
+                if elapsed_seconds >= self.MAX_CONTENTION_WAIT_SECONDS:
+                    return LeaseAcquisitionResult(
+                        success=False,
+                        result=LeaseResult.CONFLICT_RETRYABLE,
+                        lease=None,
+                        message=(
+                            f"Lease acquisition failed due to database lock "
+                            f"contention for workspace {workspace_id}. "
+                            f"Timeout after {elapsed_ms}ms. Retry after current "
+                            f"holder releases the lease."
+                        ),
+                        retry_after_seconds=ttl,
+                        contention_waited_ms=elapsed_ms,
+                    )
 
-        except Exception as e:
-            # Fail closed on any error
-            return LeaseAcquisitionResult(
-                success=False,
-                result=LeaseResult.NOT_FOUND,
-                lease=None,
-                message=f"Lease acquisition failed: {str(e)}",
-            )
+                # Wait with exponential backoff before retry
+                sleep_seconds = min(
+                    retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0
+                )
+                time.sleep(sleep_seconds)
+                retry_delay_ms = min(
+                    int(retry_delay_ms * self.EXPONENTIAL_BACKOFF_FACTOR),
+                    self.MAX_RETRY_DELAY_MS,
+                )
+                continue
+
+            except Exception as e:
+                # Fail closed on any other error
+                return LeaseAcquisitionResult(
+                    success=False,
+                    result=LeaseResult.NOT_FOUND,
+                    lease=None,
+                    message=f"Lease acquisition failed: {str(e)}",
+                )
 
     def release_lease(
         self,
