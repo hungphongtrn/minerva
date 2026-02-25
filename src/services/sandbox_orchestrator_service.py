@@ -56,6 +56,13 @@ class SandboxRoutingResult:
     provider_info: Optional[SandboxInfo]
     message: str
     excluded_unhealthy: List[SandboxInstance]
+    ttl_cleanup_applied: bool = False
+    stopped_sandbox_ids: List[str] = None
+    ttl_cleanup_reason: Optional[str] = None
+
+    def __post_init__(self):
+        if self.stopped_sandbox_ids is None:
+            self.stopped_sandbox_ids = []
 
 
 @dataclass
@@ -156,11 +163,12 @@ class SandboxOrchestratorService:
         """Resolve a sandbox for workspace execution.
 
         Routing logic:
-        1. List candidate sandboxes for workspace (filtered by profile if provided)
-        2. Filter to ACTIVE state
-        3. Check health of each candidate
-        4. Route to first healthy candidate
-        5. If none healthy, mark unhealthy as excluded and provision replacement
+        1. Stop idle sandboxes that exceeded TTL (TTL cleanup enforcement)
+        2. List candidate sandboxes for workspace (filtered by profile if provided)
+        3. Filter to ACTIVE state
+        4. Check health of each candidate
+        5. Route to first healthy candidate
+        6. If none healthy, mark unhealthy as excluded and provision replacement
 
         Args:
             workspace_id: UUID of the workspace.
@@ -172,15 +180,28 @@ class SandboxOrchestratorService:
             SandboxRoutingResult with routing outcome.
         """
         excluded_unhealthy: List[SandboxInstance] = []
+        ttl_cleanup_applied = False
+        stopped_sandbox_ids: List[str] = []
+        ttl_cleanup_reason: Optional[str] = None
 
         try:
-            # Step 1: Get active sandboxes for workspace
+            # Step 1: Stop idle sandboxes that exceeded TTL
+            stopped_idle = await self._stop_idle_sandboxes_before_routing(workspace_id)
+            if stopped_idle:
+                ttl_cleanup_applied = True
+                stopped_sandbox_ids = [str(s.id) for s in stopped_idle]
+                ttl_cleanup_reason = (
+                    f"Stopped {len(stopped_idle)} idle sandbox(s) "
+                    f"exceeding TTL ({self._idle_ttl_seconds}s)"
+                )
+
+            # Step 2: Get active sandboxes for workspace
             active_sandboxes = self._repository.list_active_healthy_by_workspace(
                 workspace_id=workspace_id,
                 profile=profile,
             )
 
-            # Step 2: Check health of each candidate
+            # Step 3: Check health of each candidate
             for sandbox in active_sandboxes:
                 health_result = await self._check_sandbox_health(sandbox)
 
@@ -198,19 +219,25 @@ class SandboxOrchestratorService:
                         provider_info=health_result,
                         message=f"Routed to healthy sandbox {sandbox.id}",
                         excluded_unhealthy=excluded_unhealthy,
+                        ttl_cleanup_applied=ttl_cleanup_applied,
+                        stopped_sandbox_ids=stopped_sandbox_ids,
+                        ttl_cleanup_reason=ttl_cleanup_reason,
                     )
                 else:
                     # Mark as unhealthy and exclude
                     self._mark_unhealthy(sandbox)
                     excluded_unhealthy.append(sandbox)
 
-            # Step 3: No healthy candidates - need to provision
+            # Step 4: No healthy candidates - need to provision
             return await self._provision_sandbox(
                 workspace_id=workspace_id,
                 profile=profile,
                 agent_pack_id=agent_pack_id,
                 env_vars=env_vars,
                 excluded_unhealthy=excluded_unhealthy,
+                ttl_cleanup_applied=ttl_cleanup_applied,
+                stopped_sandbox_ids=stopped_sandbox_ids,
+                ttl_cleanup_reason=ttl_cleanup_reason,
             )
 
         except Exception as e:
@@ -221,7 +248,41 @@ class SandboxOrchestratorService:
                 provider_info=None,
                 message=f"Sandbox resolution failed: {str(e)}",
                 excluded_unhealthy=excluded_unhealthy,
+                ttl_cleanup_applied=ttl_cleanup_applied,
+                stopped_sandbox_ids=stopped_sandbox_ids,
+                ttl_cleanup_reason=ttl_cleanup_reason,
             )
+
+    async def _stop_idle_sandboxes_before_routing(
+        self, workspace_id: UUID
+    ) -> List[SandboxInstance]:
+        """Stop idle sandboxes before routing resolution.
+
+        This enforces TTL policy by stopping any sandboxes that have
+        exceeded their idle TTL before routing decisions are made.
+
+        Args:
+            workspace_id: Workspace to check for idle sandboxes.
+
+        Returns:
+            List of sandboxes that were stopped.
+        """
+        stopped: List[SandboxInstance] = []
+
+        # Get all active sandboxes for the workspace
+        candidates = self._repository.list_by_workspace(
+            workspace_id=workspace_id, include_inactive=False
+        )
+
+        # Filter to those eligible for stop (exceeded TTL)
+        for sandbox in candidates:
+            eligibility = self.check_stop_eligibility(sandbox)
+            if eligibility.eligible:
+                stopped_sandbox = await self._stop_sandbox(sandbox)
+                if stopped_sandbox:
+                    stopped.append(stopped_sandbox)
+
+        return stopped
 
     async def _check_sandbox_health(
         self, sandbox: SandboxInstance
@@ -264,6 +325,9 @@ class SandboxOrchestratorService:
         agent_pack_id: Optional[UUID],
         env_vars: Optional[Dict[str, str]],
         excluded_unhealthy: List[SandboxInstance],
+        ttl_cleanup_applied: bool = False,
+        stopped_sandbox_ids: Optional[List[str]] = None,
+        ttl_cleanup_reason: Optional[str] = None,
     ) -> SandboxRoutingResult:
         """Provision a new sandbox.
 
@@ -273,10 +337,16 @@ class SandboxOrchestratorService:
             agent_pack_id: Agent pack to attach.
             env_vars: Environment variables.
             excluded_unhealthy: List of excluded unhealthy sandboxes.
+            ttl_cleanup_applied: Whether TTL cleanup was applied before provisioning.
+            stopped_sandbox_ids: List of sandbox IDs stopped during TTL cleanup.
+            ttl_cleanup_reason: Reason for TTL cleanup.
 
         Returns:
             SandboxRoutingResult with provisioning outcome.
         """
+        if stopped_sandbox_ids is None:
+            stopped_sandbox_ids = []
+
         pack_source_path: Optional[str] = None
 
         # Resolve and validate agent pack if provided (fail-closed)
@@ -293,6 +363,9 @@ class SandboxOrchestratorService:
                     provider_info=None,
                     message=f"Agent pack not found: {agent_pack_id}",
                     excluded_unhealthy=excluded_unhealthy,
+                    ttl_cleanup_applied=ttl_cleanup_applied,
+                    stopped_sandbox_ids=stopped_sandbox_ids,
+                    ttl_cleanup_reason=ttl_cleanup_reason,
                 )
 
             # Validation: pack must belong to the workspace
@@ -304,6 +377,9 @@ class SandboxOrchestratorService:
                     provider_info=None,
                     message=f"Agent pack {agent_pack_id} does not belong to workspace {workspace_id}",
                     excluded_unhealthy=excluded_unhealthy,
+                    ttl_cleanup_applied=ttl_cleanup_applied,
+                    stopped_sandbox_ids=stopped_sandbox_ids,
+                    ttl_cleanup_reason=ttl_cleanup_reason,
                 )
 
             # Validation: pack must be active
@@ -315,6 +391,9 @@ class SandboxOrchestratorService:
                     provider_info=None,
                     message=f"Agent pack {agent_pack_id} is not active",
                     excluded_unhealthy=excluded_unhealthy,
+                    ttl_cleanup_applied=ttl_cleanup_applied,
+                    stopped_sandbox_ids=stopped_sandbox_ids,
+                    ttl_cleanup_reason=ttl_cleanup_reason,
                 )
 
             # Validation: pack must be valid (not pending, invalid, or stale)
@@ -327,6 +406,9 @@ class SandboxOrchestratorService:
                     provider_info=None,
                     message=f"Agent pack {agent_pack_id} is not valid (status: {pack.validation_status})",
                     excluded_unhealthy=excluded_unhealthy,
+                    ttl_cleanup_applied=ttl_cleanup_applied,
+                    stopped_sandbox_ids=stopped_sandbox_ids,
+                    ttl_cleanup_reason=ttl_cleanup_reason,
                 )
 
             pack_source_path = pack.source_path
@@ -369,6 +451,9 @@ class SandboxOrchestratorService:
                 provider_info=provider_info,
                 message=f"Provisioned new sandbox {sandbox.id}",
                 excluded_unhealthy=excluded_unhealthy,
+                ttl_cleanup_applied=ttl_cleanup_applied,
+                stopped_sandbox_ids=stopped_sandbox_ids,
+                ttl_cleanup_reason=ttl_cleanup_reason,
             )
 
         except Exception as e:
@@ -379,6 +464,9 @@ class SandboxOrchestratorService:
                 provider_info=None,
                 message=f"Failed to provision sandbox: {str(e)}",
                 excluded_unhealthy=excluded_unhealthy,
+                ttl_cleanup_applied=ttl_cleanup_applied,
+                stopped_sandbox_ids=stopped_sandbox_ids,
+                ttl_cleanup_reason=ttl_cleanup_reason,
             )
 
     def check_stop_eligibility(self, sandbox: SandboxInstance) -> StopEligibilityResult:
