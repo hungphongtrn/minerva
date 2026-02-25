@@ -10,11 +10,11 @@
 
 ## Current Position
 
-- **Phase:** 2.1 of 5 (Bridge Agent Pack Sandbox to Picoclaw Runtime)
-- **Plan status:** Phase 2.1 in progress (Plan 01-02 complete, 03 pending)
-- **Execution status:** Plan 2.1-02 complete - provisioning runtime surface with config generation and materialization
-- **Progress bar:** [██████████] 67%
-- **Last completed:** Plan 2.1-02 (bridge provisioning runtime surface)
+- **Phase:** 2.1 of 5 (Bridge Agent Pack Sandbox to Picoclaw Runtime) - COMPLETE
+- **Plan status:** Phase 2.1 complete (all 3 plans complete)
+- **Execution status:** Plan 2.1-03 complete - wired /runs to execute through bridge
+- **Progress bar:** [██████████] 70%
+- **Last completed:** Plan 2.1-03 (wire /runs to execute through bridge)
 
 ```mermaid
 flowchart LR
@@ -49,6 +49,7 @@ flowchart LR
   S29 --> S30[2.1-01: Bridge Service ✓]
   S30 --> S31[2.1-02: Provision Runtime ✓]
   S31 --> S32[2.1-03: Wire /runs ✓]
+  S31 --> S32[2.1-03: Wire /runs ✓]
 ```
 
 ## Performance Metrics
@@ -57,7 +58,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 2.1/5
-- **Completed plans:** 23/24 (Phase 2: 21/21, Phase 2.1: 2/3)
+- **Completed plans:** 24/24 (Phase 2: 21/21, Phase 2.1: 3/3)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -215,14 +216,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `2.1-02-SUMMARY.md` (bridge provisioning runtime surface)
-- **Last activity:** 2026-02-25 - Completed plan 2.1-02 (provisioning with config generation and snapshot materialization)
+- **Last completed artifact:** `2.1-03-SUMMARY.md` (wire /runs to execute through bridge)
+- **Last activity:** 2026-02-25 - Completed plan 2.1-03 (wired /runs to execute through Picoclaw bridge)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 2.1 - Plan 03 (wire /runs to execute through bridge)
-- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-02-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 2.1-02 complete (SandboxConfig extended with pack_digest/runtime_bridge_config, snapshot materialization, unique bridge tokens)
-- **Commits:** 6ad63a6 (2.1-02 provisioning runtime surface)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
+- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-03-SUMMARY.md`
+- **Last session:** 2026-02-25 - Plan 2.1-03 complete (bridge execution wired, session scoping, error mapping)
+- **Commits:** 438c04e (2.1-03 wire /runs to bridge)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 2.1-02 complete - provisioning with bridge config generation, snapshot materialization, stale detection metadata. All tests pass.)*
+*Updated: 2026-02-25 (Plan 2.1-03 complete - bridge execution flow wired, session keys scoped to workspace+pack, typed error mapping. All tests pass.)*
