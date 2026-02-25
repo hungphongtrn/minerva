@@ -164,8 +164,6 @@ class WorkspaceLeaseRepository:
 
         # Use FOR UPDATE locking to serialize concurrent lease acquisitions
         if use_locking:
-            from sqlalchemy import for_update
-
             stmt = stmt.with_for_update()
 
         return self._session.execute(stmt).scalar_one_or_none()

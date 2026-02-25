@@ -100,6 +100,35 @@ def client(db_engine) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(scope="function")
+def provider_singleton() -> Generator["LocalComposeSandboxProvider", None, None]:
+    """Create a singleton provider instance for tests.
+
+    This ensures that sandboxes registered in fixtures are visible
+    to the app during test execution.
+    """
+    from src.infrastructure.sandbox.providers.local_compose import (
+        LocalComposeSandboxProvider,
+    )
+    from src.infrastructure.sandbox.providers import factory
+
+    # Create singleton instance
+    singleton = LocalComposeSandboxProvider()
+
+    # Override factory to return singleton
+    original_get_provider = factory.get_provider
+
+    def override_get_provider(profile: str | None = None):
+        return singleton
+
+    factory.get_provider = override_get_provider
+
+    yield singleton
+
+    # Restore original
+    factory.get_provider = original_get_provider
+
+
 # ============================================================================
 # User and Workspace Fixtures
 # ============================================================================
