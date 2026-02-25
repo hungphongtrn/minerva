@@ -22,7 +22,7 @@ flowchart LR
 | Phase | Goal | Dependencies | Requirements |
 |------|------|--------------|--------------|
 | 1 - Identity and Policy Baseline | Users can authenticate requests safely and execute only within authorized, policy-constrained boundaries. | None | AUTH-01, AUTH-02, AUTH-03, AUTH-05, AUTH-06, SECU-01, SECU-02, SECU-03 |
-| 2 - Workspace Lifecycle and Agent Pack Portability | Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring. | Phase 1 | AGNT-01, AGNT-02, AGNT-03, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05, WORK-06, SECU-05 |
+| 2 - Workspace Lifecycle and Agent Pack Portability | Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring. | Phase 1 | AGNT-01, AGNT-02, AGNT-03, WORK-01, WORK-02, WORK-03, WORK-04, WORK-05, WORK-06, SECU-05 | Complete | 2026-02-25 |
 | 3 - Persistence and Checkpoint Recovery | Runtime state is durably stored and recoverable through milestone checkpoints with immutable audit history. | Phase 2 | PERS-01, PERS-02, PERS-03, PERS-04, SECU-04 |
 | 4 - Execution Orchestration and Fairness | Runs execute reliably under retries/cancellation while preserving ordering per workspace and fairness across users. | Phase 1, Phase 2, Phase 3 | AUTH-04, EXEC-01, EXEC-02, EXEC-03, EXEC-04, EXEC-05, EXEC-06 |
 | 5 - Typed Event Streaming API | Clients can consume real-time typed runtime events and fetch final run outputs in Picoclaw-aligned contracts. | Phase 3, Phase 4 | EVNT-01, EVNT-02, EVNT-03, EVNT-04, EVNT-05, EVNT-06 |

@@ -1,14 +1,12 @@
 ---
 phase: 02-workspace-lifecycle-and-agent-pack-portability
-verified: 2026-02-25T05:23:47Z
+verified: 2026-02-25T06:52:47Z
 status: passed
-score: 8/8 must-haves verified
+score: 9/9 must-haves verified
 re_verification:
   previous_status: passed
-  previous_score: 6/6
-  gaps_closed:
-    - "Plan 02-09 pack-id propagation and fail-closed validation are now directly verified in service wiring and tests."
-    - "Plan 02-10 provider pack-binding parity is now directly verified in provider metadata and acceptance coverage."
+  previous_score: 8/8
+  gaps_closed: []
   gaps_remaining: []
   regressions: []
 ---
@@ -16,9 +14,9 @@ re_verification:
 # Phase 2: Workspace Lifecycle and Agent Pack Portability Verification Report
 
 **Phase Goal:** Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring.
-**Verified:** 2026-02-25T05:23:47Z
+**Verified:** 2026-02-25T06:52:47Z
 **Status:** passed
-**Re-verification:** No - initial verification run against current codebase (previous report existed, no open gaps section)
+**Re-verification:** No - initial verification for this run (previous report existed with no open gaps section)
 
 ## Goal Achievement
 
@@ -26,43 +24,41 @@ re_verification:
 
 | # | Truth | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | User sees workspace continuity across sessions with reused persistent workspace | ✓ VERIFIED | `src/services/workspace_lifecycle_service.py:255` resolves existing workspace by `owner_id` and only auto-creates when missing (`src/services/workspace_lifecycle_service.py:263`); route-level normalized principal UUID checks are enforced in `src/api/routes/workspaces.py:23` and reused in `/me/status` at `src/api/routes/workspaces.py:399`. |
-| 2 | User can scaffold template files and register that folder as an agent pack via API without manual infra wiring | ✓ VERIFIED | Scaffold endpoint calls service generation at `src/api/routes/agent_packs.py:174`; registration path uses `AgentPackService.register(...)` at `src/api/routes/agent_packs.py:287`; scaffold path normalization/traversal handling is substantive in `src/services/agent_scaffold_service.py:278`. |
-| 3 | Registered pack identity flows from run request into provisioning and fails closed on invalid/cross-workspace/inactive packs (Plan 02-09) | ✓ VERIFIED | `agent_pack_id` is propagated from run service (`src/services/run_service.py:432`) to lifecycle (`src/services/workspace_lifecycle_service.py:196`) to orchestrator (`src/services/workspace_lifecycle_service.py:349`); fail-closed checks and `PROVISION_FAILED` branches are implemented in `src/services/sandbox_orchestrator_service.py:287`-`src/services/sandbox_orchestrator_service.py:330`. |
-| 4 | Same registered agent pack binds with equivalent semantics across `local_compose` and `daytona` provider profiles (Plan 02-10) | ✓ VERIFIED | Both providers set `pack_bound` and conditionally surface `pack_source_path` in metadata (`src/infrastructure/sandbox/providers/local_compose.py:77`, `src/infrastructure/sandbox/providers/daytona.py:132`) and both consume `config.pack_source_path` during provision (`src/infrastructure/sandbox/providers/local_compose.py:155`, `src/infrastructure/sandbox/providers/daytona.py:214`). |
-| 5 | Requests route to healthy active sandbox or provision replacement with workspace attach | ✓ VERIFIED | Orchestrator health-aware routing checks active candidates and routes healthy (`src/services/sandbox_orchestrator_service.py:177`-`src/services/sandbox_orchestrator_service.py:201`) else provisions replacement (`src/services/sandbox_orchestrator_service.py:207`-`src/services/sandbox_orchestrator_service.py:214`); workspace route delegates through lifecycle resolve (`src/api/routes/workspaces.py:254`). |
-| 6 | Lease serialization, unhealthy exclusion, and idle TTL controls are enforced | ✓ VERIFIED | Lifecycle acquires workspace lease before routing (`src/services/workspace_lifecycle_service.py:169`), unhealthy candidates are marked/excluded (`src/services/sandbox_orchestrator_service.py:203`-`src/services/sandbox_orchestrator_service.py:205`), TTL bounds and stop eligibility are implemented in `src/services/sandbox_orchestrator_service.py:137` and `src/services/sandbox_orchestrator_service.py:384`. |
-| 7 | Policy/isolation boundary checks for phase scope are automated and green | ✓ VERIFIED | Security regression suite passes (`uv run pytest src/tests/integration/test_phase2_security_regressions.py -q` => 19 passed), covering cross-workspace lease/sandbox/pack isolation. |
-| 8 | End-to-end phase acceptance (including registered-pack parity) is green | ✓ VERIFIED | Acceptance suite passes (`uv run pytest src/tests/integration/test_phase2_acceptance.py -q` => 26 passed), and includes `TestRegisteredPackBindingParity` in `src/tests/integration/test_phase2_acceptance.py:538`. |
+| 1 | A user sees continuity across sessions because the same persistent workspace is reused | ✓ VERIFIED | `POST /workspaces/bootstrap` reuses existing workspace (`src/api/routes/workspaces.py:113`, `src/services/workspace_lifecycle_service.py:255`); acceptance test verifies same `workspace_id` on repeated bootstrap (`src/tests/integration/test_phase2_acceptance.py:60`). |
+| 2 | A user can scaffold `AGENT.md`, `SOUL.md`, `IDENTITY.md`, `skills/` and register as an agent pack without manual infra wiring | ✓ VERIFIED | Scaffold route/service implement required artifacts and traversal-safe generation (`src/api/routes/agent_packs.py:142`, `src/services/agent_scaffold_service.py:53`, `src/services/agent_scaffold_service.py:278`); acceptance tests validate scaffold + register flow (`src/tests/integration/test_phase2_acceptance.py:100`). |
+| 3 | The same registered agent pack runs with equivalent semantics in local Compose and Daytona BYOC profiles | ✓ VERIFIED | Cross-profile parity test asserts matching `pack_bound` and `pack_source_path` semantics (`src/tests/integration/test_phase2_acceptance.py:744`); provider-level parity tests also validate both providers (`src/tests/services/test_sandbox_provider_adapters.py:617`, `src/tests/services/test_sandbox_provider_adapters.py:639`). |
+| 4 | Request routing prefers existing healthy sandbox, otherwise provisions/hydrates replacement with workspace attached | ✓ VERIFIED | Orchestrator routes first healthy candidate and provisions replacement when none healthy (`src/services/sandbox_orchestrator_service.py:149`); workspace resolve endpoint delegates through lifecycle with lease and routing (`src/api/routes/workspaces.py:183`, `src/services/workspace_lifecycle_service.py:191`). |
+| 5 | Concurrent writes serialize per workspace, unhealthy sandboxes are excluded, idle TTL auto-stop is enforced | ✓ VERIFIED | Lease acquisition conflict handling in lifecycle (`src/services/workspace_lifecycle_service.py:169`) and lease tests (`src/tests/integration/test_phase2_acceptance.py:304`); unhealthy exclusion in orchestrator (`src/services/sandbox_orchestrator_service.py:203`) and security tests (`src/tests/integration/test_phase2_security_regressions.py:603`); TTL eligibility/stop paths implemented (`src/services/sandbox_orchestrator_service.py:384`, `src/services/sandbox_orchestrator_service.py:432`) and tested (`src/tests/integration/test_phase2_acceptance.py:374`). |
+| 6 | Daytona provider is SDK-backed (not simulated in lifecycle operations) | ✓ VERIFIED | Provider imports and uses real `AsyncDaytona`/`DaytonaConfig` across lifecycle methods (`src/infrastructure/sandbox/providers/daytona.py:18`, `src/infrastructure/sandbox/providers/daytona.py:254`, `src/infrastructure/sandbox/providers/daytona.py:314`, `src/infrastructure/sandbox/providers/daytona.py:397`); SDK call-path tests pass (`src/tests/services/test_sandbox_provider_adapters.py:903`). |
+| 7 | Pack binding is preserved through run/lifecycle/orchestrator into provider metadata across profiles | ✓ VERIFIED | `agent_pack_id` propagates through lifecycle to orchestrator (`src/services/workspace_lifecycle_service.py:196`, `src/services/workspace_lifecycle_service.py:349`), orchestrator resolves `pack_source_path` and passes it to provider config (`src/services/sandbox_orchestrator_service.py:332`, `src/services/sandbox_orchestrator_service.py:347`), providers expose metadata contract (`src/infrastructure/sandbox/providers/local_compose.py:155`, `src/infrastructure/sandbox/providers/daytona.py:310`). |
+| 8 | Fail-closed behavior holds for unknown/error states in Daytona and unknown profiles/config edges | ✓ VERIFIED | Daytona unknown/error state mapping and SDK-error fail-closed behavior in provider (`src/infrastructure/sandbox/providers/daytona.py:146`, `src/infrastructure/sandbox/providers/daytona.py:285`, `src/infrastructure/sandbox/providers/daytona.py:347`) and security tests (`src/tests/integration/test_phase2_security_regressions.py:365`, `src/tests/integration/test_phase2_security_regressions.py:457`); factory rejects unsupported profile and self-hosted Daytona without API key (`src/infrastructure/sandbox/providers/factory.py:66`, `src/infrastructure/sandbox/providers/factory.py:109`). |
+| 9 | Phase 2 completion evidence from gap closures is present and green | ✓ VERIFIED | All 12 summaries (`02-01`..`02-12`) exist; required suites run green: provider adapters `58 passed`, acceptance `27 passed`, security regressions `24 passed` via `uv run pytest src/tests/services/test_sandbox_provider_adapters.py -q`, `uv run pytest src/tests/integration/test_phase2_acceptance.py -q`, `uv run pytest src/tests/integration/test_phase2_security_regressions.py -q`. |
 
-**Score:** 8/8 truths verified
+**Score:** 9/9 truths verified
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 | --- | --- | --- | --- |
-| `src/services/run_service.py` | run-level propagation of optional `agent_pack_id` | ✓ VERIFIED | Exists (486 lines), substantive, passes `agent_pack_id` into lifecycle resolution at `src/services/run_service.py:432`. |
-| `src/services/workspace_lifecycle_service.py` | durable workspace resolution + lease + orchestrator handoff | ✓ VERIFIED | Exists (436 lines), substantive, forwards `agent_pack_id` to orchestrator via `_resolve_sandbox` (`src/services/workspace_lifecycle_service.py:349`). |
-| `src/services/sandbox_orchestrator_service.py` | health-aware routing + fail-closed pack validation + provisioning | ✓ VERIFIED | Exists (556 lines), substantive, validates pack ownership/active/valid and sets `pack_source_path` before provider provisioning (`src/services/sandbox_orchestrator_service.py:332`, `src/services/sandbox_orchestrator_service.py:351`). |
-| `src/infrastructure/sandbox/providers/local_compose.py` | local profile pack bind semantics | ✓ VERIFIED | Exists (297 lines), substantive, pack-binding metadata exposed and populated in `provision_sandbox` (`src/infrastructure/sandbox/providers/local_compose.py:155`). |
-| `src/infrastructure/sandbox/providers/daytona.py` | BYOC profile pack bind semantics | ✓ VERIFIED | Exists (371 lines), substantive, pack-binding metadata exposed and populated in `provision_sandbox` (`src/infrastructure/sandbox/providers/daytona.py:214`). |
-| `src/tests/services/test_sandbox_provider_adapters.py` | provider parity assertions for pack-binding contract | ✓ VERIFIED | Exists (514 lines), includes parity tests `test_pack_binding_metadata_parity_local_compose` (`src/tests/services/test_sandbox_provider_adapters.py:305`) and `..._daytona` (`src/tests/services/test_sandbox_provider_adapters.py:327`). |
-| `src/tests/integration/test_phase2_acceptance.py` | phase acceptance + registered-pack parity scenario | ✓ VERIFIED | Exists (986 lines), includes `TestRegisteredPackBindingParity` (`src/tests/integration/test_phase2_acceptance.py:538`) and suite is green (26 passed). |
-| `src/api/routes/workspaces.py` | bootstrap/status/resolve endpoints with ownership checks | ✓ VERIFIED | Exists (420 lines), substantive, normalized UUID ownership guard and lifecycle wiring present (`src/api/routes/workspaces.py:23`, `src/api/routes/workspaces.py:254`). |
-| `src/api/routes/agent_packs.py` | scaffold/register/revalidate/stale/get/list API flow | ✓ VERIFIED | Exists (666 lines), substantive, route handlers call scaffold and pack services (`src/api/routes/agent_packs.py:174`, `src/api/routes/agent_packs.py:287`, `src/api/routes/agent_packs.py:404`, `src/api/routes/agent_packs.py:504`, `src/api/routes/agent_packs.py:570`, `src/api/routes/agent_packs.py:643`). |
-| `src/services/agent_scaffold_service.py` | scaffold generation with safe path handling | ✓ VERIFIED | Exists (369 lines), substantive, absolute-path safe normalization and containment validation implemented (`src/services/agent_scaffold_service.py:278`). |
+| `.planning/phases/02-workspace-lifecycle-and-agent-pack-portability/02-01-SUMMARY.md` .. `02-12-SUMMARY.md` | All 12 plan summaries exist | ✓ VERIFIED | Verified 12 files present, including gap-closure summaries `02-11-SUMMARY.md` and `02-12-SUMMARY.md`. |
+| `src/infrastructure/sandbox/providers/daytona.py` | SDK-backed Daytona provider with semantic/fail-closed mapping | ✓ VERIFIED | Exists, substantive (580 lines), imports `AsyncDaytona` and executes SDK-backed `get/create/stop` flows; no in-memory sandbox registry. |
+| `src/infrastructure/sandbox/providers/factory.py` | Fail-closed provider factory/config behavior | ✓ VERIFIED | Exists, substantive (170 lines), rejects unsupported profile and self-hosted Daytona missing key (`SandboxConfigurationError`). |
+| `src/tests/services/test_sandbox_provider_adapters.py` | Provider parity and Daytona SDK adapter contract tests | ✓ VERIFIED | Exists, substantive (1295 lines), suite passes with `58 passed`; includes `TestDaytonaSdkBackedProvider`, parity, and fail-closed classes. |
+| `src/tests/integration/test_phase2_acceptance.py` | End-to-end phase acceptance including pack-binding parity | ✓ VERIFIED | Exists, substantive (1114 lines), suite passes with `27 passed`; includes `TestWorkspaceContinuity`, `TestAgentPackScaffoldFlow`, `TestRegisteredPackBindingParity`. |
+| `src/tests/integration/test_phase2_security_regressions.py` | SECU-05 isolation/policy and Daytona fail-closed regressions | ✓ VERIFIED | Exists, substantive (779 lines), suite passes with `24 passed`; includes `TestDaytonaSdkFailClosedHandling`. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 | --- | --- | --- | --- | --- |
-| `src/services/run_service.py` | `src/services/workspace_lifecycle_service.py` | `resolve_target(... agent_pack_id=...)` | ✓ WIRED | Propagation call at `src/services/run_service.py:432`. |
-| `src/services/workspace_lifecycle_service.py` | `src/services/sandbox_orchestrator_service.py` | `resolve_sandbox(... agent_pack_id=pack_id_uuid)` | ✓ WIRED | Lifecycle handoff at `src/services/workspace_lifecycle_service.py:349`-`src/services/workspace_lifecycle_service.py:352`. |
-| `src/services/sandbox_orchestrator_service.py` | `src/db/repositories/agent_pack_repository.py` | `pack_repo.get_by_id(agent_pack_id)` + ownership/status checks | ✓ WIRED | Lookup and fail-closed gating at `src/services/sandbox_orchestrator_service.py:285`-`src/services/sandbox_orchestrator_service.py:330`. |
-| `src/services/sandbox_orchestrator_service.py` | `src/infrastructure/sandbox/providers/local_compose.py` | `SandboxConfig.pack_source_path` into `provision_sandbox(config)` | ✓ WIRED | Config creation with pack path at `src/services/sandbox_orchestrator_service.py:347`-`src/services/sandbox_orchestrator_service.py:355`, consumed in local provider at `src/infrastructure/sandbox/providers/local_compose.py:155`. |
-| `src/services/sandbox_orchestrator_service.py` | `src/infrastructure/sandbox/providers/daytona.py` | `SandboxConfig.pack_source_path` into `provision_sandbox(config)` | ✓ WIRED | Same config path handed to provider, consumed in daytona provider at `src/infrastructure/sandbox/providers/daytona.py:214`. |
-| `src/tests/integration/test_phase2_acceptance.py` | local/daytona profile behavior | register pack then assert equivalent binding semantics | ✓ WIRED | `TestRegisteredPackBindingParity` compares `pack_bound` and `pack_source_path` parity at `src/tests/integration/test_phase2_acceptance.py:769`-`src/tests/integration/test_phase2_acceptance.py:850`. |
-| `src/api/router.py` | `src/api/routes/workspaces.py` + `src/api/routes/agent_packs.py` | `include_router(...)` registration | ✓ WIRED | Route registration at `src/api/router.py:21`-`src/api/router.py:22`. |
+| `src/api/routes/workspaces.py` | `src/services/workspace_lifecycle_service.py` | `resolve_target(...)` | ✓ WIRED | Resolve endpoint routes through lifecycle with lease and verified workspace ownership (`src/api/routes/workspaces.py:254`). |
+| `src/services/workspace_lifecycle_service.py` | `src/services/sandbox_orchestrator_service.py` | `_orchestrator.resolve_sandbox(... agent_pack_id=...)` | ✓ WIRED | Lifecycle converts optional pack ID to UUID and forwards to orchestrator (`src/services/workspace_lifecycle_service.py:334`, `src/services/workspace_lifecycle_service.py:349`). |
+| `src/services/sandbox_orchestrator_service.py` | provider adapters | `provider.get_health(...)` then `provider.provision_sandbox(...)` | ✓ WIRED | Health-aware route-or-provision path implemented (`src/services/sandbox_orchestrator_service.py:185`, `src/services/sandbox_orchestrator_service.py:354`). |
+| `src/services/sandbox_orchestrator_service.py` | pack repository | `AgentPackRepository.get_by_id(...)` validation gates | ✓ WIRED | Fail-closed pack validation (exists/ownership/active/valid) before provisioning (`src/services/sandbox_orchestrator_service.py:285`-`src/services/sandbox_orchestrator_service.py:329`). |
+| `src/infrastructure/sandbox/providers/factory.py` | `src/infrastructure/sandbox/providers/daytona.py` | `_create_daytona_provider()` | ✓ WIRED | Factory instantiates Daytona provider with resolved SDK configuration (`src/infrastructure/sandbox/providers/factory.py:94`). |
+| `src/infrastructure/sandbox/providers/daytona.py` | Daytona SDK | `async with AsyncDaytona(config=...)` and SDK methods | ✓ WIRED | Real SDK context used in active lookup, provision, health, stop, attach, and update activity paths (`src/infrastructure/sandbox/providers/daytona.py:254`, `src/infrastructure/sandbox/providers/daytona.py:314`, `src/infrastructure/sandbox/providers/daytona.py:358`). |
+| `src/tests/integration/test_phase2_acceptance.py` | local/daytona runtime parity | `TestRegisteredPackBindingParity` | ✓ WIRED | Cross-profile test compares both profiles for matching pack-binding semantics (`src/tests/integration/test_phase2_acceptance.py:744`). |
+| `src/tests/integration/test_phase2_security_regressions.py` | Daytona fail-closed routing | `TestDaytonaSdkFailClosedHandling` | ✓ WIRED | Unknown/error SDK responses and unhealthy-routing exclusion are explicitly tested (`src/tests/integration/test_phase2_security_regressions.py:365`, `src/tests/integration/test_phase2_security_regressions.py:526`). |
 
 ### Requirements Coverage
 
@@ -83,15 +79,14 @@ re_verification:
 
 | File | Line | Pattern | Severity | Impact |
 | --- | --- | --- | --- | --- |
-| `src/services/run_service.py` | 234 | Placeholder note in `execute_run()` docstring | ℹ️ Info | Not blocking Phase 2 routing/portability goal, but indicates execution body is deferred. |
-| `src/services/sandbox_orchestrator_service.py` | 520 | Global idle-stop helper returns empty with "for now" | ⚠️ Warning | Does not block scoped Phase 2 routing behavior, but broad idle sweep path is incomplete. |
-| `src/tests/integration/test_phase2_acceptance.py` | 675 | Duplicate test method names in `TestRegisteredPackBindingParity` shadow earlier definitions | ⚠️ Warning | Net suite is green and parity still validated, but duplicate names reduce clarity and can hide intended extra coverage. |
+| `src/services/sandbox_orchestrator_service.py` | 521 | Global idle listing currently returns empty when workspace scope omitted | ⚠️ Warning | Does not block Phase 2 goal (workspace-scoped TTL path is implemented), but limits global sweep behavior. |
+| `src/infrastructure/sandbox/providers/daytona.py` | 549 | `mark_unhealthy()` is synthetic test helper (no SDK-side state mutation) | ℹ️ Info | Test compatibility helper only; production routing still relies on SDK health checks and fail-closed mapping. |
 
 ### Gaps Summary
 
-No blocker gaps found. Phase 2 goal is currently achieved in code: durable workspace lifecycle, scaffold/register path, run-time pack propagation with fail-closed validation, and cross-profile registered-pack binding parity are all present, wired, and validated by passing service/integration/security tests. Gap-closure plans `02-09` and `02-10` are materially implemented rather than documented-only.
+No blocker gaps found. Phase 2 goal is achieved in code and verified by passing acceptance/security/provider suites. Required gap-closure artifacts (02-11, 02-12) are substantive and wired: Daytona uses real AsyncDaytona SDK paths, provider factory fail-closes expected misconfiguration/unknown profile cases, cross-profile pack-binding semantics are preserved, and fail-closed routing behavior is covered by security regressions.
 
 ---
 
-_Verified: 2026-02-25T05:23:47Z_
+_Verified: 2026-02-25T06:52:47Z_
 _Verifier: OpenCode (gsd-verifier)_
