@@ -43,10 +43,22 @@ SessionLocal = property(get_session_factory)
 
 
 def get_db():
-    """Dependency for FastAPI route handlers to get DB session."""
+    """Dependency for FastAPI route handlers to get DB session.
+
+    Provides request-scoped transaction boundaries:
+    - Commits on successful request completion
+    - Rolls back on raised exceptions
+    - Ensures durable persistence across request boundaries
+    """
     Session = get_session_factory()
     db = Session()
     try:
         yield db
+        # Commit on successful completion (no exception raised)
+        db.commit()
+    except Exception:
+        # Rollback on any exception before re-raising
+        db.rollback()
+        raise
     finally:
         db.close()
