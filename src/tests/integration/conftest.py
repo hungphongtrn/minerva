@@ -68,7 +68,7 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="function")
-def client(db_engine) -> Generator[TestClient, None, None]:
+def client(db_engine, provider_singleton) -> Generator[TestClient, None, None]:
     """Create a test client with database override using shared engine."""
     TestingSessionLocal = sessionmaker(
         autocommit=False, autoflush=False, bind=db_engine
