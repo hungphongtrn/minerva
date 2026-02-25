@@ -531,6 +531,326 @@ class TestProfileSemanticParity:
 
 
 # =============================================================================
+# AGNT-03: Registered Pack Binding Parity Tests (UAT Test 4)
+# =============================================================================
+
+
+class TestRegisteredPackBindingParity:
+    """AGNT-03: Registered pack runs with equivalent binding semantics across profiles.
+
+    This test class closes the UAT Test 4 gap by proving that pack binding
+    works equivalently across local_compose and daytona profiles without
+    manual infrastructure rewiring.
+    """
+
+    @pytest.fixture
+    def registered_pack_for_workspace(
+        self, db_session, workspace_alpha, workspace_owner
+    ):
+        """Create and register a real agent pack for workspace_alpha."""
+        import tempfile
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+        from src.db.models import AgentPackValidationStatus
+        from datetime import datetime, timezone
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create required pack files manually for speed
+            import os
+
+            os.makedirs(os.path.join(tmpdir, "skills"), exist_ok=True)
+            with open(os.path.join(tmpdir, "AGENT.md"), "w") as f:
+                f.write("# Test Agent\n")
+            with open(os.path.join(tmpdir, "SOUL.md"), "w") as f:
+                f.write("# Test Soul\n")
+            with open(os.path.join(tmpdir, "IDENTITY.md"), "w") as f:
+                f.write("# Test Identity\n")
+
+            # Register the pack using repository directly
+            pack_repo = AgentPackRepository(db_session)
+            pack = pack_repo.create(
+                workspace_id=workspace_alpha.id,
+                name="Parity Test Pack",
+                source_path=tmpdir,
+            )
+
+            # Set pack as VALID (required for runtime binding)
+            pack.validation_status = AgentPackValidationStatus.VALID
+            pack.is_active = True
+            pack.last_validated_at = datetime.now(timezone.utc)
+            db_session.commit()
+
+            yield {
+                "workspace_id": workspace_alpha.id,
+                "pack_id": str(pack.id),
+                "pack_path": tmpdir,
+            }
+
+    @pytest.mark.asyncio
+    async def test_local_compose_profile_binds_registered_pack(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Local compose profile binds registered pack during sandbox resolution."""
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+
+        # Create orchestrator that uses local_compose profile
+        orchestrator = SandboxOrchestratorService(db_session, profile="local_compose")
+        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+        # Resolve with agent_pack_id
+        result = await lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,  # Skip lease to simplify test
+            run_id="test-run-local-compose",
+            agent_pack_id=pack_id,
+        )
+
+        # Should succeed
+        assert result.error is None, f"Resolution failed: {result.error}"
+        assert result.sandbox is not None
+
+        # Pack binding semantics should be present
+        sandbox_info = result.sandbox
+        assert sandbox_info.ref.metadata.get("pack_bound") is True, (
+            "Local compose should bind pack during provisioning"
+        )
+        assert "pack_source_path" in sandbox_info.ref.metadata, (
+            "Local compose should expose pack_source_path"
+        )
+        assert sandbox_info.ref.metadata["pack_source_path"] is not None
+
+    @pytest.mark.asyncio
+    async def test_daytona_profile_binds_registered_pack(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Daytona profile binds registered pack during sandbox resolution."""
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+
+        # Create orchestrator that uses daytona profile
+        orchestrator = SandboxOrchestratorService(db_session, profile="daytona")
+        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+        # Resolve with agent_pack_id
+        result = await lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,  # Skip lease to simplify test
+            run_id="test-run-daytona",
+            agent_pack_id=pack_id,
+        )
+
+        # Should succeed
+        assert result.error is None, f"Resolution failed: {result.error}"
+        assert result.sandbox is not None
+
+        # Pack binding semantics should be present
+        sandbox_info = result.sandbox
+        assert sandbox_info.ref.metadata.get("pack_bound") is True, (
+            "Daytona should bind pack during provisioning"
+        )
+        assert "pack_source_path" in sandbox_info.ref.metadata, (
+            "Daytona should expose pack_source_path"
+        )
+        assert sandbox_info.ref.metadata["pack_source_path"] is not None
+
+    @pytest.mark.asyncio
+    async def test_local_compose_profile_binds_registered_pack(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Local compose profile binds registered pack during sandbox resolution."""
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+        from src.infrastructure.sandbox.providers.factory import get_provider
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+
+        # Create orchestrator that uses local_compose profile
+        local_provider = get_provider("local_compose")
+        orchestrator = SandboxOrchestratorService(db_session, provider=local_provider)
+        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+        # Resolve with agent_pack_id
+        result = await lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,  # Skip lease to simplify test
+            run_id="test-run-local-compose",
+            agent_pack_id=pack_id,
+        )
+
+        # Should succeed
+        assert result.error is None, f"Resolution failed: {result.error}"
+        assert result.sandbox is not None
+        assert result.routing_result is not None
+        assert result.routing_result.provider_info is not None
+
+        # Pack binding semantics should be present in provider metadata
+        provider_info = result.routing_result.provider_info
+        assert provider_info.ref.metadata.get("pack_bound") is True, (
+            "Local compose should bind pack during provisioning"
+        )
+        assert "pack_source_path" in provider_info.ref.metadata, (
+            "Local compose should expose pack_source_path"
+        )
+        assert provider_info.ref.metadata["pack_source_path"] is not None
+
+    @pytest.mark.asyncio
+    async def test_daytona_profile_binds_registered_pack(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Daytona profile binds registered pack during sandbox resolution."""
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+        from src.infrastructure.sandbox.providers.factory import get_provider
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+
+        # Create orchestrator that uses daytona profile
+        daytona_provider = get_provider("daytona")
+        orchestrator = SandboxOrchestratorService(db_session, provider=daytona_provider)
+        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+        # Resolve with agent_pack_id
+        result = await lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,  # Skip lease to simplify test
+            run_id="test-run-daytona",
+            agent_pack_id=pack_id,
+        )
+
+        # Should succeed
+        assert result.error is None, f"Resolution failed: {result.error}"
+        assert result.sandbox is not None
+        assert result.routing_result is not None
+        assert result.routing_result.provider_info is not None
+
+        # Pack binding semantics should be present in provider metadata
+        provider_info = result.routing_result.provider_info
+        assert provider_info.ref.metadata.get("pack_bound") is True, (
+            "Daytona should bind pack during provisioning"
+        )
+        assert "pack_source_path" in provider_info.ref.metadata, (
+            "Daytona should expose pack_source_path"
+        )
+        assert provider_info.ref.metadata["pack_source_path"] is not None
+
+    @pytest.mark.asyncio
+    async def test_cross_profile_pack_binding_parity(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Both profiles apply equivalent pack-binding semantics without manual rewiring."""
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+        from src.infrastructure.sandbox.providers.factory import get_provider
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+
+        # Create orchestrators for each profile
+        local_provider = get_provider("local_compose")
+        daytona_provider = get_provider("daytona")
+
+        local_orchestrator = SandboxOrchestratorService(
+            db_session, provider=local_provider
+        )
+        daytona_orchestrator = SandboxOrchestratorService(
+            db_session, provider=daytona_provider
+        )
+
+        local_lifecycle = WorkspaceLifecycleService(
+            db_session, orchestrator=local_orchestrator
+        )
+        daytona_lifecycle = WorkspaceLifecycleService(
+            db_session, orchestrator=daytona_orchestrator
+        )
+
+        # Resolve with local_compose
+        local_result = await local_lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,
+            run_id="test-run-local-parity",
+            agent_pack_id=pack_id,
+        )
+
+        # Resolve with daytona (different run)
+        daytona_result = await daytona_lifecycle.resolve_target(
+            principal=workspace_owner,
+            workspace=workspace_alpha,
+            auto_create=False,
+            acquire_lease=False,
+            run_id="test-run-daytona-parity",
+            agent_pack_id=pack_id,
+        )
+
+        # Both should succeed
+        assert local_result.error is None, f"Local compose failed: {local_result.error}"
+        assert daytona_result.error is None, f"Daytona failed: {daytona_result.error}"
+
+        # Both should have routing results with provider info
+        assert local_result.routing_result is not None
+        assert daytona_result.routing_result is not None
+        assert local_result.routing_result.provider_info is not None
+        assert daytona_result.routing_result.provider_info is not None
+
+        # Both should have pack binding
+        local_provider_info = local_result.routing_result.provider_info
+        daytona_provider_info = daytona_result.routing_result.provider_info
+
+        local_bound = local_provider_info.ref.metadata.get("pack_bound")
+        daytona_bound = daytona_provider_info.ref.metadata.get("pack_bound")
+
+        assert local_bound is True, "Local compose should bind pack"
+        assert daytona_bound is True, "Daytona should bind pack"
+
+        # Both should have same pack source path
+        local_path = local_provider_info.ref.metadata.get("pack_source_path")
+        daytona_path = daytona_provider_info.ref.metadata.get("pack_source_path")
+
+        assert local_path is not None, "Local compose should have pack_source_path"
+        assert daytona_path is not None, "Daytona should have pack_source_path"
+        assert local_path == daytona_path, (
+            "Both profiles should resolve same pack source path"
+        )
+
+
+# =============================================================================
 # Pack Lifecycle Tests
 # =============================================================================
 
