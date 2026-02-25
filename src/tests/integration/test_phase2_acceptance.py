@@ -586,100 +586,14 @@ class TestRegisteredPackBindingParity:
             }
 
     @pytest.mark.asyncio
-    async def test_local_compose_profile_binds_registered_pack(
+    async def test_local_compose_profile_binds_registered_pack_via_factory(
         self,
         db_session,
         workspace_alpha,
         workspace_owner,
         registered_pack_for_workspace,
     ):
-        """Local compose profile binds registered pack during sandbox resolution."""
-        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
-        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-
-        ctx = registered_pack_for_workspace
-        pack_id = ctx["pack_id"]
-
-        # Create orchestrator that uses local_compose profile
-        orchestrator = SandboxOrchestratorService(db_session, profile="local_compose")
-        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
-
-        # Resolve with agent_pack_id
-        result = await lifecycle.resolve_target(
-            principal=workspace_owner,
-            workspace=workspace_alpha,
-            auto_create=False,
-            acquire_lease=False,  # Skip lease to simplify test
-            run_id="test-run-local-compose",
-            agent_pack_id=pack_id,
-        )
-
-        # Should succeed
-        assert result.error is None, f"Resolution failed: {result.error}"
-        assert result.sandbox is not None
-
-        # Pack binding semantics should be present
-        sandbox_info = result.sandbox
-        assert sandbox_info.ref.metadata.get("pack_bound") is True, (
-            "Local compose should bind pack during provisioning"
-        )
-        assert "pack_source_path" in sandbox_info.ref.metadata, (
-            "Local compose should expose pack_source_path"
-        )
-        assert sandbox_info.ref.metadata["pack_source_path"] is not None
-
-    @pytest.mark.asyncio
-    async def test_daytona_profile_binds_registered_pack(
-        self,
-        db_session,
-        workspace_alpha,
-        workspace_owner,
-        registered_pack_for_workspace,
-    ):
-        """Daytona profile binds registered pack during sandbox resolution."""
-        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
-        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-
-        ctx = registered_pack_for_workspace
-        pack_id = ctx["pack_id"]
-
-        # Create orchestrator that uses daytona profile
-        orchestrator = SandboxOrchestratorService(db_session, profile="daytona")
-        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
-
-        # Resolve with agent_pack_id
-        result = await lifecycle.resolve_target(
-            principal=workspace_owner,
-            workspace=workspace_alpha,
-            auto_create=False,
-            acquire_lease=False,  # Skip lease to simplify test
-            run_id="test-run-daytona",
-            agent_pack_id=pack_id,
-        )
-
-        # Should succeed
-        assert result.error is None, f"Resolution failed: {result.error}"
-        assert result.sandbox is not None
-
-        # Pack binding semantics should be present
-        sandbox_info = result.sandbox
-        assert sandbox_info.ref.metadata.get("pack_bound") is True, (
-            "Daytona should bind pack during provisioning"
-        )
-        assert "pack_source_path" in sandbox_info.ref.metadata, (
-            "Daytona should expose pack_source_path"
-        )
-        assert sandbox_info.ref.metadata["pack_source_path"] is not None
-
-    @pytest.mark.asyncio
-    async def test_local_compose_profile_binds_registered_pack(
-        self,
-        db_session,
-        workspace_alpha,
-        workspace_owner,
-        registered_pack_for_workspace,
-    ):
-        """Local compose profile binds registered pack during sandbox resolution."""
+        """Local compose profile binds registered pack during sandbox resolution (via factory)."""
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
         from src.infrastructure.sandbox.providers.factory import get_provider
@@ -719,51 +633,90 @@ class TestRegisteredPackBindingParity:
         assert provider_info.ref.metadata["pack_source_path"] is not None
 
     @pytest.mark.asyncio
-    async def test_daytona_profile_binds_registered_pack(
+    async def test_daytona_profile_binds_registered_pack_sdk_backed(
         self,
         db_session,
         workspace_alpha,
         workspace_owner,
         registered_pack_for_workspace,
     ):
-        """Daytona profile binds registered pack during sandbox resolution."""
+        """Daytona profile binds registered pack using SDK-backed provider (AGNT-03 SDK parity).
+
+        This test verifies that Daytona provider correctly binds packs when using
+        the real AsyncDaytona SDK with mocked responses.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
         from src.infrastructure.sandbox.providers.factory import get_provider
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
 
         ctx = registered_pack_for_workspace
         pack_id = ctx["pack_id"]
+        pack_path = ctx["pack_path"]
 
-        # Create orchestrator that uses daytona profile
+        # Get Daytona provider
         daytona_provider = get_provider("daytona")
-        orchestrator = SandboxOrchestratorService(db_session, provider=daytona_provider)
-        lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+        assert isinstance(daytona_provider, DaytonaSandboxProvider)
 
-        # Resolve with agent_pack_id
-        result = await lifecycle.resolve_target(
-            principal=workspace_owner,
-            workspace=workspace_alpha,
-            auto_create=False,
-            acquire_lease=False,  # Skip lease to simplify test
-            run_id="test-run-daytona",
-            agent_pack_id=pack_id,
-        )
+        # Mock AsyncDaytona SDK
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        # Should succeed
-        assert result.error is None, f"Resolution failed: {result.error}"
-        assert result.sandbox is not None
-        assert result.routing_result is not None
-        assert result.routing_result.provider_info is not None
+            # Mock sandbox with pack binding metadata
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = f"daytona-{str(workspace_alpha.id)[:22]}"
+            mock_sandbox.state = "running"
+            mock_sandbox.status = "healthy"
+            mock_sandbox.metadata = {
+                "pack_bound": True,
+                "pack_source_path": pack_path,
+            }
 
-        # Pack binding semantics should be present in provider metadata
-        provider_info = result.routing_result.provider_info
-        assert provider_info.ref.metadata.get("pack_bound") is True, (
-            "Daytona should bind pack during provisioning"
-        )
-        assert "pack_source_path" in provider_info.ref.metadata, (
-            "Daytona should expose pack_source_path"
-        )
-        assert provider_info.ref.metadata["pack_source_path"] is not None
+            # Setup mock responses
+            mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+            mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+            # Create orchestrator with Daytona provider
+            orchestrator = SandboxOrchestratorService(
+                db_session, provider=daytona_provider
+            )
+            lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+            # Resolve with agent_pack_id
+            result = await lifecycle.resolve_target(
+                principal=workspace_owner,
+                workspace=workspace_alpha,
+                auto_create=True,  # Allow provisioning since mocking
+                acquire_lease=False,  # Skip lease to simplify test
+                run_id="test-run-daytona-sdk",
+                agent_pack_id=pack_id,
+            )
+
+            # Should succeed
+            assert result.error is None, f"Resolution failed: {result.error}"
+            assert result.sandbox is not None
+            assert result.routing_result is not None
+            assert result.routing_result.provider_info is not None
+
+            # Verify SDK methods were called
+            mock_daytona.get.assert_called_once()
+
+            # Pack binding semantics should be present in provider metadata
+            provider_info = result.routing_result.provider_info
+            assert provider_info.ref.metadata.get("pack_bound") is True, (
+                "Daytona SDK-backed provider should bind pack during provisioning"
+            )
+            assert "pack_source_path" in provider_info.ref.metadata, (
+                "Daytona SDK-backed provider should expose pack_source_path"
+            )
+            assert provider_info.ref.metadata["pack_source_path"] == pack_path
 
     @pytest.mark.asyncio
     async def test_cross_profile_pack_binding_parity(
@@ -848,6 +801,107 @@ class TestRegisteredPackBindingParity:
         assert local_path == daytona_path, (
             "Both profiles should resolve same pack source path"
         )
+
+    @pytest.mark.asyncio
+    async def test_daytona_sdk_backed_sandbox_lifecycle(
+        self,
+        db_session,
+        workspace_alpha,
+        workspace_owner,
+        registered_pack_for_workspace,
+    ):
+        """Daytona SDK-backed provider handles full sandbox lifecycle (WORK-02 SDK parity).
+
+        This acceptance test verifies that Daytona profile using AsyncDaytona SDK
+        correctly provisions sandboxes, returns READY state from SDK responses,
+        and preserves pack binding metadata through the lifecycle.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
+        from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
+        from src.infrastructure.sandbox.providers.factory import get_provider
+        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+        from src.infrastructure.sandbox.providers.base import (
+            SandboxState,
+            SandboxHealth,
+        )
+
+        ctx = registered_pack_for_workspace
+        pack_id = ctx["pack_id"]
+        pack_path = ctx["pack_path"]
+
+        # Get Daytona provider
+        daytona_provider = get_provider("daytona")
+        assert isinstance(daytona_provider, DaytonaSandboxProvider)
+
+        # Mock AsyncDaytona SDK for full lifecycle test
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Mock sandbox in "started" state (ready to use)
+            mock_sandbox = MagicMock()
+            mock_sandbox.id = f"daytona-{str(workspace_alpha.id)[:22]}"
+            mock_sandbox.state = "started"
+            mock_sandbox.status = "healthy"
+            mock_sandbox.metadata = {
+                "pack_bound": True,
+                "pack_source_path": pack_path,
+            }
+
+            # First get() returns None (no existing sandbox)
+            # Then create() returns the new sandbox
+            mock_daytona.get = AsyncMock(
+                side_effect=[
+                    MagicMock(
+                        side_effect=Exception("Not found")
+                    ),  # First call - not found
+                    mock_sandbox,  # Second call after provisioning
+                ]
+            )
+            mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+            # Create orchestrator with Daytona provider
+            orchestrator = SandboxOrchestratorService(
+                db_session, provider=daytona_provider
+            )
+            lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
+
+            # Resolve with auto_create=True (should provision)
+            result = await lifecycle.resolve_target(
+                principal=workspace_owner,
+                workspace=workspace_alpha,
+                auto_create=True,
+                acquire_lease=False,
+                run_id="test-daytona-lifecycle",
+                agent_pack_id=pack_id,
+            )
+
+            # Verify SDK create was called for provisioning
+            mock_daytona.create.assert_called_once()
+            call_args = mock_daytona.create.call_args
+            assert call_args.kwargs.get("timeout") == 60, (
+                "Should use 60s timeout for provisioning"
+            )
+
+            # Verify result state
+            assert result.error is None, f"Resolution failed: {result.error}"
+            assert result.sandbox is not None
+            assert result.sandbox.state == SandboxState.READY, (
+                "SDK 'started' state should map to READY"
+            )
+            assert result.sandbox.health == SandboxHealth.HEALTHY, (
+                "SDK 'healthy' status should map to HEALTHY"
+            )
+
+            # Verify pack binding in metadata
+            assert result.sandbox.ref.metadata.get("pack_bound") is True
+            assert result.sandbox.ref.metadata.get("pack_source_path") == pack_path
 
 
 # =============================================================================
