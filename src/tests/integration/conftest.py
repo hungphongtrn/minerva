@@ -75,12 +75,19 @@ def client(db_engine) -> Generator[TestClient, None, None]:
     )
 
     def override_get_db():
+        """Production-equivalent DB dependency for integration tests.
+
+        Exercises the same commit/rollback lifecycle as production get_db()
+        to ensure integration tests validate real transaction durability.
+        """
         session = TestingSessionLocal()
         try:
             yield session
-            session.commit()  # Commit on successful request completion
+            # Commit on successful completion (no exception raised)
+            session.commit()
         except Exception:
-            session.rollback()  # Rollback on error
+            # Rollback on any exception before re-raising
+            session.rollback()
             raise
         finally:
             session.close()
