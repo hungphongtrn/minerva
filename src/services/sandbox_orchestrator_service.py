@@ -318,13 +318,14 @@ class SandboxOrchestratorService:
                 )
 
             # Validation: pack must be valid (not pending, invalid, or stale)
+            # validation_status is stored as string in SQLite
             if pack.validation_status != AgentPackValidationStatus.VALID:
                 return SandboxRoutingResult(
                     success=False,
                     result=RoutingResult.PROVISION_FAILED,
                     sandbox=None,
                     provider_info=None,
-                    message=f"Agent pack {agent_pack_id} is not valid (status: {pack.validation_status.value})",
+                    message=f"Agent pack {agent_pack_id} is not valid (status: {pack.validation_status})",
                     excluded_unhealthy=excluded_unhealthy,
                 )
 
