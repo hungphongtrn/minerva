@@ -2,11 +2,13 @@
 
 Provides run execution with:
 - Workspace lifecycle integration for routing
+- Picoclaw bridge execution for in-sandbox runtime invocation
 - Guest/non-guest persistence guards
 - Runtime policy enforcement before network/tool/secret actions
 - Scoped secret injection based on policy
 """
 
+import secrets
 from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
 from dataclasses import dataclass
@@ -19,6 +21,12 @@ from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
 from src.services.workspace_lifecycle_service import (
     WorkspaceLifecycleService,
     LifecycleTarget,
+)
+from src.services.picoclaw_bridge_service import (
+    PicoclawBridgeService,
+    BridgeResult,
+    BridgeError,
+    BridgeErrorType,
 )
 
 
@@ -64,6 +72,14 @@ class RoutingErrorType:
     WORKSPACE_RESOLUTION_FAILED = "workspace_resolution_failed"
     ROUTING_FAILED = "routing_failed"
 
+    # Bridge execution errors (5xx range)
+    BRIDGE_HEALTH_CHECK_FAILED = "bridge_health_check_failed"
+    BRIDGE_AUTH_FAILED = "bridge_auth_failed"
+    BRIDGE_TIMEOUT = "bridge_timeout"
+    BRIDGE_TRANSPORT_ERROR = "bridge_transport_error"
+    BRIDGE_UPSTREAM_ERROR = "bridge_upstream_error"
+    BRIDGE_MALFORMED_RESPONSE = "bridge_malformed_response"
+
 
 @dataclass
 class RunRoutingResult:
@@ -77,6 +93,8 @@ class RunRoutingResult:
     sandbox_id: Optional[str] = None
     sandbox_state: Optional[str] = None
     sandbox_health: Optional[str] = None
+    sandbox_url: Optional[str] = None
+    agent_pack_id: Optional[str] = None
     lease_acquired: bool = False
     error: Optional[str] = None
     error_type: Optional[str] = None
@@ -431,12 +449,26 @@ class RunService:
                     else:
                         sandbox_health = str(health)
 
+            # Get sandbox URL and agent_pack_id from the sandbox instance
+            sandbox_url = None
+            agent_pack_id_str = None
+            if routing_result.sandbox:
+                if hasattr(routing_result.sandbox, "gateway_url"):
+                    sandbox_url = routing_result.sandbox.gateway_url
+                if (
+                    hasattr(routing_result.sandbox, "agent_pack_id")
+                    and routing_result.sandbox.agent_pack_id
+                ):
+                    agent_pack_id_str = str(routing_result.sandbox.agent_pack_id)
+
             return RunRoutingResult(
                 success=True,
                 workspace_id=str(target.workspace.id),
                 sandbox_id=sandbox_id,
                 sandbox_state=sandbox_state or "unknown",
                 sandbox_health=sandbox_health,
+                sandbox_url=sandbox_url,
+                agent_pack_id=agent_pack_id_str,
                 lease_acquired=target.lease_acquired,
                 error=None,
                 error_type=None,
@@ -461,13 +493,14 @@ class RunService:
         requested_egress_urls: Optional[list[str]] = None,
         requested_tools: Optional[list[str]] = None,
         agent_pack_id: Optional[str] = None,
+        input_message: Optional[str] = None,
     ) -> RunResult:
         """Execute a run with full routing and policy enforcement.
 
         This is the main entrypoint for run execution that:
         1. Resolves workspace and sandbox routing target
         2. Enforces runtime policies
-        3. Executes the run
+        3. Executes the run via Picoclaw bridge (if sandbox available)
         4. Releases lease deterministically
 
         Args:
@@ -480,6 +513,7 @@ class RunService:
             requested_egress_urls: Egress URLs the run will access
             requested_tools: Tools the run will invoke
             agent_pack_id: Optional agent pack to bind to the run
+            input_message: The input message for bridge execution
 
         Returns:
             RunResult with execution outcome
@@ -535,7 +569,176 @@ class RunService:
             "lease_acquired": routing.lease_acquired,
         }
 
+        # If we have a sandbox and input message, execute via Picoclaw bridge
+        if routing.sandbox_id and input_message:
+            bridge_result = await self._execute_via_bridge(
+                routing=routing,
+                message=input_message,
+                is_guest=context.is_guest,
+            )
+
+            # Update result with bridge execution output
+            if bridge_result.success:
+                result.outputs["bridge"] = {
+                    "success": True,
+                    "output": bridge_result.output,
+                }
+                # Include final assistant output for API response
+                if bridge_result.output:
+                    result.outputs["final_output"] = bridge_result.output.get(
+                        "message"
+                    ) or bridge_result.output.get("content")
+            else:
+                # Bridge execution failed - update status and include error
+                result.status = "error"
+                result.error = (
+                    bridge_result.error.message
+                    if bridge_result.error
+                    else "Bridge execution failed"
+                )
+                result.outputs["routing_error_type"] = self._map_bridge_error_type(
+                    bridge_result.error
+                )
+                result.outputs["bridge"] = {
+                    "success": False,
+                    "error": bridge_result.error.to_dict()
+                    if bridge_result.error
+                    else None,
+                }
+
         return result
+
+    def _generate_session_key(
+        self,
+        workspace_id: Optional[str],
+        agent_pack_id: Optional[str],
+        run_id: str,
+        is_guest: bool,
+    ) -> str:
+        """Generate deterministic session key scoped to workspace+pack.
+
+        For authenticated runs: session is scoped to workspace + agent_pack
+        For guest runs: each request gets ephemeral unique session (no continuity)
+
+        Args:
+            workspace_id: The workspace ID
+            agent_pack_id: The agent pack ID (may be None)
+            run_id: The run ID
+            is_guest: Whether this is a guest request
+
+        Returns:
+            Session key string
+        """
+        if is_guest:
+            # Guest sessions are ephemeral - no continuity across requests
+            return f"minerva:guest:{run_id}"
+
+        # Authenticated sessions are scoped to workspace + pack
+        pack_scope = agent_pack_id or "default"
+        return f"minerva:{workspace_id}:{pack_scope}:{run_id}"
+
+    async def _execute_via_bridge(
+        self,
+        routing: RunRoutingResult,
+        message: str,
+        is_guest: bool,
+    ) -> BridgeResult:
+        """Execute request via Picoclaw bridge.
+
+        Args:
+            routing: The routing result containing sandbox info
+            message: The input message for execution
+            is_guest: Whether this is a guest request
+
+        Returns:
+            BridgeResult with execution outcome
+        """
+        # Generate session key scoped to workspace+pack
+        session_key = self._generate_session_key(
+            workspace_id=routing.workspace_id,
+            agent_pack_id=routing.lifecycle_target.agent_pack_id
+            if routing.lifecycle_target
+            else None,
+            run_id=str(uuid4()),
+            is_guest=is_guest,
+        )
+
+        # Get sandbox URL from routing target
+        # The sandbox URL comes from the provider's sandbox instance
+        sandbox_url = await self._get_sandbox_url(routing)
+
+        if not sandbox_url:
+            return BridgeResult(
+                success=False,
+                error=BridgeError(
+                    error_type=BridgeErrorType.TRANSPORT_ERROR,
+                    message="Sandbox URL not available for bridge execution",
+                    remediation="Sandbox may not be fully provisioned",
+                ),
+            )
+
+        # Execute via bridge
+        bridge_service = PicoclawBridgeService()
+
+        return await bridge_service.execute(
+            sandbox_url=sandbox_url,
+            message=message,
+            session_key=session_key,
+            workspace_id=routing.workspace_id,
+            agent_pack_id=routing.lifecycle_target.agent_pack_id
+            if routing.lifecycle_target
+            else None,
+            run_id=session_key.split(":")[-1],
+        )
+
+    async def _get_sandbox_url(self, routing: RunRoutingResult) -> Optional[str]:
+        """Get the sandbox gateway URL from routing result.
+
+        Args:
+            routing: The routing result
+
+        Returns:
+            Sandbox URL string or None if not available
+        """
+        # First try the direct URL field from routing result
+        if routing.sandbox_url:
+            return routing.sandbox_url
+
+        # Fallback: try to get URL from lifecycle target
+        if routing.lifecycle_target and routing.lifecycle_target.routing_result:
+            sandbox = routing.lifecycle_target.routing_result.sandbox
+            if sandbox and hasattr(sandbox, "gateway_url") and sandbox.gateway_url:
+                return sandbox.gateway_url
+
+        # Fallback: construct URL from sandbox_id (for local development)
+        if routing.sandbox_id:
+            # Default port for Picoclaw gateway
+            return f"http://sandbox-{routing.sandbox_id[:8]}:18790"
+
+        return None
+
+    def _map_bridge_error_type(self, error: Optional[BridgeError]) -> str:
+        """Map bridge error to routing error type for API mapping.
+
+        Args:
+            error: The bridge error
+
+        Returns:
+            Routing error type constant
+        """
+        if not error:
+            return RoutingErrorType.ROUTING_FAILED
+
+        error_type_map = {
+            BridgeErrorType.HEALTH_CHECK_FAILED: RoutingErrorType.BRIDGE_HEALTH_CHECK_FAILED,
+            BridgeErrorType.AUTH_FAILED: RoutingErrorType.BRIDGE_AUTH_FAILED,
+            BridgeErrorType.TIMEOUT: RoutingErrorType.BRIDGE_TIMEOUT,
+            BridgeErrorType.TRANSPORT_ERROR: RoutingErrorType.BRIDGE_TRANSPORT_ERROR,
+            BridgeErrorType.UPSTREAM_ERROR: RoutingErrorType.BRIDGE_UPSTREAM_ERROR,
+            BridgeErrorType.MALFORMED_RESPONSE: RoutingErrorType.BRIDGE_MALFORMED_RESPONSE,
+        }
+
+        return error_type_map.get(error.error_type, RoutingErrorType.ROUTING_FAILED)
 
     def _categorize_routing_error(self, error_msg: str) -> str:
         """Categorize routing error message into deterministic error type.

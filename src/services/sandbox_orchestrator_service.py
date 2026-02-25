@@ -451,6 +451,15 @@ class SandboxOrchestratorService:
                 self._repository.set_provider_ref(
                     sandbox.id, provider_info.ref.provider_ref
                 )
+
+                # Generate gateway URL based on profile
+                gateway_url = self._generate_gateway_url(
+                    profile=profile or SandboxProfile.LOCAL_COMPOSE,
+                    provider_ref=provider_info.ref.provider_ref,
+                )
+                if gateway_url:
+                    self._repository.update_gateway_url(sandbox.id, gateway_url)
+
                 self._repository.update_state(sandbox.id, SandboxState.ACTIVE)
                 self._repository.update_health(sandbox.id, SandboxHealthStatus.HEALTHY)
                 self._repository.update_activity(sandbox.id)
@@ -714,3 +723,29 @@ class SandboxOrchestratorService:
         }
 
         return config
+
+    def _generate_gateway_url(
+        self,
+        profile: SandboxProfile,
+        provider_ref: str,
+    ) -> Optional[str]:
+        """Generate the Picoclaw gateway URL for a sandbox.
+
+        Args:
+            profile: The sandbox deployment profile.
+            provider_ref: Provider-specific reference identifier.
+
+        Returns:
+            Gateway URL string or None if unable to generate.
+        """
+        if profile == SandboxProfile.LOCAL_COMPOSE:
+            # For local compose, construct URL from provider_ref (container name)
+            # Default gateway port is 18790
+            return f"http://{provider_ref}:18790"
+        elif profile == SandboxProfile.DAYTONA:
+            # For Daytona, the URL would come from the provider info
+            # For now, return None and let the provider update it
+            # Daytona sandboxes have URLs assigned by the service
+            return None
+
+        return None

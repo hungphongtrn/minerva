@@ -61,6 +61,11 @@ class StartRunRequest(BaseModel):
         description="Secrets to make available (filtered by allowed_secrets)",
     )
 
+    # Input message for bridge execution
+    message: Optional[str] = Field(
+        None, description="Message to send to Picoclaw runtime via bridge"
+    )
+
 
 class StartRunResponse(BaseModel):
     """Response when starting a run."""
@@ -71,6 +76,13 @@ class StartRunResponse(BaseModel):
     message: str = Field(..., description="Status message")
     injected_secrets: list[str] = Field(
         default_factory=list, description="Secrets that were injected (based on policy)"
+    )
+    # Bridge execution output (if bridge was invoked)
+    output: Optional[str] = Field(
+        None, description="Final assistant output from Picoclaw runtime"
+    )
+    bridge_output: Optional[Dict[str, Any]] = Field(
+        None, description="Full bridge execution output metadata"
     )
 
 
@@ -138,6 +150,12 @@ async def start_run(
     if not requested_tools and request.input.get("tool"):
         requested_tools.append(request.input["tool"])
 
+    # Extract message for bridge execution
+    # Use explicit message field or fall back to input.message or input.content
+    input_message = request.message
+    if not input_message:
+        input_message = request.input.get("message") or request.input.get("content")
+
     # Execute with full routing and policy enforcement
     result = await service.execute_with_routing(
         principal=principal,
@@ -149,6 +167,7 @@ async def start_run(
         requested_egress_urls=requested_egress_urls,
         requested_tools=requested_tools,
         agent_pack_id=request.agent_pack_id,
+        input_message=input_message,
     )
 
     # Handle errors
@@ -228,6 +247,13 @@ async def start_run(
         else f"Run executed with sandbox {routing_info.get('sandbox_state', 'unknown')}"
     )
 
+    # Extract bridge output if available
+    final_output = None
+    bridge_output = None
+    if result.outputs:
+        final_output = result.outputs.get("final_output")
+        bridge_output = result.outputs.get("bridge")
+
     return StartRunResponse(
         run_id=result.run_id,
         status=result.status,
@@ -236,6 +262,8 @@ async def start_run(
         injected_secrets=result.outputs.get("secrets_injected", [])
         if result.outputs
         else [],
+        output=final_output,
+        bridge_output=bridge_output,
     )
 
 
@@ -367,6 +395,67 @@ def _map_routing_error(error_type: str, error_message: str) -> dict:
                 "error": error_message,
                 "error_type": "workspace_resolution_failed",
                 "remediation": "Ensure workspace exists or enable auto_create_workspace",
+            },
+        }
+
+    # Bridge execution errors (5xx - infrastructure/runtime failures)
+    if error_type == RoutingErrorType.BRIDGE_HEALTH_CHECK_FAILED:
+        return {
+            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_health_check_failed",
+                "remediation": "Sandbox may be unhealthy. Try again later or reprovision the sandbox.",
+            },
+        }
+
+    if error_type == RoutingErrorType.BRIDGE_AUTH_FAILED:
+        return {
+            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_auth_failed",
+                "remediation": "Bridge authentication failed. Check bridge token configuration.",
+            },
+        }
+
+    if error_type == RoutingErrorType.BRIDGE_TIMEOUT:
+        return {
+            "status_code": status.HTTP_504_GATEWAY_TIMEOUT,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_timeout",
+                "remediation": "Execution timed out. Increase PICOCLAW_BRIDGE.EXECUTE_TIMEOUT or check sandbox performance.",
+            },
+        }
+
+    if error_type == RoutingErrorType.BRIDGE_TRANSPORT_ERROR:
+        return {
+            "status_code": status.HTTP_503_SERVICE_UNAVAILABLE,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_transport_error",
+                "remediation": "Unable to connect to sandbox. Check network connectivity and sandbox status.",
+            },
+        }
+
+    if error_type == RoutingErrorType.BRIDGE_UPSTREAM_ERROR:
+        return {
+            "status_code": status.HTTP_502_BAD_GATEWAY,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_upstream_error",
+                "remediation": "Picoclaw runtime returned an error. Check Picoclaw gateway logs.",
+            },
+        }
+
+    if error_type == RoutingErrorType.BRIDGE_MALFORMED_RESPONSE:
+        return {
+            "status_code": status.HTTP_502_BAD_GATEWAY,
+            "detail": {
+                "error": error_message,
+                "error_type": "bridge_malformed_response",
+                "remediation": "Unexpected response from Picoclaw gateway. Contact support.",
             },
         }
 

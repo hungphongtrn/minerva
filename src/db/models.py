@@ -263,6 +263,9 @@ class SandboxInstance(Base):
         nullable=True,
     )
 
+    # Picoclaw gateway URL for bridge execution
+    gateway_url = Column(String(512), nullable=True)
+
     stopped_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(

@@ -37,15 +37,17 @@ class SandboxInstanceRepository:
         provider_ref: Optional[str] = None,
         agent_pack_id: Optional[UUID] = None,
         idle_ttl_seconds: int = 3600,
+        gateway_url: Optional[str] = None,
     ) -> SandboxInstance:
         """Create a new sandbox instance record.
 
         Args:
-            workspace_id: UUID of the owning workspace.
+            workspace_id: UUID of the workspace.
             profile: Deployment profile (local_compose or daytona).
             provider_ref: Provider-specific reference identifier.
             agent_pack_id: Optional ID of associated agent pack.
             idle_ttl_seconds: TTL for idle auto-stop in seconds.
+            gateway_url: Optional URL for Picoclaw gateway bridge access.
 
         Returns:
             The created SandboxInstance.
@@ -58,6 +60,7 @@ class SandboxInstanceRepository:
             health_status=SandboxHealthStatus.UNKNOWN,
             agent_pack_id=agent_pack_id,
             idle_ttl_seconds=idle_ttl_seconds,
+            gateway_url=gateway_url,
         )
 
         self._session.add(sandbox)
@@ -319,6 +322,32 @@ class SandboxInstanceRepository:
             return None
 
         sandbox.provider_ref = provider_ref
+        self._session.flush()
+
+        return sandbox
+
+    def update_gateway_url(
+        self,
+        sandbox_id: UUID,
+        gateway_url: str,
+    ) -> Optional[SandboxInstance]:
+        """Update the gateway URL for a sandbox.
+
+        Called after successful provisioning to store the Picoclaw
+        gateway URL for bridge execution.
+
+        Args:
+            sandbox_id: UUID of the sandbox.
+            gateway_url: URL for Picoclaw gateway bridge access.
+
+        Returns:
+            Updated SandboxInstance if found, None otherwise.
+        """
+        sandbox = self.get_by_id(sandbox_id)
+        if not sandbox:
+            return None
+
+        sandbox.gateway_url = gateway_url
         self._session.flush()
 
         return sandbox
