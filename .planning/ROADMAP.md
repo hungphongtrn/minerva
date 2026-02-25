@@ -73,7 +73,7 @@ Plans:
 4. A request routes to an already active healthy sandbox when one exists for that workspace, or hydrates/creates a sandbox with workspace attached when none exists.
 5. Concurrent write attempts for the same workspace are serialized, unhealthy sandboxes are excluded from routing, idle sandboxes auto-stop by TTL, and policy/isolation boundary tests pass in CI.
 
-**Plans:** 8 plans
+**Plans:** 10 plans
 
 Plans:
 - [x] 02-01-PLAN.md — Add Phase 2 schema foundation for leases, sandboxes, and path-linked agent packs.
@@ -84,6 +84,8 @@ Plans:
 - [x] 02-06-PLAN.md — Close workspace route UUID ownership normalization and resolve endpoint auth contract gaps.
 - [x] 02-07-PLAN.md — Fix scaffold absolute-path handling and pack/provider portability contract mismatches.
 - [x] 02-08-PLAN.md — Re-green Phase 2 acceptance plus SECU-05 suites and capture final gap-closure evidence.
+- [x] 02-09-PLAN.md — Wire run-to-provider `agent_pack_id` propagation with fail-closed validation before provisioning.
+- [x] 02-10-PLAN.md — Implement provider pack-binding parity and close UAT Test 4 with end-to-end acceptance coverage.
 
 ### Phase 3 - Persistence and Checkpoint Recovery
 
