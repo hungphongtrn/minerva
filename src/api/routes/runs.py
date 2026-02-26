@@ -170,6 +170,20 @@ async def start_run(
         input_message=input_message,
     )
 
+    # Handle queued/restoring state (not an error, just deferred)
+    if hasattr(result, "outputs") and result.outputs:
+        routing_info = result.outputs.get("routing", {})
+        if routing_info.get("queued") or routing_info.get("restore_in_progress"):
+            return StartRunResponse(
+                run_id=result.run_id,
+                status="queued",
+                is_guest=is_guest,
+                message="Run queued - workspace restore in progress",
+                injected_secrets=[],
+                output=None,
+                bridge_output={"restore_in_progress": True},
+            )
+
     # Handle errors
     if result.status == "error":
         # Extract routing error type from outputs if present

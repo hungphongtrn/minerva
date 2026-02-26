@@ -32,6 +32,10 @@ from src.services.runtime_persistence_service import (
     RuntimePersistenceService,
     GuestPersistenceError,
 )
+from src.services.checkpoint_restore_service import (
+    CheckpointRestoreService,
+    RestoreOutcome,
+)
 
 
 @dataclass
@@ -103,6 +107,10 @@ class RunRoutingResult:
     error: Optional[str] = None
     error_type: Optional[str] = None
     lifecycle_target: Optional[LifecycleTarget] = None
+    # Restore-aware fields
+    restore_in_progress: bool = False
+    restore_checkpoint_id: Optional[str] = None
+    queued: bool = False  # True if run is queued due to restore
 
 
 class RunService:
@@ -120,6 +128,7 @@ class RunService:
         enforcer: Optional[RuntimeEnforcer] = None,
         lifecycle_service: Optional[WorkspaceLifecycleService] = None,
         persistence_service: Optional[RuntimePersistenceService] = None,
+        restore_service: Optional[CheckpointRestoreService] = None,
     ):
         """Initialize the run service.
 
@@ -127,10 +136,12 @@ class RunService:
             enforcer: Runtime enforcer for policy checks
             lifecycle_service: Workspace lifecycle service for routing
             persistence_service: Optional runtime persistence service for durable runs
+            restore_service: Optional checkpoint restore service for cold-start restore
         """
         self.enforcer = enforcer or RuntimeEnforcer()
         self._lifecycle_service = lifecycle_service
         self._persistence_service = persistence_service
+        self._restore_service = restore_service
 
     def start_run(
         self,
@@ -385,6 +396,22 @@ class RunService:
                 session=session
             )
 
+            # Check for restore in progress before resolving target
+            # This prevents duplicate cold-start restores
+            restore_in_progress = False
+            restore_checkpoint_id = None
+            try:
+                restore_in_progress = lifecycle.is_restore_in_progress(
+                    target_workspace_id=None
+                )  # Will get from target
+                if restore_in_progress:
+                    restore_checkpoint_id = lifecycle.get_restore_checkpoint_id(
+                        target_workspace_id=None
+                    )
+            except Exception:
+                # If restore check fails, continue normally
+                pass
+
             # Resolve target through lifecycle service
             target = await lifecycle.resolve_target(
                 principal=principal,
@@ -393,6 +420,33 @@ class RunService:
                 run_id=run_id,
                 agent_pack_id=agent_pack_id,
             )
+
+            # Update restore check now that we have workspace
+            if target.workspace:
+                try:
+                    restore_in_progress = lifecycle.is_restore_in_progress(
+                        target.workspace.id
+                    )
+                    if restore_in_progress:
+                        restore_checkpoint_id = lifecycle.get_restore_checkpoint_id(
+                            target.workspace.id
+                        )
+                        # Return queued status - restore in progress
+                        return RunRoutingResult(
+                            success=True,  # Not a failure, just queued
+                            workspace_id=str(target.workspace.id),
+                            sandbox_id=None,
+                            sandbox_state="restoring",
+                            sandbox_health="unknown",
+                            lease_acquired=False,
+                            error=None,
+                            restore_in_progress=True,
+                            restore_checkpoint_id=restore_checkpoint_id,
+                            queued=True,
+                            lifecycle_target=target,
+                        )
+                except Exception:
+                    pass
 
             # Fail-fast: workspace must exist for non-guest runs
             if not target.workspace:
@@ -455,6 +509,21 @@ class RunService:
                         sandbox_health = str(health.value)
                     else:
                         sandbox_health = str(health)
+
+            # Handle RESTORING state - return queued status
+            if sandbox_state == "restoring":
+                return RunRoutingResult(
+                    success=True,  # Not a failure, just queued
+                    workspace_id=str(target.workspace.id),
+                    sandbox_id=sandbox_id,
+                    sandbox_state=sandbox_state,
+                    sandbox_health=sandbox_health,
+                    lease_acquired=target.lease_acquired,
+                    error=None,
+                    restore_in_progress=True,
+                    queued=True,
+                    lifecycle_target=target,
+                )
 
             # Get sandbox URL and agent_pack_id from the sandbox instance
             sandbox_url = None
