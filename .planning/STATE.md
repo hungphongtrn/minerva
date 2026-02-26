@@ -10,11 +10,11 @@
 
 ## Current Position
 
-- **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - COMPLETE
-- **Plan status:** Phase 3 complete (all 5 plans + 1 gap closure complete)
-- **Execution status:** Phase goal verified (`passed`, 15/15 must-haves) + UAT gap closed
-- **Progress bar:** [████████████████░░] 80%
-- **Last completed:** Phase 3 UAT gap closure (gateway_url column added)
+- **Phase:** 03.1 (Make Daytona Production-Ready for Picoclaw Gateway Execution) - IN PROGRESS
+- **Plan status:** 03.1-01 complete (persistence contract for bridge tokens and readiness)
+- **Execution status:** 3/3 tasks complete, all must-haves verified
+- **Progress bar:** [██████████████████] 85%
+- **Last completed:** 03.1-01 Persistence contract (bridge token rotation, readiness tracking)
 
 ```mermaid
 flowchart LR
@@ -55,6 +55,7 @@ flowchart LR
   S35 --> S36[03-04: Checkpoint Restore ✓]
   S36 --> S37[03-05: Persistence APIs ✓]
   S37 --> S38[Phase 3 Verification: Passed ✓]
+  S38 --> S39[03.1-01: Persistence Contract ✓]
 ```
 
 ## Performance Metrics
@@ -62,8 +63,8 @@ flowchart LR
 - **v1 requirements total:** 36
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
-- **Completed phases:** 3/5 (plus inserted bridge phase 2.1 complete)
-- **Completed plans:** 29/29 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5)
+- **Completed phases:** 3/5 (plus inserted phases: 2.1 complete, 3.1 in progress)
+- **Completed plans:** 30/32 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 1/3)
 - **Completed requirements:** 23/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -197,10 +198,16 @@ flowchart LR
 | D-03-05-003 | 2026-02-26 | 03-05 | Transaction-scoped audit events | Audit events created in same transaction as operation; rolled back on API error |
 | D-03-UAT-001 | 2026-02-26 | 03-UAT-GAPS | Use nullable VARCHAR(512) for gateway_url column | Safe metadata-only operation in PostgreSQL, no full-table rewrite risk |
 | D-03-UAT-002 | 2026-02-26 | 03-UAT-GAPS | Idempotent migration operations | Check column existence before add/drop prevents errors on re-runs |
+| D-03.1-01-001 | 2026-02-26 | 03.1-01 | 30-second grace overlap for bridge token rotation | Prevents in-flight request failures during sandbox reprovision cutover |
+| D-03.1-01-002 | 2026-02-26 | 03.1-01 | Single previous token slot (not a chain) | Simplifies reasoning and prevents token accumulation |
+| D-03.1-01-003 | 2026-02-26 | 03.1-01 | Identity readiness is hard gate for request acceptance | Fail-closed security: sandbox must not serve requests until identity files are mounted |
+| D-03.1-01-004 | 2026-02-26 | 03.1-01 | Hydration state persistence separate from identity readiness | Allows serving requests while checkpoint hydration runs asynchronously in background |
+| D-03.1-01-005 | 2026-02-26 | 03.1-01 | SandboxHydrationStatus enum: pending, in_progress, completed, degraded, failed | Explicit states for checkpoint restore lifecycle with degraded state for partial recovery |
 
 ### Roadmap Evolution
 
 - Phase 02.1 inserted after Phase 2: Bridge Agent Pack Sandbox to Picoclaw Runtime (URGENT)
+- Phase 03.1 inserted after Phase 3: Make Daytona Production-Ready for Picoclaw Gateway Execution (URGENT)
 
 ### TODOs
 
@@ -241,6 +248,12 @@ flowchart LR
 - [x] Execute Plan 03-04: Cold-start restore with deterministic fallback
 - [x] Execute Plan 03-05: Persistence query APIs and pointer security controls
 - [x] Execute Plan 03-UAT-GAPS: Add gateway_url column to sandbox_instances (unblocked 8 UAT tests)
+- [x] Execute Plan 03.1-01: Add persistence contract for bridge tokens and readiness tracking
+
+### Next Plans
+
+- [ ] 03.1-02: Sandbox identity readiness with mount detection
+- [ ] 03.1-03: Bridge token integration and gateway endpoint resolution
 
 ### Blockers
 
@@ -254,14 +267,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-UAT-GAPS-SUMMARY.md` (status: complete, 8 UAT tests unblocked)
-- **Last activity:** 2026-02-26 - Phase 3 UAT gap closure complete (gateway_url column added to sandbox_instances)
+- **Last completed artifact:** `03.1-01-SUMMARY.md` (status: complete, persistence contract for bridge tokens and readiness)
+- **Last activity:** 2026-02-26 - Phase 3.1 Plan 01 complete (migration 0006, repository APIs, 36 tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 4 - Execution Orchestration and Fairness
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-UAT-GAPS-SUMMARY.md`
-- **Last session:** 2026-02-26 - Phase 3 UAT gap closed (all blockers resolved)
-- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82, 9ec3276, 7885665, 076567a, cf0d8c2, 4745219, 0dc2408, b025799, 943b149, 167516d, ece44a7, eb77d42, b689edd, b072b16, ce33f23, e9afb70, 78e3013, a218970, 65b5a0a, a5b9232, 2b300ca
+- **Next plans:** Phase 3.1 Plan 02 - Sandbox identity readiness with mount detection
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-01-SUMMARY.md`
+- **Last session:** 2026-02-26 - Phase 3.1-01 persistence contract delivered
+- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82, 9ec3276, 7885665, 076567a, cf0d8c2, 4745219, 0dc2408, b025799, 943b149, 167516d, ece44a7, eb77d42, b689edd, b072b16, ce33f23, e9afb70, 78e3013, a218970, 65b5a0a, a5b9232, 2b300ca, 6483dea, 8e66b77, e82c4ad
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Phase 3 complete - verification passed, persistence and checkpoint recovery fully delivered)*
+*Updated: 2026-02-26 (Phase 3.1 Plan 01 complete - persistence contract for bridge tokens and readiness tracking)*
