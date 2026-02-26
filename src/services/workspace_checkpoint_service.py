@@ -43,6 +43,18 @@ class GuestCheckpointError(Exception):
     pass
 
 
+class PointerUpdateForbiddenError(Exception):
+    """Raised when non-operator attempts to update checkpoint pointer."""
+
+    pass
+
+
+class PointerRollbackForbiddenError(Exception):
+    """Raised when attempting to rollback to older checkpoint revision."""
+
+    pass
+
+
 class WorkspaceCheckpointService:
     """Service for workspace checkpoint write operations.
 
@@ -321,6 +333,122 @@ class WorkspaceCheckpointService:
             outcome="success",
             resource_type="checkpoint",
             resource_id=checkpoint_id,
+            actor_id=changed_by,
+            workspace_id=workspace_id,
+            reason=changed_reason,
+        )
+
+        return {
+            "workspace_id": str(workspace_id),
+            "active_checkpoint_id": str(active_pointer.checkpoint_id),
+            "changed_by": active_pointer.changed_by,
+            "changed_reason": active_pointer.changed_reason,
+            "updated_at": active_pointer.updated_at.isoformat()
+            if active_pointer.updated_at
+            else None,
+        }
+
+    def set_active_checkpoint_guarded(
+        self,
+        workspace_id: UUID,
+        checkpoint_db_id: UUID,
+        changed_by: Optional[str] = None,
+        changed_reason: Optional[str] = None,
+        is_operator: bool = True,  # Phase 3: operator-only by default
+    ) -> dict[str, Any]:
+        """Set active checkpoint with Phase 3 security guardrails.
+
+        Phase 3 restrictions:
+        - Only operators can manually change the pointer
+        - Cannot rollback to older revisions (only advance to newest)
+        - All changes are audited
+
+        Args:
+            workspace_id: UUID of the workspace.
+            checkpoint_db_id: UUID of the checkpoint to make active.
+            changed_by: Optional identifier of who/what changed the pointer.
+            changed_reason: Optional reason for the change.
+            is_operator: Whether the requesting principal is an operator.
+
+        Returns:
+            Dict with updated active checkpoint info.
+
+        Raises:
+            PointerUpdateForbiddenError: If non-operator attempts update.
+            PointerRollbackForbiddenError: If attempting to rollback to older revision.
+        """
+        # Phase 3: Operator-only check
+        if not is_operator:
+            # Audit the denied attempt
+            target_checkpoint = self._checkpoint_repo.get_by_id(checkpoint_db_id)
+            target_id = (
+                target_checkpoint.checkpoint_id
+                if target_checkpoint
+                else str(checkpoint_db_id)
+            )
+
+            self._audit_repo.create(
+                category=AuditEventCategory.CHECKPOINT_MANAGEMENT,
+                action="active_pointer_change_denied",
+                outcome="denied",
+                resource_type="checkpoint",
+                resource_id=target_id,
+                actor_id=changed_by,
+                workspace_id=workspace_id,
+                reason="Non-operator attempted pointer update",
+            )
+
+            raise PointerUpdateForbiddenError(
+                "Only operators can manually change the active checkpoint pointer."
+            )
+
+        # Get the target checkpoint
+        target_checkpoint = self._checkpoint_repo.get_by_id(checkpoint_db_id)
+        if not target_checkpoint:
+            raise ValueError(f"Checkpoint {checkpoint_db_id} not found")
+
+        # Phase 3: No rollback to older revisions
+        # Get current active checkpoint
+        current_active = self._checkpoint_repo.get_active_checkpoint(workspace_id)
+
+        if current_active:
+            # Compare creation times to prevent rollback
+            # Only allow if target is newer than current (or same)
+            if target_checkpoint.created_at < current_active.created_at:
+                # This is a rollback attempt - forbidden in Phase 3
+                self._audit_repo.create(
+                    category=AuditEventCategory.CHECKPOINT_MANAGEMENT,
+                    action="active_pointer_rollback_denied",
+                    outcome="denied",
+                    resource_type="checkpoint",
+                    resource_id=target_checkpoint.checkpoint_id,
+                    actor_id=changed_by,
+                    workspace_id=workspace_id,
+                    reason=f"Rollback to older revision attempted: target={target_checkpoint.checkpoint_id}, current={current_active.checkpoint_id}",
+                )
+
+                raise PointerRollbackForbiddenError(
+                    f"Cannot rollback to older checkpoint revision. "
+                    f"Current: {current_active.checkpoint_id} (created {current_active.created_at}), "
+                    f"Target: {target_checkpoint.checkpoint_id} (created {target_checkpoint.created_at}). "
+                    "Phase 3 only supports advancing to newer checkpoints."
+                )
+
+        # All guardrails passed - perform the update
+        active_pointer = self._checkpoint_repo.set_active_checkpoint(
+            workspace_id=workspace_id,
+            checkpoint_id=checkpoint_db_id,
+            changed_by=changed_by,
+            changed_reason=changed_reason,
+        )
+
+        # Audit the successful change
+        self._audit_repo.create(
+            category=AuditEventCategory.CHECKPOINT_MANAGEMENT,
+            action="active_pointer_changed",
+            outcome="success",
+            resource_type="checkpoint",
+            resource_id=target_checkpoint.checkpoint_id,
             actor_id=changed_by,
             workspace_id=workspace_id,
             reason=changed_reason,

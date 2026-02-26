@@ -9,6 +9,7 @@ from src.api.routes import (
     runs,
     workspaces,
     agent_packs,
+    persistence,
 )
 
 # Main API router
@@ -21,6 +22,7 @@ api_router.include_router(workspace_resources.router)
 api_router.include_router(workspaces.router)
 api_router.include_router(agent_packs.router)
 api_router.include_router(runs.router)
+api_router.include_router(persistence.router)
 
 
 @api_router.get("/")
