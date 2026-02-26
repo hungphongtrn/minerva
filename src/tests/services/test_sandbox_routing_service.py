@@ -326,8 +326,8 @@ class TestHealthAwareRouting:
         orchestrator_service: SandboxOrchestratorService,
         mock_provider,
     ):
-        """Test routing prefers existing healthy sandbox."""
-        # Create an active healthy sandbox
+        """Test routing prefers existing healthy sandbox with identity ready."""
+        # Create an active healthy sandbox with identity ready
         sandbox = SandboxInstance(
             id=uuid4(),
             workspace_id=test_workspace.id,
@@ -338,6 +338,8 @@ class TestHealthAwareRouting:
             last_activity_at=datetime.utcnow(),
             idle_ttl_seconds=3600,
             created_at=datetime.utcnow() - timedelta(hours=1),
+            identity_ready=True,
+            hydration_status="completed",
         )
         db_session.add(sandbox)
         db_session.commit()
@@ -370,7 +372,7 @@ class TestHealthAwareRouting:
         mock_provider,
     ):
         """Test that unhealthy sandboxes are excluded from routing."""
-        # Create an unhealthy sandbox
+        # Create an unhealthy sandbox (identity ready but health check will fail)
         sandbox = SandboxInstance(
             id=uuid4(),
             workspace_id=test_workspace.id,
@@ -381,6 +383,8 @@ class TestHealthAwareRouting:
             last_activity_at=datetime.utcnow(),
             idle_ttl_seconds=3600,
             created_at=datetime.utcnow() - timedelta(hours=1),
+            identity_ready=True,
+            hydration_status="completed",
         )
         db_session.add(sandbox)
         db_session.commit()
@@ -711,7 +715,7 @@ class TestSandboxProfileRouting:
         mock_provider,
     ):
         """Test that routing respects profile filter."""
-        # Create local_compose sandbox
+        # Create local_compose sandbox with identity ready
         local_sandbox = SandboxInstance(
             id=uuid4(),
             workspace_id=test_workspace.id,
@@ -722,6 +726,8 @@ class TestSandboxProfileRouting:
             last_activity_at=datetime.utcnow(),
             idle_ttl_seconds=3600,
             created_at=datetime.utcnow() - timedelta(hours=1),
+            identity_ready=True,
+            hydration_status="completed",
         )
         db_session.add(local_sandbox)
         db_session.commit()
