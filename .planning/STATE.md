@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - IN PROGRESS
-- **Plan status:** Plan 03-04 complete (cold-start restore with deterministic fallback)
-- **Execution status:** Restore service and lifecycle integration with 20 integration tests
-- **Progress bar:** [█████████████░] 80%
-- **Last completed:** Plan 03-04 (checkpoint restore, fallback chain, fresh-start continuation)
+- **Plan status:** Plan 03-05 complete (persistence query APIs and pointer security)
+- **Execution status:** Persistence read APIs and operator-only pointer controls with 35 integration/security tests
+- **Progress bar:** [██████████████░] 82%
+- **Last completed:** Plan 03-05 (persistence query APIs, checkpoint pointer security, audit immutability)
 
 ```mermaid
 flowchart LR
@@ -52,6 +52,7 @@ flowchart LR
   S32 --> S33[03-01: Persistence Schema ✓]
   S33 --> S34[03-02: Checkpoint Storage ✓]
   S34 --> S35[03-03: Runtime Persistence ✓]
+  S35 --> S36[03-05: Persistence APIs ✓]
 ```
 
 ## Performance Metrics
@@ -60,7 +61,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 3 of 5 in progress
-- **Completed plans:** 26/26 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 2/5)
+- **Completed plans:** 27/27 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 3/5)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -188,6 +189,9 @@ flowchart LR
 | D-03-04-004 | 2026-02-26 | 03-04 | Validation errors are non-retryable | Retrying validation failures wastes time - they will always fail |
 | D-03-04-005 | 2026-02-26 | 03-04 | Fresh start outcomes are success with fresh_start=True | Fresh start is degraded continuation, not terminal failure |
 | D-03-04-006 | 2026-02-26 | 03-04 | All restore outcomes append audit events | Compliance requirement: checkpoint lifecycle must be auditable |
+| D-03-05-001 | 2026-02-26 | 03-05 | Operator scope check includes `workspace:write` | Test fixtures use this scope; aligns with existing permission model |
+| D-03-05-002 | 2026-02-26 | 03-05 | Use checkpoint.created_at for rollback detection | Simple timestamp comparison; sufficient for Phase 3 restriction |
+| D-03-05-003 | 2026-02-26 | 03-05 | Transaction-scoped audit events | Audit events created in same transaction as operation; rolled back on API error |
 
 ### Roadmap Evolution
 
@@ -230,6 +234,7 @@ flowchart LR
 - [x] Execute Plan 03-02: Implement object-storage checkpoint primitives and archive tooling
 - [x] Execute Plan 03-03: Wire runtime persistence and checkpoint write paths
 - [x] Execute Plan 03-04: Cold-start restore with deterministic fallback
+- [x] Execute Plan 03-05: Persistence query APIs and pointer security controls
 
 ### Blockers
 
@@ -243,14 +248,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-04-SUMMARY.md` (Phase 3 cold-start restore with deterministic fallback)
-- **Last activity:** 2026-02-26 - Completed plan 03-04 (restore service, lifecycle integration, 20 integration tests)
+- **Last completed artifact:** `03-05-SUMMARY.md` (Phase 3 persistence query APIs and checkpoint pointer security)
+- **Last activity:** 2026-02-26 - Completed plan 03-05 (persistence APIs, operator-only pointer controls, 35 integration/security tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-05: Checkpoint listing and read APIs)
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-04-SUMMARY.md`
-- **Last session:** 2026-02-26 - Plan 03-04 complete (restore service, lifecycle restore coordination, RunService restore awareness, 20/25 tests green)
-- **Commits:** eb77d42, b689edd, b072b16 (03-04 checkpoint restore)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-06: State management and persistence completeness)
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-05-SUMMARY.md`
+- **Last session:** 2026-02-26 - Plan 03-05 complete (persistence query endpoints, pointer guardrails, audit immutability, 35 tests green)
+- **Commits:** e9afb70, 78e3013, a218970 (03-05 persistence APIs and security)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Plan 03-04 complete - cold-start restore with deterministic fallback)*
+*Updated: 2026-02-26 (Plan 03-05 complete - persistence query APIs and checkpoint pointer security)*
