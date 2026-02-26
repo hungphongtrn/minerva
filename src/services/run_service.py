@@ -28,6 +28,10 @@ from src.services.picoclaw_bridge_service import (
     BridgeError,
     BridgeErrorType,
 )
+from src.services.runtime_persistence_service import (
+    RuntimePersistenceService,
+    GuestPersistenceError,
+)
 
 
 @dataclass
@@ -115,15 +119,18 @@ class RunService:
         self,
         enforcer: Optional[RuntimeEnforcer] = None,
         lifecycle_service: Optional[WorkspaceLifecycleService] = None,
+        persistence_service: Optional[RuntimePersistenceService] = None,
     ):
         """Initialize the run service.
 
         Args:
             enforcer: Runtime enforcer for policy checks
             lifecycle_service: Workspace lifecycle service for routing
+            persistence_service: Optional runtime persistence service for durable runs
         """
         self.enforcer = enforcer or RuntimeEnforcer()
         self._lifecycle_service = lifecycle_service
+        self._persistence_service = persistence_service
 
     def start_run(
         self,
@@ -500,8 +507,10 @@ class RunService:
         This is the main entrypoint for run execution that:
         1. Resolves workspace and sandbox routing target
         2. Enforces runtime policies
-        3. Executes the run via Picoclaw bridge (if sandbox available)
-        4. Releases lease deterministically
+        3. Persists run session and events (non-guest only)
+        4. Executes the run via Picoclaw bridge (if sandbox available)
+        5. Updates persistence with results
+        6. Releases lease deterministically
 
         Args:
             principal: The requesting principal
@@ -518,6 +527,9 @@ class RunService:
         Returns:
             RunResult with execution outcome
         """
+        # Initialize persistence service if not provided
+        persistence = self._persistence_service or RuntimePersistenceService(session)
+
         # Resolve routing target first, passing agent_pack_id for pack binding
         routing = await self.resolve_routing_target(
             principal, session, agent_pack_id=agent_pack_id
@@ -546,6 +558,39 @@ class RunService:
         if routing.workspace_id:
             context.workspace_id = routing.workspace_id
 
+        # Create run session for non-guest runs
+        run_session_id: Optional[UUID] = None
+        if not context.is_guest and routing.workspace_id and routing.sandbox_id:
+            try:
+                # Parse UUIDs from routing result
+                workspace_uuid = UUID(routing.workspace_id)
+                sandbox_uuid = UUID(routing.sandbox_id)
+
+                # Get principal ID from context
+                principal_id = self._get_principal_id(principal)
+                principal_type = "user" if not context.is_guest else "guest"
+
+                run_session_id = persistence.create_run_session(
+                    workspace_id=workspace_uuid,
+                    run_id=context.run_id,
+                    principal_id=principal_id,
+                    principal_type=principal_type,
+                    is_guest=context.is_guest,
+                    request_payload={
+                        "input": input_message,
+                        "egress_urls": requested_egress_urls,
+                        "tools": requested_tools,
+                    },
+                    sandbox_id=sandbox_uuid,
+                )
+            except GuestPersistenceError:
+                # Expected for guests - no persistence
+                pass
+            except Exception as e:
+                # Log but don't fail the run if persistence fails
+                # (could be a DB error, but run should continue)
+                pass
+
         # Execute with policy enforcement
         result = self.execute_run(
             context=context,
@@ -570,6 +615,7 @@ class RunService:
         }
 
         # If we have a sandbox and input message, execute via Picoclaw bridge
+        bridge_error = None
         if routing.sandbox_id and input_message:
             bridge_result = await self._execute_via_bridge(
                 routing=routing,
@@ -591,11 +637,12 @@ class RunService:
             else:
                 # Bridge execution failed - update status and include error
                 result.status = "error"
-                result.error = (
+                bridge_error = (
                     bridge_result.error.message
                     if bridge_result.error
                     else "Bridge execution failed"
                 )
+                result.error = bridge_error
                 result.outputs["routing_error_type"] = self._map_bridge_error_type(
                     bridge_result.error
                 )
@@ -606,7 +653,74 @@ class RunService:
                     else None,
                 }
 
+        # Update run session state based on result (non-guest only)
+        if run_session_id and not context.is_guest:
+            try:
+                principal_id = self._get_principal_id(principal)
+                workspace_uuid = (
+                    UUID(routing.workspace_id) if routing.workspace_id else None
+                )
+
+                if result.status == "success":
+                    persistence.mark_run_completed(
+                        run_session_id=run_session_id,
+                        workspace_id=workspace_uuid,
+                        run_id=context.run_id,
+                        result_payload=result.outputs,
+                        principal_id=principal_id,
+                        is_guest=context.is_guest,
+                    )
+                else:
+                    error_msg = result.error or "Run failed"
+                    persistence.mark_run_failed(
+                        run_session_id=run_session_id,
+                        workspace_id=workspace_uuid,
+                        run_id=context.run_id,
+                        error_message=error_msg,
+                        error_code=result.outputs.get("routing_error_type")
+                        if result.outputs
+                        else None,
+                        principal_id=principal_id,
+                        is_guest=context.is_guest,
+                    )
+            except Exception:
+                # Persistence failure shouldn't fail the run
+                pass
+
+        # Release lease deterministically
+        if routing.lease_acquired and routing.workspace_id:
+            try:
+                from src.db.repositories.workspace_lease_repository import (
+                    WorkspaceLeaseRepository,
+                )
+
+                lease_repo = WorkspaceLeaseRepository(session)
+                lease_repo.release_lease(
+                    workspace_id=UUID(routing.workspace_id),
+                    holder_run_id=context.run_id,
+                )
+            except Exception:
+                # Lease release failure shouldn't fail the run
+                pass
+
         return result
+
+    def _get_principal_id(self, principal: Any) -> Optional[str]:
+        """Extract principal ID from principal object.
+
+        Args:
+            principal: The principal object (User, GuestPrincipal, etc.)
+
+        Returns:
+            Principal ID string or None.
+        """
+        if hasattr(principal, "user_id"):
+            return str(principal.user_id)
+        if hasattr(principal, "id"):
+            return str(principal.id)
+        if hasattr(principal, "principal_id"):
+            return str(principal.principal_id)
+        return None
 
     def _generate_session_key(
         self,
