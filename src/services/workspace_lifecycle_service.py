@@ -8,6 +8,7 @@ Provides high-level lifecycle orchestration ensuring:
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional, Any, Dict
 from uuid import UUID, uuid4
 
@@ -41,6 +42,10 @@ class LifecycleTarget:
     sandbox: Optional[Any]  # SandboxInstance
     routing_result: Optional[SandboxRoutingResult]
     error: Optional[str] = None
+    # Restore-aware fields
+    restore_state: Optional[str] = None  # "none", "in_progress", "completed", "failed"
+    restore_checkpoint_id: Optional[str] = None  # ID of checkpoint being restored
+    queued: bool = False  # True if run is queued due to restore in progress
 
 
 @dataclass
@@ -78,6 +83,7 @@ class WorkspaceLifecycleService:
     2. Write path serialization via lease acquisition
     3. Health-aware sandbox routing with idle TTL enforcement
     4. Deterministic lease cleanup in all branches
+    5. Cold-start restore coordination to prevent duplicate restores
 
     Usage:
         lifecycle = WorkspaceLifecycleService(session)
@@ -95,6 +101,10 @@ class WorkspaceLifecycleService:
     """
 
     DEFAULT_LEASE_TTL_SECONDS = 300  # 5 minutes
+
+    # Class-level tracking for restore-in-progress to prevent duplicate restores
+    # Format: {workspace_id_str: {"started_at": datetime, "checkpoint_id": str}}
+    _restore_in_progress: Dict[str, Any] = {}
 
     def __init__(
         self,
@@ -434,3 +444,83 @@ class WorkspaceLifecycleService:
         if not workspace:
             raise RuntimeError(f"Failed to resolve workspace for principal {principal}")
         return workspace
+
+    # Restore coordination methods
+
+    def is_restore_in_progress(self, workspace_id: UUID) -> bool:
+        """Check if a restore is currently in progress for a workspace.
+
+        Uses class-level tracking to prevent duplicate cold-start restores.
+
+        Args:
+            workspace_id: UUID of the workspace.
+
+        Returns:
+            True if restore is in progress, False otherwise.
+        """
+        workspace_id_str = str(workspace_id)
+        if workspace_id_str not in self._restore_in_progress:
+            return False
+
+        # Check if restore has timed out (5 minutes max)
+        restore_info = self._restore_in_progress[workspace_id_str]
+        started_at = restore_info.get("started_at")
+        if started_at:
+            elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+            if elapsed > 300:  # 5 minute timeout
+                # Clean up stale restore entry
+                del self._restore_in_progress[workspace_id_str]
+                return False
+
+        return True
+
+    def get_restore_checkpoint_id(self, workspace_id: UUID) -> Optional[str]:
+        """Get the checkpoint ID being restored for a workspace.
+
+        Args:
+            workspace_id: UUID of the workspace.
+
+        Returns:
+            Checkpoint ID string if restore in progress, None otherwise.
+        """
+        workspace_id_str = str(workspace_id)
+        if workspace_id_str in self._restore_in_progress:
+            return self._restore_in_progress[workspace_id_str].get("checkpoint_id")
+        return None
+
+    def mark_restore_started(
+        self,
+        workspace_id: UUID,
+        checkpoint_id: str,
+    ) -> None:
+        """Mark that a restore has started for a workspace.
+
+        Args:
+            workspace_id: UUID of the workspace.
+            checkpoint_id: ID of the checkpoint being restored.
+        """
+        workspace_id_str = str(workspace_id)
+        self._restore_in_progress[workspace_id_str] = {
+            "started_at": datetime.now(timezone.utc),
+            "checkpoint_id": checkpoint_id,
+        }
+
+    def mark_restore_completed(self, workspace_id: UUID) -> None:
+        """Mark that a restore has completed for a workspace.
+
+        Args:
+            workspace_id: UUID of the workspace.
+        """
+        workspace_id_str = str(workspace_id)
+        if workspace_id_str in self._restore_in_progress:
+            del self._restore_in_progress[workspace_id_str]
+
+    def mark_restore_failed(self, workspace_id: UUID) -> None:
+        """Mark that a restore has failed for a workspace.
+
+        Args:
+            workspace_id: UUID of the workspace.
+        """
+        workspace_id_str = str(workspace_id)
+        if workspace_id_str in self._restore_in_progress:
+            del self._restore_in_progress[workspace_id_str]

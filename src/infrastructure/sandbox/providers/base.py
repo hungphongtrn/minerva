@@ -23,6 +23,7 @@ class SandboxState(Enum):
     UNKNOWN = auto()  # State cannot be determined
     READY = auto()  # Active and healthy, ready for use
     HYDRATING = auto()  # Being created or restored from checkpoint
+    RESTORING = auto()  # Actively restoring from checkpoint
     UNHEALTHY = auto()  # Active but failed health checks
     STOPPED = auto()  # Stopped or terminated
     STOPPING = auto()  # In the process of stopping
