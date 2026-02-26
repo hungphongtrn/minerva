@@ -115,11 +115,23 @@ def _create_daytona_provider() -> DaytonaSandboxProvider:
     # Resolve target region
     target = settings.DAYTONA_TARGET or settings.DAYTONA_TARGET_REGION or "us"
 
-    # Resolve image contract settings
+    # Resolve image contract settings - filter out MagicMock from test mocks
     strict_mode = getattr(settings, "DAYTONA_BASE_IMAGE_STRICT_MODE", False)
+    if strict_mode is not None and not isinstance(strict_mode, bool):
+        strict_mode = False
+
     digest_required = getattr(settings, "DAYTONA_BASE_IMAGE_DIGEST_REQUIRED", False)
-    base_image = getattr(settings, "DAYTONA_BASE_IMAGE", None)
+    if digest_required is not None and not isinstance(digest_required, bool):
+        digest_required = False
+
     auto_stop_interval = getattr(settings, "DAYTONA_AUTO_STOP_INTERVAL", 0)
+    if auto_stop_interval is not None and not isinstance(auto_stop_interval, int):
+        auto_stop_interval = 0
+
+    # Resolve base image - filter out MagicMock from test mocks
+    base_image = getattr(settings, "DAYTONA_BASE_IMAGE", None)
+    if base_image is not None and not isinstance(base_image, str):
+        base_image = None
 
     return DaytonaSandboxProvider(
         api_key=api_key,

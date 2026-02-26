@@ -70,7 +70,7 @@ class SandboxImageContractError(SandboxConfigurationError):
         )
 
     def __str__(self) -> str:
-        parts = [self.message]
+        parts = [self.args[0] if self.args else "SandboxImageContractError"]
         if self.image_ref:
             parts.append(f"image_ref='{self.image_ref}'")
         if self.contract_violation:
@@ -171,9 +171,14 @@ class DaytonaSandboxProvider:
         self._target = target_value
 
         # Image configuration
-        self._base_image = base_image or os.environ.get(
-            "DAYTONA_BASE_IMAGE", "daytonaio/workspace-picoclaw:latest"
-        )
+        # If base_image is explicitly provided (even if empty string), use it
+        # Otherwise fall back to environment variable
+        if base_image is not None:
+            self._base_image = base_image
+        else:
+            self._base_image = os.environ.get(
+                "DAYTONA_BASE_IMAGE", "daytonaio/workspace-picoclaw:latest"
+            )
         self._image_labels = image_labels or {}
 
         # Auto-stop interval: 0 disables auto-stop for runtime continuity
