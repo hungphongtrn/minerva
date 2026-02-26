@@ -47,6 +47,16 @@ class SandboxHealthStatus:
     UNKNOWN = "unknown"
 
 
+class SandboxHydrationStatus:
+    """Hydration status for checkpoint restoration."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    DEGRADED = "degraded"
+    FAILED = "failed"
+
+
 class SandboxProfile:
     """Deployment profiles for sandbox instances."""
 
@@ -319,6 +329,31 @@ class SandboxInstance(Base):
 
     # Picoclaw gateway URL for bridge execution
     gateway_url = Column(String(512), nullable=True)
+
+    # Bridge authentication tokens for gateway execution (Phase 3.1)
+    bridge_auth_token = Column(String(255), nullable=True)
+    bridge_auth_token_prev = Column(String(255), nullable=True)
+    bridge_auth_token_prev_expires_at = Column(DateTime, nullable=True)
+
+    # Identity readiness gate (Phase 3.1)
+    # True when AGENT.md, SOUL.md, IDENTITY.md, skills/ are mounted
+    identity_ready = Column(Boolean, default=False, nullable=False)
+
+    # Checkpoint hydration status for session state recovery (Phase 3.1)
+    hydration_status = Column(
+        Enum(
+            SandboxHydrationStatus.PENDING,
+            SandboxHydrationStatus.IN_PROGRESS,
+            SandboxHydrationStatus.COMPLETED,
+            SandboxHydrationStatus.DEGRADED,
+            SandboxHydrationStatus.FAILED,
+            name="sandbox_hydration_status",
+        ),
+        default=SandboxHydrationStatus.PENDING,
+        nullable=False,
+    )
+    hydration_retry_count = Column(Integer, default=0, nullable=False)
+    hydration_last_error = Column(Text, nullable=True)
 
     stopped_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
