@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - IN PROGRESS
-- **Plan status:** Plan 03-02 complete (checkpoint storage primitives)
-- **Execution status:** Checkpoint S3 storage and archive service implemented with tests
-- **Progress bar:** [████████████] 72%
-- **Last completed:** Plan 03-02 (object-storage checkpoint primitives and archive tooling)
+- **Plan status:** Plan 03-03 complete (runtime persistence and checkpoint write paths)
+- **Execution status:** Repositories and services wired into run execution with 32 integration tests
+- **Progress bar:** [█████████████░] 78%
+- **Last completed:** Plan 03-03 (runtime persistence, checkpoint writes, active pointer auto-advance)
 
 ```mermaid
 flowchart LR
@@ -51,6 +51,7 @@ flowchart LR
   S31 --> S32[2.1-03: Wire /runs ✓]
   S32 --> S33[03-01: Persistence Schema ✓]
   S33 --> S34[03-02: Checkpoint Storage ✓]
+  S34 --> S35[03-03: Runtime Persistence ✓]
 ```
 
 ## Performance Metrics
@@ -59,7 +60,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 3 of 5 in progress
-- **Completed plans:** 25/25 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 1/5)
+- **Completed plans:** 26/26 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 2/5)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -176,6 +177,11 @@ flowchart LR
 | D-03-02-003 | 2026-02-26 | 03-02 | Static Identity Exclusion | Exclude AGENT.md, SOUL.md, IDENTITY.md, skills/ from checkpoints per Picoclaw runtime invariants (static files mounted at sandbox creation) |
 | D-03-02-004 | 2026-02-26 | 03-02 | zstandard Compression | Use zstandard (zstd) level 3 for superior speed/compression ratio vs gzip |
 | D-03-02-005 | 2026-02-26 | 03-02 | Fail-Closed Configuration | CHECKPOINT_ENABLED defaults to False to prevent accidental persistence in development |
+| D-03-03-001 | 2026-02-26 | 03-03 | Guest persistence raises explicit GuestPersistenceError | Fail-fast principle - explicit errors are better than silent data loss |
+| D-03-03-002 | 2026-02-26 | 03-03 | Auto-advance active checkpoint pointer on successful completion | Per 03-CONTEXT: 'Active revision pointer auto-advances to the newest successful checkpoint' |
+| D-03-03-003 | 2026-02-26 | 03-03 | Policy violations always logged even for guests | Security events must be recorded regardless of principal type |
+| D-03-03-004 | 2026-02-26 | 03-03 | Run session ID tracked through execute_with_routing | Need to correlate runtime execution with durable session records |
+| D-03-03-005 | 2026-02-26 | 03-03 | Checkpoint metadata-only creation for testing | Enables fast unit tests without S3 infrastructure |
 
 ### Roadmap Evolution
 
@@ -216,6 +222,7 @@ flowchart LR
 - [x] Execute Plan 2.1-03: Wire /runs to execute through bridge
 - [x] Execute Plan 03-01: Persistence schema foundation with immutable audit
 - [x] Execute Plan 03-02: Implement object-storage checkpoint primitives and archive tooling
+- [x] Execute Plan 03-03: Wire runtime persistence and checkpoint write paths
 
 ### Blockers
 
@@ -229,14 +236,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-01-SUMMARY.md` (Phase 3 persistence schema foundation)
-- **Last activity:** 2026-02-26 - Completed plan 03-01 (run sessions, checkpoint metadata, immutable audit tables)
+- **Last completed artifact:** `03-03-SUMMARY.md` (Phase 3 runtime persistence and checkpoint write paths)
+- **Last activity:** 2026-02-26 - Completed plan 03-03 (repositories, services, run execution integration, 32 tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-03: Checkpoint registry and pointer management)
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-01-SUMMARY.md`
-- **Last session:** 2026-02-26 - Plan 03-01 complete (5 new tables, immutable audit trigger, 15 smoke tests green)
-- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82 (03-01 persistence schema)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-04: Checkpoint restore paths and read APIs)
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-03-SUMMARY.md`
+- **Last session:** 2026-02-26 - Plan 03-03 complete (4 repositories, 2 services, RunService persistence hooks, 32 integration tests green)
+- **Commits:** 0dc2408, b025799, 943b149, 167516d (03-03 runtime persistence)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Plan 03-02 complete - checkpoint storage primitives implemented, 32 tests passing, ready for registry/restore integration)*
+*Updated: 2026-02-26 (Plan 03-03 complete - runtime persistence and checkpoint write paths wired into run execution)*
