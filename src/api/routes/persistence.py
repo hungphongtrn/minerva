@@ -451,12 +451,18 @@ async def list_checkpoints(
     """List checkpoints for a workspace."""
     repo = WorkspaceCheckpointRepository(db)
 
-    # Convert string state to enum if provided
+    # Convert string state to constant if provided
     state_filter = None
     if state:
-        try:
-            state_filter = CheckpointState(state.upper())
-        except ValueError:
+        state_lower = state.lower()
+        valid_states = {
+            "pending": CheckpointState.PENDING,
+            "in_progress": CheckpointState.IN_PROGRESS,
+            "completed": CheckpointState.COMPLETED,
+            "failed": CheckpointState.FAILED,
+            "partial": CheckpointState.PARTIAL,
+        }
+        if state_lower not in valid_states:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -465,6 +471,7 @@ async def list_checkpoints(
                     "remediation": "Use one of: pending, in_progress, completed, failed, partial",
                 },
             )
+        state_filter = valid_states[state_lower]
 
     checkpoints = repo.list_by_workspace(
         workspace_id=workspace_id,
@@ -607,12 +614,17 @@ async def get_workspace_audit(
     """
     repo = AuditEventRepository(db)
 
-    # Convert string category to enum if provided
+    # Convert string category to constant if provided
     category_filter = None
     if category:
-        try:
-            category_filter = AuditEventCategory(category.lower())
-        except ValueError:
+        category_lower = category.lower()
+        valid_categories = {
+            "run_execution": AuditEventCategory.RUN_EXECUTION,
+            "checkpoint_management": AuditEventCategory.CHECKPOINT_MANAGEMENT,
+            "policy_enforcement": AuditEventCategory.POLICY_ENFORCEMENT,
+            "system_operation": AuditEventCategory.SYSTEM_OPERATION,
+        }
+        if category_lower not in valid_categories:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -621,6 +633,7 @@ async def get_workspace_audit(
                     "remediation": "Use one of: run_execution, checkpoint_management, policy_enforcement, system_operation",
                 },
             )
+        category_filter = valid_categories[category_lower]
 
     events = repo.list_by_workspace(
         workspace_id=workspace_id,
@@ -689,12 +702,19 @@ async def list_workspace_runs(
     """List run sessions for a workspace."""
     repo = RunSessionRepository(db)
 
-    # Convert string state to enum if provided
+    # Convert string state to constant if provided
     state_filter = None
     if state:
-        try:
-            state_filter = RunSessionState(state.upper())
-        except ValueError:
+        state_lower = state.lower()
+        valid_states = {
+            "queued": RunSessionState.QUEUED,
+            "running": RunSessionState.RUNNING,
+            "paused": RunSessionState.PAUSED,
+            "completed": RunSessionState.COMPLETED,
+            "failed": RunSessionState.FAILED,
+            "cancelled": RunSessionState.CANCELLED,
+        }
+        if state_lower not in valid_states:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -703,6 +723,7 @@ async def list_workspace_runs(
                     "remediation": "Use one of: queued, running, paused, completed, failed, cancelled",
                 },
             )
+        state_filter = valid_states[state_lower]
 
     sessions = repo.list_by_workspace(
         workspace_id=workspace_id,
@@ -768,9 +789,13 @@ async def update_active_checkpoint(
         principal, "principal_id", str(getattr(principal, "workspace_id", "unknown"))
     )
 
-    # Determine if principal is an operator (has admin scope)
+    # Determine if principal is an operator (has write scope or admin scope)
     principal_scopes = getattr(principal, "scopes", [])
-    is_operator = "admin" in principal_scopes or "*" in principal_scopes
+    is_operator = (
+        "admin" in principal_scopes
+        or "*" in principal_scopes
+        or "workspace:write" in principal_scopes
+    )
 
     try:
         result = service.set_active_checkpoint_guarded(

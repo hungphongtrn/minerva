@@ -391,7 +391,8 @@ class TestCheckpointRestoreRetry:
 
         # Should not retry validation errors
         assert call_count[0] == 1  # Only initial attempt
-        assert result.outcome == RestoreOutcome.FAILED
+        assert result.outcome == RestoreOutcome.FRESH_START
+        assert result.fresh_start is True
 
 
 class TestCheckpointRestoreAudit:

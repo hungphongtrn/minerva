@@ -466,6 +466,8 @@ class WorkspaceLifecycleService:
         restore_info = self._restore_in_progress[workspace_id_str]
         started_at = restore_info.get("started_at")
         if started_at:
+            if started_at.tzinfo is None:
+                started_at = started_at.replace(tzinfo=timezone.utc)
             elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
             if elapsed > 300:  # 5 minute timeout
                 # Clean up stale restore entry

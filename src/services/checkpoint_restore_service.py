@@ -250,7 +250,10 @@ class CheckpointRestoreService:
                     attempt_number=attempt,
                 )
 
-                if result.outcome == RestoreOutcome.SUCCESS:
+                if result.outcome in (
+                    RestoreOutcome.SUCCESS,
+                    RestoreOutcome.FALLBACK_SUCCESS,
+                ):
                     return result
 
             except (ManifestValidationError, ArchiveValidationError) as e:
@@ -322,7 +325,12 @@ class CheckpointRestoreService:
         checkpoint_id = checkpoint.checkpoint_id
 
         # Step 1: Validate checkpoint state
-        if checkpoint.state != CheckpointState.COMPLETED:
+        checkpoint_state = (
+            checkpoint.state.value
+            if hasattr(checkpoint.state, "value")
+            else str(checkpoint.state).lower()
+        )
+        if checkpoint_state != CheckpointState.COMPLETED:
             raise ManifestValidationError(
                 f"Checkpoint {checkpoint_id} is not in COMPLETED state (state: {checkpoint.state})",
                 workspace_id=workspace_id,
@@ -399,9 +407,21 @@ class CheckpointRestoreService:
         # Skip the first entry (the failed checkpoint itself)
         fallback_candidates = chain[1:] if len(chain) > 1 else []
 
+        if not fallback_candidates and failed_checkpoint.previous_checkpoint_id:
+            previous_checkpoint = self._checkpoint_repo.get_by_id(
+                failed_checkpoint.previous_checkpoint_id
+            )
+            if previous_checkpoint:
+                fallback_candidates = [previous_checkpoint]
+
         for fallback_checkpoint in fallback_candidates:
             # Skip if not completed
-            if fallback_checkpoint.state != CheckpointState.COMPLETED:
+            fallback_state = (
+                fallback_checkpoint.state.value
+                if hasattr(fallback_checkpoint.state, "value")
+                else str(fallback_checkpoint.state).lower()
+            )
+            if fallback_state != CheckpointState.COMPLETED:
                 continue
 
             # Log fallback attempt
@@ -429,10 +449,13 @@ class CheckpointRestoreService:
                 is_fallback=True,
             )
 
-            if result.outcome == RestoreOutcome.SUCCESS:
-                # Update outcome to indicate fallback success
+            if result.outcome in (
+                RestoreOutcome.SUCCESS,
+                RestoreOutcome.FALLBACK_SUCCESS,
+            ):
                 result.outcome = RestoreOutcome.FALLBACK_SUCCESS
                 result.fallback_checkpoint_id = fallback_checkpoint.checkpoint_id
+                result.checkpoint_id = failed_checkpoint.checkpoint_id
                 return result
 
         # No fallback succeeded
