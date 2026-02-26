@@ -10,11 +10,11 @@
 
 ## Current Position
 
-- **Phase:** 2.1 of 5 (Bridge Agent Pack Sandbox to Picoclaw Runtime) - COMPLETE
-- **Plan status:** Phase 2.1 complete (all 3 plans complete)
-- **Execution status:** Plan 2.1-03 complete - wired /runs to execute through bridge
-- **Progress bar:** [██████████] 70%
-- **Last completed:** Plan 2.1-03 (wire /runs to execute through bridge)
+- **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - IN PROGRESS
+- **Plan status:** Plan 03-02 complete (checkpoint storage primitives)
+- **Execution status:** Checkpoint S3 storage and archive service implemented with tests
+- **Progress bar:** [████████████] 72%
+- **Last completed:** Plan 03-02 (object-storage checkpoint primitives and archive tooling)
 
 ```mermaid
 flowchart LR
@@ -50,6 +50,7 @@ flowchart LR
   S30 --> S31[2.1-02: Provision Runtime ✓]
   S31 --> S32[2.1-03: Wire /runs ✓]
   S31 --> S32[2.1-03: Wire /runs ✓]
+  S32 --> S33[03-02: Checkpoint Storage ✓]
 ```
 
 ## Performance Metrics
@@ -57,8 +58,8 @@ flowchart LR
 - **v1 requirements total:** 36
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
-- **Completed phases:** 2.1/5
-- **Completed plans:** 24/24 (Phase 2: 21/21, Phase 2.1: 3/3)
+- **Completed phases:** 3 of 5 in progress
+- **Completed plans:** 25/25 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 1/5)
 - **Completed requirements:** 18/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -166,6 +167,11 @@ flowchart LR
 | D-2.1-02-001 | 2026-02-25 | 2.1-02 | Reuse Existing Pack Digest for Stale Detection | Use AgentPack.source_digest for stale detection instead of inventing new digest algorithm |
 | D-2.1-02-002 | 2026-02-25 | 2.1-02 | Unique Bridge Auth Token Per Sandbox | Generate unique bridge auth token using secrets.token_urlsafe for security isolation |
 | D-2.1-02-003 | 2026-02-25 | 2.1-02 | Credentials From Environment Variables | Sensitive values (API keys, tokens) come from env vars, not embedded in config.json |
+| D-03-02-001 | 2026-02-26 | 03-02 | Deterministic Key Layout | Hierarchical structure `workspaces/{uuid}/checkpoints/{uuid}/` enables workspace-scoped organization and efficient cleanup |
+| D-03-02-002 | 2026-02-26 | 03-02 | Manifest-First Integrity | Write manifest after archive with embedded checksum; manifest presence signals complete checkpoint |
+| D-03-02-003 | 2026-02-26 | 03-02 | Static Identity Exclusion | Exclude AGENT.md, SOUL.md, IDENTITY.md, skills/ from checkpoints per Picoclaw runtime invariants (static files mounted at sandbox creation) |
+| D-03-02-004 | 2026-02-26 | 03-02 | zstandard Compression | Use zstandard (zstd) level 3 for superior speed/compression ratio vs gzip |
+| D-03-02-005 | 2026-02-26 | 03-02 | Fail-Closed Configuration | CHECKPOINT_ENABLED defaults to False to prevent accidental persistence in development |
 
 ### Roadmap Evolution
 
@@ -203,6 +209,8 @@ flowchart LR
 - [x] Execute Plan 02-17: Close Truth 11 gap with daytona profile parity and CI evidence
 - [x] Execute Plan 2.1-01: Implement Picoclaw bridge service with health-first fail-closed flow
 - [x] Execute Plan 2.1-02: Extend provisioning with bridge config generation and snapshot materialization
+- [x] Execute Plan 2.1-03: Wire /runs to execute through bridge
+- [x] Execute Plan 03-02: Implement object-storage checkpoint primitives and archive tooling
 
 ### Blockers
 
@@ -216,14 +224,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `2.1-03-SUMMARY.md` (wire /runs to execute through bridge)
-- **Last activity:** 2026-02-25 - Completed plan 2.1-03 (wired /runs to execute through Picoclaw bridge)
+- **Last completed artifact:** `03-02-SUMMARY.md` (object-storage checkpoint primitives)
+- **Last activity:** 2026-02-26 - Completed plan 03-02 (checkpoint storage primitives with S3-compatible store, archive service, 32 tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery
-- **Recovery note:** If context is lost, resume from `.planning/phases/02.1-bridge-agent-pack-sandbox-to-picoclaw-runtime/2.1-03-SUMMARY.md`
-- **Last session:** 2026-02-25 - Plan 2.1-03 complete (bridge execution wired, session scoping, error mapping)
-- **Commits:** 438c04e (2.1-03 wire /runs to bridge)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-03: Checkpoint registry and pointer management)
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-02-SUMMARY.md`
+- **Last session:** 2026-02-26 - Plan 03-02 complete (S3 checkpoint store, archive service with zstandard, deterministic keying, checksum validation, 32 tests green)
+- **Commits:** 7885665, 076567a, cf0d8c2 (03-02 checkpoint storage)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-25 (Plan 2.1-03 complete - bridge execution flow wired, session keys scoped to workspace+pack, typed error mapping. All tests pass.)*
+*Updated: 2026-02-26 (Plan 03-02 complete - checkpoint storage primitives implemented, 32 tests passing, ready for registry/restore integration)*
