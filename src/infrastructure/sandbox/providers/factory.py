@@ -115,12 +115,22 @@ def _create_daytona_provider() -> DaytonaSandboxProvider:
     # Resolve target region
     target = settings.DAYTONA_TARGET or settings.DAYTONA_TARGET_REGION or "us"
 
+    # Resolve image contract settings
+    strict_mode = getattr(settings, "DAYTONA_BASE_IMAGE_STRICT_MODE", False)
+    digest_required = getattr(settings, "DAYTONA_BASE_IMAGE_DIGEST_REQUIRED", False)
+    base_image = getattr(settings, "DAYTONA_BASE_IMAGE", None)
+    auto_stop_interval = getattr(settings, "DAYTONA_AUTO_STOP_INTERVAL", 0)
+
     return DaytonaSandboxProvider(
         api_key=api_key,
         api_url=settings.DAYTONA_API_URL or None,
         base_url=settings.DAYTONA_BASE_URL or None,
         target=target,
         target_region=settings.DAYTONA_TARGET_REGION or None,
+        base_image=base_image,
+        auto_stop_interval=auto_stop_interval,
+        strict_mode=strict_mode,
+        digest_required=digest_required,
     )
 
 

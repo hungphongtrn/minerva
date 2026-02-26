@@ -61,9 +61,28 @@ class Settings(BaseSettings):
     # Daytona Image Configuration (for production registry images)
     DAYTONA_BASE_IMAGE: str = "daytonaio/workspace-picoclaw:latest"
     """Base Docker image for Daytona sandboxes (default: daytonaio/workspace-picoclaw:latest).
-    
+
     In production, this should point to a Picoclaw-specific image with
     identity files (AGENT.md, SOUL.md, IDENTITY.md) and skills/ pre-installed.
+    """
+
+    DAYTONA_BASE_IMAGE_STRICT_MODE: bool = False
+    """Strict mode for base image validation (default: False).
+
+    When enabled, the provider enforces deterministic image references:
+    - Requires digest-pinned images (repo/image@sha256:...) for production safety
+    - Rejects mutable tags (e.g., :latest, :v1) that can drift between provisions
+    - Fails fast with clear errors when image contract is violated
+
+    Set to True in production environments to prevent rollout drift.
+    """
+
+    DAYTONA_BASE_IMAGE_DIGEST_REQUIRED: bool = False
+    """Require digest-pinned base image references (default: False).
+
+    When True, validates that DAYTONA_BASE_IMAGE uses digest format
+    (repo/image@sha256:...) before allowing sandbox provisioning.
+    Ignored when DAYTONA_BASE_IMAGE_STRICT_MODE is True (strict mode implies digest required).
     """
 
     DAYTONA_AUTO_STOP_INTERVAL: int = 0

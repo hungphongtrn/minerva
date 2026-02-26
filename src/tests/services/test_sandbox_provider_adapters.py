@@ -1428,6 +1428,113 @@ class TestDaytonaSdkBackPackBinding:
             assert info.ref.metadata.get("pack_source_path") is None
 
 
+class TestDaytonaBaseImageContract:
+    """Test Daytona base image contract validation for production determinism."""
+
+    def test_provider_accepts_digest_pinned_image_in_strict_mode(self):
+        """Provider accepts valid digest-pinned image in strict mode."""
+        valid_digest_image = "registry.example.com/picoclaw/base@sha256:" + "a" * 64
+
+        # Should not raise in strict mode with digest
+        provider = DaytonaSandboxProvider(
+            api_key="test-token",
+            base_image=valid_digest_image,
+            strict_mode=True,
+        )
+
+        assert provider._base_image == valid_digest_image
+        assert provider._strict_mode is True
+
+    def test_provider_rejects_mutable_tag_in_strict_mode(self):
+        """Provider rejects mutable tags (latest, etc.) in strict mode."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            SandboxImageContractError,
+        )
+
+        with pytest.raises(SandboxImageContractError) as exc_info:
+            DaytonaSandboxProvider(
+                api_key="test-token",
+                base_image="daytonaio/workspace-picoclaw:latest",
+                strict_mode=True,
+            )
+
+        assert "digest-pinned" in str(exc_info.value).lower()
+        assert exc_info.value.image_ref == "daytonaio/workspace-picoclaw:latest"
+        assert exc_info.value.contract_violation == "mutable_tag_reference"
+
+    def test_provider_rejects_empty_image_in_strict_mode(self):
+        """Provider rejects empty base image in strict mode."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            SandboxImageContractError,
+        )
+
+        with pytest.raises(SandboxImageContractError) as exc_info:
+            DaytonaSandboxProvider(
+                api_key="test-token",
+                base_image="",
+                strict_mode=True,
+            )
+
+        assert "empty" in str(exc_info.value).lower()
+        assert exc_info.value.contract_violation == "empty_image_reference"
+
+    def test_provider_accepts_mutable_tag_in_permissive_mode(self):
+        """Provider accepts mutable tags when strict mode is disabled."""
+        # Should not raise - permissive mode allows :latest
+        provider = DaytonaSandboxProvider(
+            api_key="test-token",
+            base_image="daytonaio/workspace-picoclaw:latest",
+            strict_mode=False,
+        )
+
+        assert provider._base_image == "daytonaio/workspace-picoclaw:latest"
+
+    def test_provider_accepts_digest_with_digest_required_only(self):
+        """Provider enforces digest when digest_required=True, strict_mode=False."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            SandboxImageContractError,
+        )
+
+        # Should reject mutable tag
+        with pytest.raises(SandboxImageContractError):
+            DaytonaSandboxProvider(
+                api_key="test-token",
+                base_image="daytonaio/workspace-picoclaw:v1.0",
+                strict_mode=False,
+                digest_required=True,
+            )
+
+        # Should accept digest
+        valid_digest = "registry.example.com/picoclaw/base@sha256:" + "b" * 64
+        provider = DaytonaSandboxProvider(
+            api_key="test-token",
+            base_image=valid_digest,
+            strict_mode=False,
+            digest_required=True,
+        )
+
+        assert provider._base_image == valid_digest
+
+    def test_provider_stamps_image_contract_in_labels(self):
+        """Provider stamps base image and strict mode info in sandbox labels."""
+        provider = DaytonaSandboxProvider(
+            api_key="test-token",
+            base_image="test-image@sha256:" + "c" * 64,
+            strict_mode=True,
+        )
+
+        # Build create params and check labels
+        from src.infrastructure.sandbox.providers.base import SandboxConfig
+
+        config = SandboxConfig(workspace_id=uuid4())
+        params = provider._build_create_params(config)
+
+        assert "labels" in params
+        labels = params["labels"]
+        assert labels["picoclaw.base_image"] == "test-image@sha256:" + "c" * 64
+        assert labels["picoclaw.base_image_strict"] == "True"
+
+
 class TestDaytonaFailClosedBehavior:
     """Test Daytona provider fail-closed behavior per semantic contract."""
 

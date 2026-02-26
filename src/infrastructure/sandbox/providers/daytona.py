@@ -49,6 +49,35 @@ class SandboxGatewayError(SandboxProviderError):
     pass
 
 
+class SandboxImageContractError(SandboxConfigurationError):
+    """Raised when base image configuration violates the runtime contract."""
+
+    def __init__(
+        self,
+        message: str,
+        provider_ref: Optional[str] = None,
+        workspace_id: Optional[UUID] = None,
+        image_ref: Optional[str] = None,
+        contract_violation: Optional[str] = None,
+        remediation: Optional[str] = None,
+    ):
+        super().__init__(message, provider_ref=provider_ref, workspace_id=workspace_id)
+        self.image_ref = image_ref
+        self.contract_violation = contract_violation
+        self.remediation = (
+            remediation
+            or "Ensure DAYTONA_BASE_IMAGE uses a digest-pinned reference (repo/image@sha256:...)"
+        )
+
+    def __str__(self) -> str:
+        parts = [self.message]
+        if self.image_ref:
+            parts.append(f"image_ref='{self.image_ref}'")
+        if self.contract_violation:
+            parts.append(f"violation='{self.contract_violation}'")
+        return " | ".join(parts)
+
+
 class DaytonaSandboxProvider:
     """Sandbox provider using Daytona (Cloud or self-hosted) via SDK.
 
@@ -93,6 +122,8 @@ class DaytonaSandboxProvider:
         base_image: Optional[str] = None,
         image_labels: Optional[Dict[str, str]] = None,
         auto_stop_interval: Optional[int] = None,
+        strict_mode: bool = False,
+        digest_required: bool = False,
     ):
         """Initialize the Daytona provider.
 
@@ -106,9 +137,12 @@ class DaytonaSandboxProvider:
             base_image: Docker image to use for sandbox (defaults to env or registry default).
             image_labels: Labels to apply to sandbox image.
             auto_stop_interval: Auto-stop interval in seconds (0 disables, None uses env default).
+            strict_mode: If True, enforces deterministic image contract validation.
+            digest_required: If True, requires digest-pinned image references (implied by strict_mode).
 
         Raises:
             SandboxConfigurationError: If API key is missing and not in env.
+            SandboxImageContractError: If base_image violates runtime contract in strict mode.
         """
         import os
 
@@ -150,6 +184,10 @@ class DaytonaSandboxProvider:
             else int(os.environ.get("DAYTONA_AUTO_STOP_INTERVAL", "0"))
         )
 
+        # Image contract validation settings
+        self._strict_mode = strict_mode
+        self._digest_required = digest_required
+
         # Determine if we're using cloud or self-hosted
         self._is_cloud = not self._api_url or "daytona.io" in self._api_url
 
@@ -161,6 +199,56 @@ class DaytonaSandboxProvider:
 
         # Store resolved values for metadata
         self._base_url = self._api_url or "https://api.daytona.io/v1"
+
+        # Image contract validation (fail-fast on startup)
+        self._validate_base_image_contract(strict_mode, digest_required)
+
+    def _validate_base_image_contract(
+        self,
+        strict_mode: bool = False,
+        digest_required: bool = False,
+    ) -> None:
+        """Validate base image reference against runtime contract.
+
+        Args:
+            strict_mode: If True, enforces full deterministic contract
+            digest_required: If True, requires digest-pinned image references
+
+        Raises:
+            SandboxImageContractError: When image violates the contract
+        """
+        import re
+
+        is_strict = strict_mode or digest_required
+        if not is_strict:
+            return  # Permissive mode - no validation
+
+        # Check for empty/unsafe image reference
+        if not self._base_image or self._base_image.strip() == "":
+            raise SandboxImageContractError(
+                message="DAYTONA_BASE_IMAGE is empty or not set",
+                image_ref=self._base_image,
+                contract_violation="empty_image_reference",
+                remediation="Set DAYTONA_BASE_IMAGE to a digest-pinned image reference",
+            )
+
+        # Check for digest format: repo/image@sha256:...
+        digest_pattern = re.compile(r"^.+@sha256:[a-f0-9]{64}$")
+
+        if not digest_pattern.match(self._base_image):
+            violation = "mutable_tag_reference"
+            if ":" not in self._base_image and "@" not in self._base_image:
+                violation = "missing_tag_or_digest"
+
+            raise SandboxImageContractError(
+                message=f"DAYTONA_BASE_IMAGE must use digest-pinned format for production safety",
+                image_ref=self._base_image,
+                contract_violation=violation,
+                remediation=(
+                    "Use digest-pinned format: 'registry/image@sha256:abc123...' "
+                    "instead of mutable tags like 'registry/image:latest'"
+                ),
+            )
 
     @property
     def profile(self) -> str:
@@ -706,6 +794,16 @@ class DaytonaSandboxProvider:
             labels["pack_source_path"] = config.pack_source_path
         if config.pack_digest:
             labels["pack_digest"] = config.pack_digest
+
+        # Image contract metadata labels
+        labels["picoclaw.base_image"] = self._base_image
+        labels["picoclaw.base_image_strict"] = str(
+            bool(
+                getattr(self, "_strict_mode", False)
+                or getattr(self, "_digest_required", False)
+            )
+        )
+
         if labels:
             params["labels"] = labels
 
