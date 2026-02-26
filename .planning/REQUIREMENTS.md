@@ -51,17 +51,17 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Persistence & Checkpointing
 
-- [ ] **PERS-01**: System persists runtime events and run/session metadata in Postgres for non-guest runs.
-- [ ] **PERS-02**: System writes workspace checkpoints to S3 at configured milestones for non-guest workspaces.
-- [ ] **PERS-03**: System tracks checkpoint manifest/version and active revision pointer for persistent workspaces.
-- [ ] **PERS-04**: System hydrates workspace from latest checkpoint for cold-start restore of persistent workspaces.
+- [x] **PERS-01**: System persists runtime events and run/session metadata in Postgres for non-guest runs.
+- [x] **PERS-02**: System writes workspace checkpoints to S3 at configured milestones for non-guest workspaces.
+- [x] **PERS-03**: System tracks checkpoint manifest/version and active revision pointer for persistent workspaces.
+- [x] **PERS-04**: System hydrates workspace from latest checkpoint for cold-start restore of persistent workspaces.
 
 ### Policy & Security
 
 - [x] **SECU-01**: System enforces default-deny outbound network policy.
 - [x] **SECU-02**: System enforces tool allowlist policy per user/agent context.
 - [x] **SECU-03**: System injects only scoped secrets required for each run.
-- [ ] **SECU-04**: System writes immutable append-only audit events.
+- [x] **SECU-04**: System writes immutable append-only audit events.
 - [x] **SECU-05**: System includes automated policy and isolation boundary tests.
 
 ## v2 Requirements
@@ -124,14 +124,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVNT-04 | Phase 5 - Typed Event Streaming API | Pending |
 | EVNT-05 | Phase 5 - Typed Event Streaming API | Pending |
 | EVNT-06 | Phase 5 - Typed Event Streaming API | Pending |
-| PERS-01 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
-| PERS-02 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
-| PERS-03 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
-| PERS-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| PERS-01 | Phase 3 - Persistence and Checkpoint Recovery | Complete |
+| PERS-02 | Phase 3 - Persistence and Checkpoint Recovery | Complete |
+| PERS-03 | Phase 3 - Persistence and Checkpoint Recovery | Complete |
+| PERS-04 | Phase 3 - Persistence and Checkpoint Recovery | Complete |
 | SECU-01 | Phase 1 - Identity and Policy Baseline | Complete |
 | SECU-02 | Phase 1 - Identity and Policy Baseline | Complete |
 | SECU-03 | Phase 1 - Identity and Policy Baseline | Complete |
-| SECU-04 | Phase 3 - Persistence and Checkpoint Recovery | Pending |
+| SECU-04 | Phase 3 - Persistence and Checkpoint Recovery | Complete |
 | SECU-05 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |
 
 **Coverage:**
@@ -141,4 +141,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-23*
-*Last updated: 2026-02-25 after Phase 2 completion (AGNT/WORK/SECU-05 requirements marked complete)*
+*Last updated: 2026-02-26 after Phase 3 completion (PERS/SECU-04 requirements marked complete)*

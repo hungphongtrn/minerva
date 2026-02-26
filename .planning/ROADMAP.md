@@ -125,6 +125,15 @@ To be added during planning.
 4. Cold-start restore hydrates a workspace from its latest checkpoint and resumes expected state.
 5. Audit events are append-only and immutable once recorded.
 
+**Plans:** 5 plans
+
+Plans:
+- [x] 03-01-PLAN.md — Add Phase 3 persistence schema and immutable audit enforcement.
+- [x] 03-02-PLAN.md — Build checkpoint archive/object-storage primitives and configuration.
+- [x] 03-03-PLAN.md — Wire run/session/event persistence and milestone checkpoint writes.
+- [x] 03-04-PLAN.md — Implement cold-start restore with fallback and queued/restoring handling.
+- [x] 03-05-PLAN.md — Expose persistence/query APIs and operator pointer-control security checks.
+
 ### Phase 4 - Execution Orchestration and Fairness
 
 **Goal:** Runs execute reliably under retries/cancellation while preserving ordering per workspace and fairness across users.
@@ -196,8 +205,8 @@ flowchart TD
 | 1 - Identity and Policy Baseline | Complete | 100% |
 | 2 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
 | 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
-| 3 - Persistence and Checkpoint Recovery | Not Started | 0% |
+| 3 - Persistence and Checkpoint Recovery | Complete | 100% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
-**Overall Progress:** 50%
+**Overall Progress:** 67%
