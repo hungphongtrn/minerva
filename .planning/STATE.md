@@ -49,8 +49,8 @@ flowchart LR
   S29 --> S30[2.1-01: Bridge Service ✓]
   S30 --> S31[2.1-02: Provision Runtime ✓]
   S31 --> S32[2.1-03: Wire /runs ✓]
-  S31 --> S32[2.1-03: Wire /runs ✓]
-  S32 --> S33[03-02: Checkpoint Storage ✓]
+  S32 --> S33[03-01: Persistence Schema ✓]
+  S33 --> S34[03-02: Checkpoint Storage ✓]
 ```
 
 ## Performance Metrics
@@ -167,6 +167,10 @@ flowchart LR
 | D-2.1-02-001 | 2026-02-25 | 2.1-02 | Reuse Existing Pack Digest for Stale Detection | Use AgentPack.source_digest for stale detection instead of inventing new digest algorithm |
 | D-2.1-02-002 | 2026-02-25 | 2.1-02 | Unique Bridge Auth Token Per Sandbox | Generate unique bridge auth token using secrets.token_urlsafe for security isolation |
 | D-2.1-02-003 | 2026-02-25 | 2.1-02 | Credentials From Environment Variables | Sensitive values (API keys, tokens) come from env vars, not embedded in config.json |
+| D-03-01-001 | 2026-02-26 | 03-01 | PostgreSQL trigger for immutable audit enforcement | Database-level enforcement is fail-closed and cannot be bypassed by application bugs |
+| D-03-01-002 | 2026-02-26 | 03-01 | Active checkpoint pointer as separate table with workspace unique constraint | Enforces singleton pattern at database level, prevents multiple active pointers per workspace |
+| D-03-01-003 | 2026-02-26 | 03-01 | Self-referential foreign key for checkpoint fallback chain | Supports linked list traversal for fallback without additional tables |
+| D-03-01-004 | 2026-02-26 | 03-01 | Separate runtime_events from audit_events tables | Different access patterns: runtime_events for run timeline, audit_events for security/compliance |
 | D-03-02-001 | 2026-02-26 | 03-02 | Deterministic Key Layout | Hierarchical structure `workspaces/{uuid}/checkpoints/{uuid}/` enables workspace-scoped organization and efficient cleanup |
 | D-03-02-002 | 2026-02-26 | 03-02 | Manifest-First Integrity | Write manifest after archive with embedded checksum; manifest presence signals complete checkpoint |
 | D-03-02-003 | 2026-02-26 | 03-02 | Static Identity Exclusion | Exclude AGENT.md, SOUL.md, IDENTITY.md, skills/ from checkpoints per Picoclaw runtime invariants (static files mounted at sandbox creation) |
@@ -210,6 +214,7 @@ flowchart LR
 - [x] Execute Plan 2.1-01: Implement Picoclaw bridge service with health-first fail-closed flow
 - [x] Execute Plan 2.1-02: Extend provisioning with bridge config generation and snapshot materialization
 - [x] Execute Plan 2.1-03: Wire /runs to execute through bridge
+- [x] Execute Plan 03-01: Persistence schema foundation with immutable audit
 - [x] Execute Plan 03-02: Implement object-storage checkpoint primitives and archive tooling
 
 ### Blockers
@@ -224,13 +229,13 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-02-SUMMARY.md` (object-storage checkpoint primitives)
-- **Last activity:** 2026-02-26 - Completed plan 03-02 (checkpoint storage primitives with S3-compatible store, archive service, 32 tests)
+- **Last completed artifact:** `03-01-SUMMARY.md` (Phase 3 persistence schema foundation)
+- **Last activity:** 2026-02-26 - Completed plan 03-01 (run sessions, checkpoint metadata, immutable audit tables)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-03: Checkpoint registry and pointer management)
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-02-SUMMARY.md`
-- **Last session:** 2026-02-26 - Plan 03-02 complete (S3 checkpoint store, archive service with zstandard, deterministic keying, checksum validation, 32 tests green)
-- **Commits:** 7885665, 076567a, cf0d8c2 (03-02 checkpoint storage)
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-01-SUMMARY.md`
+- **Last session:** 2026-02-26 - Plan 03-01 complete (5 new tables, immutable audit trigger, 15 smoke tests green)
+- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82 (03-01 persistence schema)
 
 ---
 *Initialized: 2026-02-23*
