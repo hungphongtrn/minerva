@@ -135,6 +135,22 @@ Plans:
 - [x] 03-05-PLAN.md — Expose persistence/query APIs and operator pointer-control security checks.
 - [x] 03-UAT-GAPS-PLAN.md — Close UAT blocker: add gateway_url column to sandbox_instances.
 
+### Phase 3.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
+
+**Goal:** Daytona-backed `/runs` execution is production-hardened with authoritative gateway resolution, per-sandbox bridge token rotation, identity-first readiness, and bounded reprovision/hydration recovery while preserving orchestrator control-plane authority.
+
+**Depends on:** Phase 3
+
+**Plans:** 3 plans
+
+Plans:
+- [x] 03.1-01-PLAN.md — Add sandbox persistence contract for authoritative gateway metadata, bridge token rotation, and readiness state.
+- [x] 03.1-02-PLAN.md — Harden Daytona provisioning and orchestrator layered readiness with bounded reprovision and async hydration.
+- [x] 03.1-03-PLAN.md — Harden `/runs` bridge path for sandbox-scoped token auth and bounded endpoint recovery fail-fast semantics.
+
+**Details:**
+[To be added during planning]
+
 ### Phase 4 - Execution Orchestration and Fairness
 
 **Goal:** Runs execute reliably under retries/cancellation while preserving ordering per workspace and fairness across users.
@@ -207,7 +223,8 @@ flowchart TD
 | 2 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
 | 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
 | 3 - Persistence and Checkpoint Recovery | Complete | 100% |
+| 3.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
-**Overall Progress:** 67%
+**Overall Progress:** 71%
