@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 03.1 (Make Daytona Production-Ready for Picoclaw Gateway Execution) - IN PROGRESS
-- **Plan status:** 03.1-01 complete (persistence contract for bridge tokens and readiness)
+- **Plan status:** 03.1-03 complete (bridge token integration and gateway endpoint resolution)
 - **Execution status:** 3/3 tasks complete, all must-haves verified
-- **Progress bar:** [██████████████████] 85%
-- **Last completed:** 03.1-01 Persistence contract (bridge token rotation, readiness tracking)
+- **Progress bar:** [██████████████████] 90%
+- **Last completed:** 03.1-03 Bridge token integration (sandbox-scoped auth, bounded recovery, fail-fast)
 
 ```mermaid
 flowchart LR
@@ -56,6 +56,7 @@ flowchart LR
   S36 --> S37[03-05: Persistence APIs ✓]
   S37 --> S38[Phase 3 Verification: Passed ✓]
   S38 --> S39[03.1-01: Persistence Contract ✓]
+  S39 --> S40[03.1-03: Bridge Token Integration ✓]
 ```
 
 ## Performance Metrics
@@ -64,7 +65,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 3/5 (plus inserted phases: 2.1 complete, 3.1 in progress)
-- **Completed plans:** 30/32 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 1/3)
+- **Completed plans:** 31/32 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 2/3)
 - **Completed requirements:** 23/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -203,6 +204,12 @@ flowchart LR
 | D-03.1-01-003 | 2026-02-26 | 03.1-01 | Identity readiness is hard gate for request acceptance | Fail-closed security: sandbox must not serve requests until identity files are mounted |
 | D-03.1-01-004 | 2026-02-26 | 03.1-01 | Hydration state persistence separate from identity readiness | Allows serving requests while checkpoint hydration runs asynchronously in background |
 | D-03.1-01-005 | 2026-02-26 | 03.1-01 | SandboxHydrationStatus enum: pending, in_progress, completed, degraded, failed | Explicit states for checkpoint restore lifecycle with degraded state for partial recovery |
+| D-03.1-03-001 | 2026-02-26 | 03.1-03 | BridgeTokenBundle with grace period validation | 30-second window for in-flight requests during token rotation |
+| D-03.1-03-002 | 2026-02-26 | 03.1-03 | Fail-closed on missing token_bundle | Prevents accidental unauthenticated bridge requests |
+| D-03.1-03-003 | 2026-02-26 | 03.1-03 | Authoritative endpoint resolution only | No synthetic URL construction; fail-closed when gateway_url missing |
+| D-03.1-03-004 | 2026-02-26 | 03.1-03 | Bounded recovery with max 3 attempts | Prevents indefinite hangs while allowing reasonable retry |
+| D-03.1-03-005 | 2026-02-26 | 03.1-03 | Recoverable vs non-recoverable error classification | Auth/upstream errors fail fast; health/timeout errors retry |
+| D-03.1-03-006 | 2026-02-26 | 03.1-03 | Bridge error remediation mapping | Typed 502/503/504 responses with actionable guidance |
 
 ### Roadmap Evolution
 
@@ -253,7 +260,7 @@ flowchart LR
 ### Next Plans
 
 - [ ] 03.1-02: Sandbox identity readiness with mount detection
-- [ ] 03.1-03: Bridge token integration and gateway endpoint resolution
+- [x] 03.1-03: Bridge token integration and gateway endpoint resolution
 
 ### Blockers
 
@@ -267,14 +274,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.1-01-SUMMARY.md` (status: complete, persistence contract for bridge tokens and readiness)
-- **Last activity:** 2026-02-26 - Phase 3.1 Plan 01 complete (migration 0006, repository APIs, 36 tests)
+- **Last completed artifact:** `03.1-03-SUMMARY.md` (status: complete, bridge token integration with sandbox-scoped auth)
+- **Last activity:** 2026-02-26 - Phase 3.1 Plan 03 complete (token bundle auth, bounded recovery, 50 tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 3.1 Plan 02 - Sandbox identity readiness with mount detection
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-01-SUMMARY.md`
-- **Last session:** 2026-02-26 - Phase 3.1-01 persistence contract delivered
-- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82, 9ec3276, 7885665, 076567a, cf0d8c2, 4745219, 0dc2408, b025799, 943b149, 167516d, ece44a7, eb77d42, b689edd, b072b16, ce33f23, e9afb70, 78e3013, a218970, 65b5a0a, a5b9232, 2b300ca, 6483dea, 8e66b77, e82c4ad
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-03-SUMMARY.md`
+- **Last session:** 2026-02-26 - Phase 3.1-03 bridge token integration delivered
+- **Commits:** c0c9aa9, 47bce9e
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Phase 3.1 Plan 01 complete - persistence contract for bridge tokens and readiness tracking)*
+*Updated: 2026-02-26 (Phase 3.1 Plan 03 complete - bridge token integration with sandbox-scoped auth and bounded recovery)*
