@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 03.1 (Make Daytona Production-Ready for Picoclaw Gateway Execution) - COMPLETE
-- **Plan status:** Phase 03.1 complete (all 3 plans complete)
+- **Plan status:** Phase 03.1 complete (all 4 plans complete)
 - **Execution status:** Phase goal verified (`passed`, 11/11 must-haves)
-- **Progress bar:** [██████████████████░░] 90%
-- **Last completed:** Phase 03.1 verification passed (11/11 must-haves)
+- **Progress bar:** [███████████████████░] 95%
+- **Last completed:** Plan 03.1-04 - Base image guardrails
 
 ```mermaid
 flowchart LR
@@ -56,8 +56,9 @@ flowchart LR
   S36 --> S37[03-05: Persistence APIs ✓]
   S37 --> S38[Phase 3 Verification: Passed ✓]
   S38 --> S39[03.1-01: Persistence Contract ✓]
-  S39 --> S40[03.1-02: Production-Ready Daytona ✓]
-  S40 --> S41[03.1-03: Bridge Token Integration ✓]
+S39 --> S40[03.1-02: Production-Ready Daytona ✓]
+S40 --> S41[03.1-03: Bridge Token Integration ✓]
+S41 --> S42[03.1-04: Base Image Guardrails ✓]
 ```
 
 ## Performance Metrics
@@ -66,7 +67,7 @@ flowchart LR
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
 - **Completed phases:** 3/5 (plus inserted phases: 2.1 and 3.1 complete)
-- **Completed plans:** 32/32 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 3/3)
+- **Completed plans:** 33/33 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 4/4)
 - **Completed requirements:** 23/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -219,6 +220,11 @@ flowchart LR
 | D-03.1-03-004 | 2026-02-26 | 03.1-03 | Bounded recovery with max 3 attempts | Prevents indefinite hangs while allowing reasonable retry |
 | D-03.1-03-005 | 2026-02-26 | 03.1-03 | Recoverable vs non-recoverable error classification | Auth/upstream errors fail fast; health/timeout errors retry |
 | D-03.1-03-006 | 2026-02-26 | 03.1-03 | Bridge error remediation mapping | Typed 502/503/504 responses with actionable guidance |
+| D-03.1-04-001 | 2026-02-26 | 03.1-04 | Use digest-pinned image references for production determinism | Mutable tags cause rollout drift; digests guarantee exact image content |
+| D-03.1-04-002 | 2026-02-26 | 03.1-04 | Implement strict mode toggle for base image validation | Allows development flexibility while enforcing production safety |
+| D-03.1-04-003 | 2026-02-26 | 03.1-04 | Stamp image contract metadata on provisioned sandboxes | Observability - can trace which image was used for debugging |
+| D-03.1-04-004 | 2026-02-26 | 03.1-04 | Always cleanup disposable preflight sandboxes in finally block | Prevents resource leaks and unexpected costs |
+| D-03.1-04-005 | 2026-02-26 | 03.1-04 | Support both human-readable and JSON output for CI integration | Operators need interactive debugging; CI needs machine-parseable output |
 
 ### Roadmap Evolution
 
@@ -267,6 +273,7 @@ flowchart LR
 - [x] Execute Plan 03.1-01: Add persistence contract for bridge tokens and readiness tracking
 - [x] Execute Plan 03.1-02: Production-ready Daytona control-plane with identity gates and bounded reprovision
 - [x] Execute Plan 03.1-03: Bridge token integration and gateway endpoint resolution
+- [x] Execute Plan 03.1-04: Base image guardrails with strict mode and preflight CLI
 
 ### Next Plans
 
@@ -284,14 +291,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.1-VERIFICATION.md` (status: passed, 11/11 must-haves verified)
-- **Last activity:** 2026-02-26 - Phase 3.1 complete (all plans executed, verification passed)
+- **Last completed artifact:** `03.1-04-SUMMARY.md` (status: complete, all tasks executed)
+- **Last activity:** 2026-02-26 - Phase 03.1 complete with plan 04 (base image guardrails)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 4 - Execution Orchestration and Fairness
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-VERIFICATION.md`
-- **Last session:** 2026-02-26 - Phase 03.1 execution and verification completed
-- **Commits:** 6483dea, 8e66b77, e82c4ad, 2d7afd2, 10b0b09, f0ea96e, 7defe38, 3328142, c0c9aa9, 47bce9e, 112b096
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-04-SUMMARY.md`
+- **Last session:** 2026-02-26 - Phase 03.1 complete (all 4 plans executed)
+- **Commits:** c5ea066, 54e117d, 093705e
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Phase 3.1 complete - all plans executed and verification passed)*
+*Updated: 2026-02-26 (Phase 3.1 complete - all 4 plans executed including base image guardrails)*
