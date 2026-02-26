@@ -10,6 +10,7 @@ This service provides:
 
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 import httpx
@@ -62,6 +63,54 @@ class BridgeResult:
         if self.success:
             return {"success": True, "output": self.output}
         return {"success": False, "error": self.error.to_dict() if self.error else None}
+
+
+@dataclass
+class BridgeTokenBundle:
+    """Token bundle for sandbox-scoped bridge authentication.
+
+    Per-sandbox authentication with grace-period rotation support.
+    Contains the current token and optionally a previous token
+    that remains valid during cutover periods.
+    """
+
+    current: str
+    """Current active bridge authentication token."""
+
+    previous: Optional[str] = None
+    """Previous token valid during grace period rotation."""
+
+    previous_expires_at: Optional[datetime] = None
+    """Expiry timestamp for previous token grace period."""
+
+    def is_grace_token_valid(self) -> bool:
+        """Check if the previous/grace token is still valid.
+
+        Returns:
+            True if previous token exists and hasn't expired.
+        """
+        if not self.previous or not self.previous_expires_at:
+            return False
+        return datetime.utcnow() < self.previous_expires_at
+
+    def get_effective_token(self, attempt: int = 0) -> str:
+        """Get the token to use for authentication.
+
+        On first attempt, uses current token. On retry and if
+        grace token is still valid, may attempt with previous token.
+
+        Args:
+            attempt: Retry attempt number (0 = first attempt)
+
+        Returns:
+            Token string for Authorization header.
+        """
+        if attempt == 0:
+            return self.current
+        # On retry, if grace token is valid, try it
+        if self.is_grace_token_valid():
+            return self.previous
+        return self.current
 
 
 @dataclass
@@ -137,46 +186,33 @@ class PicoclawBridgeService:
             or self.DEFAULT_EXECUTE_RETRIES
         )
 
-    def _get_auth_token(self, sandbox_url: str) -> str:
-        """Get bearer token for sandbox authentication.
-
-        Token is retrieved from environment or settings.
-        In production, this would be per-sandbox scoped.
-
-        Args:
-            sandbox_url: The sandbox URL (used for token resolution)
-
-        Returns:
-            Bearer token string
-        """
-        # TODO: Per-sandbox token resolution
-        # For now, use environment variable
-        token = getattr(settings, "PICOCLAW_BRIDGE_TOKEN", None)
-        if not token:
-            # Fallback for development
-            token = "dev-token"
-        return token
-
-    def _get_auth_headers(self, sandbox_url: str) -> Dict[str, str]:
-        """Get authentication headers for requests.
+    def _get_auth_headers(
+        self, token_bundle: BridgeTokenBundle, attempt: int = 0
+    ) -> Dict[str, str]:
+        """Get authentication headers for requests using sandbox-scoped token.
 
         Args:
-            sandbox_url: The sandbox URL
+            token_bundle: Sandbox-specific token bundle with current and grace tokens
+            attempt: Retry attempt number for grace-token fallback on rotation
 
         Returns:
             Dictionary of headers including Authorization
         """
-        token = self._get_auth_token(sandbox_url)
+        token = token_bundle.get_effective_token(attempt)
         return {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
 
-    async def check_health(self, sandbox_url: str) -> HealthStatus:
+    async def check_health(
+        self, sandbox_url: str, token_bundle: Optional[BridgeTokenBundle] = None
+    ) -> HealthStatus:
         """Check health of Picoclaw gateway in sandbox.
 
         Args:
             sandbox_url: Base URL of the sandbox gateway
+            token_bundle: Sandbox-scoped authentication tokens. If None, health
+                check proceeds without authentication (may fail with 401).
 
         Returns:
             HealthStatus with healthy flag and details
@@ -185,9 +221,10 @@ class PicoclawBridgeService:
 
         async with httpx.AsyncClient(timeout=self.health_timeout) as client:
             try:
-                response = await client.get(
-                    health_url, headers=self._get_auth_headers(sandbox_url)
-                )
+                headers = {"Content-Type": "application/json"}
+                if token_bundle:
+                    headers = self._get_auth_headers(token_bundle)
+                response = await client.get(health_url, headers=headers)
 
                 if response.status_code == 200:
                     try:
@@ -220,7 +257,11 @@ class PicoclawBridgeService:
                     healthy=False, status="error", details={"error": str(e)}
                 )
 
-    async def poll_health(self, sandbox_url: str) -> HealthStatus:
+    async def poll_health(
+        self,
+        sandbox_url: str,
+        token_bundle: Optional[BridgeTokenBundle] = None,
+    ) -> HealthStatus:
         """Poll health with retries and exponential backoff.
 
         This implements deterministic retry behavior:
@@ -230,6 +271,7 @@ class PicoclawBridgeService:
 
         Args:
             sandbox_url: Base URL of the sandbox gateway
+            token_bundle: Sandbox-scoped authentication tokens
 
         Returns:
             HealthStatus with final healthy/unhealthy state
@@ -237,7 +279,7 @@ class PicoclawBridgeService:
         last_status = None
 
         for attempt in range(self.health_retries + 1):
-            status = await self.check_health(sandbox_url)
+            status = await self.check_health(sandbox_url, token_bundle)
             last_status = status
 
             if status.healthy:
@@ -291,6 +333,7 @@ class PicoclawBridgeService:
         sandbox_url: str,
         message: str,
         session_key: str,
+        token_bundle: BridgeTokenBundle,
         workspace_id: Optional[str] = None,
         agent_pack_id: Optional[str] = None,
         run_id: Optional[str] = None,
@@ -300,14 +343,16 @@ class PicoclawBridgeService:
 
         This method:
         1. Polls /health before any execution (fail-closed)
-        2. Attaches bearer token to execution request
+        2. Attaches bearer token to execution request (sandbox-scoped)
         3. Returns typed errors for all failure modes
         4. Respects timeout and retry configuration
+        5. Handles token rotation with grace-period fallback
 
         Args:
             sandbox_url: Base URL of the sandbox gateway
             message: The message to send to Picoclaw
             session_key: Session key for continuity
+            token_bundle: Sandbox-scoped authentication tokens with rotation support
             workspace_id: Workspace ID for scoping
             agent_pack_id: Agent pack ID if bound
             run_id: Run ID for tracing
@@ -316,8 +361,19 @@ class PicoclawBridgeService:
         Returns:
             BridgeResult with success/output or error details
         """
+        # Fail-closed: require token_bundle for authentication
+        if not token_bundle or not token_bundle.current:
+            return BridgeResult(
+                success=False,
+                error=BridgeError(
+                    error_type=BridgeErrorType.AUTH_FAILED,
+                    message="Bridge authentication failed: token bundle required",
+                    remediation="Token bundle must be resolved from sandbox metadata with valid current token",
+                ),
+            )
+
         # Step 1: Health check (fail-closed)
-        health = await self.poll_health(sandbox_url)
+        health = await self.poll_health(sandbox_url, token_bundle)
 
         if not health.healthy:
             error_type = BridgeErrorType.HEALTH_CHECK_FAILED
@@ -352,7 +408,7 @@ class PicoclawBridgeService:
                 try:
                     response = await client.post(
                         execute_url,
-                        headers=self._get_auth_headers(sandbox_url),
+                        headers=self._get_auth_headers(token_bundle, attempt),
                         json=picoclaw_request,
                     )
 
@@ -424,6 +480,7 @@ async def execute_via_bridge(
     sandbox_url: str,
     message: str,
     session_key: str,
+    token_bundle: Optional[BridgeTokenBundle] = None,
     workspace_id: Optional[str] = None,
     agent_pack_id: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -431,11 +488,14 @@ async def execute_via_bridge(
     """Execute a message via the Picoclaw bridge.
 
     Convenience function that creates a bridge service and executes the request.
+    Note: This requires a token_bundle for sandbox-scoped authentication.
+    Without token_bundle, the call will fail-closed with AUTH_FAILED.
 
     Args:
         sandbox_url: Base URL of the sandbox gateway
         message: The message to send
         session_key: Session key for continuity
+        token_bundle: Sandbox-scoped authentication tokens (required for auth)
         workspace_id: Workspace ID for scoping
         agent_pack_id: Agent pack ID if bound
         run_id: Run ID for tracing
@@ -444,10 +504,23 @@ async def execute_via_bridge(
         BridgeResult with execution outcome
     """
     service = PicoclawBridgeService()
+
+    # Fail-closed: require token_bundle for authentication
+    if not token_bundle:
+        return BridgeResult(
+            success=False,
+            error=BridgeError(
+                error_type=BridgeErrorType.AUTH_FAILED,
+                message="Bridge authentication failed: no token bundle provided",
+                remediation="Token bundle must be resolved from sandbox metadata",
+            ),
+        )
+
     return await service.execute(
         sandbox_url=sandbox_url,
         message=message,
         session_key=session_key,
+        token_bundle=token_bundle,
         workspace_id=workspace_id,
         agent_pack_id=agent_pack_id,
         run_id=run_id,

@@ -23,6 +23,7 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxConfigurationError,
     SandboxHealth,
     SandboxHealthCheckError,
+    SandboxIdentityError,
     SandboxInfo,
     SandboxNotFoundError,
     SandboxProfileError,
@@ -40,12 +41,6 @@ class IdentityVerificationResult:
     ready: bool
     missing_files: List[str]
     error_message: Optional[str] = None
-
-
-class SandboxIdentityError(SandboxProviderError):
-    """Raised when sandbox identity verification fails."""
-
-    pass
 
 
 class SandboxGatewayError(SandboxProviderError):

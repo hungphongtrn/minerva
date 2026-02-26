@@ -168,6 +168,12 @@ class SandboxProfileError(SandboxConfigurationError):
     pass
 
 
+class SandboxIdentityError(SandboxProviderError):
+    """Raised when sandbox identity verification fails."""
+
+    pass
+
+
 class SandboxProvider(ABC):
     """Abstract interface for sandbox providers.
 

@@ -27,6 +27,7 @@ from src.services.picoclaw_bridge_service import (
     BridgeResult,
     BridgeError,
     BridgeErrorType,
+    BridgeTokenBundle,
 )
 from src.services.runtime_persistence_service import (
     RuntimePersistenceService,
@@ -690,6 +691,7 @@ class RunService:
                 routing=routing,
                 message=input_message,
                 is_guest=context.is_guest,
+                session=session,
             )
 
             # Update result with bridge execution output
@@ -825,13 +827,21 @@ class RunService:
         routing: RunRoutingResult,
         message: str,
         is_guest: bool,
+        session: Session,
     ) -> BridgeResult:
-        """Execute request via Picoclaw bridge.
+        """Execute request via Picoclaw bridge with bounded recovery.
+
+        This method implements:
+        1. Sandbox-scoped token resolution from repository
+        2. Authoritative gateway URL enforcement (no synthetic URLs)
+        3. Bounded recovery loop (max 3 attempts) for transient failures
+        4. Deterministic fail-fast on recovery exhaustion
 
         Args:
             routing: The routing result containing sandbox info
             message: The input message for execution
             is_guest: Whether this is a guest request
+            session: Database session for token resolution and recovery
 
         Returns:
             BridgeResult with execution outcome
@@ -846,59 +856,286 @@ class RunService:
             is_guest=is_guest,
         )
 
-        # Get sandbox URL from routing target
-        # The sandbox URL comes from the provider's sandbox instance
-        sandbox_url = await self._get_sandbox_url(routing)
+        # Bounded recovery: max 3 attempts
+        MAX_RECOVERY_ATTEMPTS = 3
+        last_error = None
 
-        if not sandbox_url:
-            return BridgeResult(
-                success=False,
-                error=BridgeError(
-                    error_type=BridgeErrorType.TRANSPORT_ERROR,
-                    message="Sandbox URL not available for bridge execution",
-                    remediation="Sandbox may not be fully provisioned",
-                ),
+        for attempt in range(MAX_RECOVERY_ATTEMPTS):
+            # Get authoritative sandbox URL
+            sandbox_url = self._get_authoritative_sandbox_url(routing)
+
+            if not sandbox_url:
+                return BridgeResult(
+                    success=False,
+                    error=BridgeError(
+                        error_type=BridgeErrorType.TRANSPORT_ERROR,
+                        message="Sandbox gateway URL not available: authoritative endpoint required",
+                        remediation="Sandbox may not be fully provisioned or gateway_url is missing. Reprovision may be needed.",
+                    ),
+                )
+
+            # Resolve bridge tokens from sandbox metadata
+            token_bundle = self._resolve_bridge_tokens(routing, session)
+
+            if not token_bundle or not token_bundle.current:
+                return BridgeResult(
+                    success=False,
+                    error=BridgeError(
+                        error_type=BridgeErrorType.AUTH_FAILED,
+                        message="Bridge authentication failed: no valid token resolved from sandbox metadata",
+                        remediation="Token must be set during sandbox provisioning. Check sandbox configuration.",
+                    ),
+                )
+
+            # Execute via bridge
+            bridge_service = PicoclawBridgeService()
+
+            result = await bridge_service.execute(
+                sandbox_url=sandbox_url,
+                message=message,
+                session_key=session_key,
+                token_bundle=token_bundle,
+                workspace_id=routing.workspace_id,
+                agent_pack_id=routing.lifecycle_target.agent_pack_id
+                if routing.lifecycle_target
+                else None,
+                run_id=session_key.split(":")[-1],
             )
 
-        # Execute via bridge
-        bridge_service = PicoclawBridgeService()
+            if result.success:
+                return result
 
-        return await bridge_service.execute(
-            sandbox_url=sandbox_url,
-            message=message,
-            session_key=session_key,
-            workspace_id=routing.workspace_id,
-            agent_pack_id=routing.lifecycle_target.agent_pack_id
-            if routing.lifecycle_target
-            else None,
-            run_id=session_key.split(":")[-1],
+            # Check if error is recoverable
+            if not self._is_recoverable_bridge_error(result.error):
+                # Non-recoverable error: fail fast
+                return result
+
+            # Recoverable error: store and retry if attempts remain
+            last_error = result.error
+
+            if attempt < MAX_RECOVERY_ATTEMPTS - 1:
+                # Force reprovision through lifecycle resolution
+                try:
+                    routing = await self._recover_routing_target(routing, session)
+                    if not routing or not routing.success:
+                        # Recovery failed - return last error
+                        return BridgeResult(
+                            success=False,
+                            error=BridgeError(
+                                error_type=BridgeErrorType.TRANSPORT_ERROR,
+                                message=f"Bridge execution failed after {attempt + 1} attempts. Recovery reprovisioning failed.",
+                                remediation="Sandbox infrastructure may be unavailable. Retry or contact support.",
+                            ),
+                        )
+                except Exception as e:
+                    # Recovery threw exception - fail fast
+                    return BridgeResult(
+                        success=False,
+                        error=BridgeError(
+                            error_type=BridgeErrorType.TRANSPORT_ERROR,
+                            message=f"Bridge execution failed after {attempt + 1} attempts. Recovery error: {str(e)}",
+                            remediation="Check provider status and retry.",
+                        ),
+                    )
+
+        # Exhausted all recovery attempts
+        return BridgeResult(
+            success=False,
+            error=BridgeError(
+                error_type=BridgeErrorType.TRANSPORT_ERROR,
+                message=f"Bridge execution failed after {MAX_RECOVERY_ATTEMPTS} recovery attempts. Last error: {last_error.message if last_error else 'Unknown'}",
+                remediation="Sandbox endpoint remains unavailable after reprovisioning attempts. Check provider infrastructure or contact support.",
+            ),
         )
 
-    async def _get_sandbox_url(self, routing: RunRoutingResult) -> Optional[str]:
-        """Get the sandbox gateway URL from routing result.
+    def _get_authoritative_sandbox_url(
+        self, routing: RunRoutingResult
+    ) -> Optional[str]:
+        """Get the authoritative sandbox gateway URL from routing result.
+
+        This method enforces that only explicitly provisioned gateway URLs
+        are used. No synthetic or constructed URLs are permitted.
 
         Args:
             routing: The routing result
 
         Returns:
-            Sandbox URL string or None if not available
+            Sandbox URL string from authoritative source, or None if not available
         """
         # First try the direct URL field from routing result
         if routing.sandbox_url:
             return routing.sandbox_url
 
-        # Fallback: try to get URL from lifecycle target
+        # Fallback: try to get URL from lifecycle target's sandbox
         if routing.lifecycle_target and routing.lifecycle_target.routing_result:
             sandbox = routing.lifecycle_target.routing_result.sandbox
             if sandbox and hasattr(sandbox, "gateway_url") and sandbox.gateway_url:
                 return sandbox.gateway_url
 
-        # Fallback: construct URL from sandbox_id (for local development)
-        if routing.sandbox_id:
-            # Default port for Picoclaw gateway
-            return f"http://sandbox-{routing.sandbox_id[:8]}:18790"
-
+        # No synthetic URL construction allowed - return None for fail-closed
         return None
+
+    def _resolve_bridge_tokens(
+        self, routing: RunRoutingResult, session: Session
+    ) -> Optional[BridgeTokenBundle]:
+        """Resolve bridge authentication tokens from sandbox metadata.
+
+        Uses the sandbox instance repository to get the current and
+        grace-period tokens for the sandbox.
+
+        Args:
+            routing: The routing result containing sandbox ID
+            session: Database session
+
+        Returns:
+            BridgeTokenBundle with current and optional grace token, or None
+        """
+        if not routing.sandbox_id:
+            return None
+
+        try:
+            from src.db.repositories.sandbox_instance_repository import (
+                SandboxInstanceRepository,
+            )
+
+            repo = SandboxInstanceRepository(session)
+
+            # Parse sandbox ID
+            sandbox_uuid = UUID(routing.sandbox_id)
+
+            # Resolve tokens from repository
+            token_data = repo.resolve_bridge_tokens(sandbox_uuid)
+
+            if not token_data or not token_data.get("current"):
+                return None
+
+            # Build token bundle
+            return BridgeTokenBundle(
+                current=token_data["current"],
+                previous=token_data.get("previous"),
+                previous_expires_at=token_data.get("previous_expires_at"),
+            )
+
+        except Exception:
+            # Fail-closed: any resolution failure returns None
+            return None
+
+    def _is_recoverable_bridge_error(self, error: Optional[BridgeError]) -> bool:
+        """Check if a bridge error is recoverable via reprovisioning.
+
+        Args:
+            error: The bridge error to check
+
+        Returns:
+            True if error may be resolved by reprovisioning
+        """
+        if not error:
+            return False
+
+        # These errors may be resolved by fresh reprovisioning
+        recoverable_types = {
+            BridgeErrorType.HEALTH_CHECK_FAILED,
+            BridgeErrorType.TIMEOUT,
+            BridgeErrorType.TRANSPORT_ERROR,
+        }
+
+        return error.error_type in recoverable_types
+
+    async def _recover_routing_target(
+        self, current_routing: RunRoutingResult, session: Session
+    ) -> RunRoutingResult:
+        """Attempt to recover routing by forcing reprovision.
+
+        This forces a fresh lifecycle resolution which may provision
+        a new sandbox if the current one is unhealthy.
+
+        Args:
+            current_routing: The current failed routing result
+            session: Database session
+
+        Returns:
+            New RunRoutingResult after recovery attempt
+        """
+        if not current_routing.workspace_id:
+            return RunRoutingResult(
+                success=False,
+                error="Cannot recover: no workspace ID available",
+            )
+
+        # Force fresh lifecycle resolution
+        lifecycle = self._lifecycle_service or WorkspaceLifecycleService(
+            session=session
+        )
+
+        # Get principal from routing context if available
+        principal = None
+        if current_routing.lifecycle_target:
+            principal = getattr(current_routing.lifecycle_target, "principal", None)
+
+        if not principal:
+            # Cannot recover without principal
+            return RunRoutingResult(
+                success=False,
+                error="Cannot recover: principal context lost",
+            )
+
+        # Re-resolve with forced fresh target
+        target = await lifecycle.resolve_target(
+            principal=principal,
+            auto_create=False,  # Don't create new workspace
+            acquire_lease=True,
+            run_id=str(uuid4()),
+            agent_pack_id=current_routing.agent_pack_id,
+        )
+
+        # Convert to RunRoutingResult format
+        if not target.success or not target.routing_result:
+            return RunRoutingResult(
+                success=False,
+                error=target.error or "Recovery routing failed",
+                workspace_id=current_routing.workspace_id,
+            )
+
+        # Extract sandbox info
+        routing_result = target.routing_result
+        if not routing_result.sandbox:
+            return RunRoutingResult(
+                success=False,
+                error="Recovery failed: no sandbox provisioned",
+                workspace_id=current_routing.workspace_id,
+            )
+
+        # Build fresh routing result
+        sandbox_id = str(routing_result.sandbox.id)
+        sandbox_state = None
+        sandbox_health = None
+        sandbox_url = None
+
+        if hasattr(routing_result.sandbox, "state"):
+            state_val = routing_result.sandbox.state
+            sandbox_state = str(
+                state_val.value if hasattr(state_val, "value") else state_val
+            )
+        if hasattr(routing_result.sandbox, "health_status"):
+            health = routing_result.sandbox.health_status
+            if health:
+                sandbox_health = str(
+                    health.value if hasattr(health, "value") else health
+                )
+        if hasattr(routing_result.sandbox, "gateway_url"):
+            sandbox_url = routing_result.sandbox.gateway_url
+
+        return RunRoutingResult(
+            success=True,
+            workspace_id=current_routing.workspace_id,
+            sandbox_id=sandbox_id,
+            sandbox_state=sandbox_state or "unknown",
+            sandbox_health=sandbox_health,
+            sandbox_url=sandbox_url,
+            agent_pack_id=current_routing.agent_pack_id,
+            lease_acquired=target.lease_acquired,
+            lifecycle_target=target,
+        )
 
     def _map_bridge_error_type(self, error: Optional[BridgeError]) -> str:
         """Map bridge error to routing error type for API mapping.

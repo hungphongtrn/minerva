@@ -18,6 +18,7 @@ from src.services.picoclaw_bridge_service import (
     PicoclawBridgeService,
     BridgeErrorType,
     BridgeResult,
+    BridgeTokenBundle,
     HealthStatus,
     execute_via_bridge,
 )
@@ -30,6 +31,7 @@ SESSION_KEY = "minerva:workspace-123:pack-456:run-789"
 WORKSPACE_ID = "workspace-123"
 AGENT_PACK_ID = "pack-456"
 RUN_ID = "run-789"
+TEST_TOKEN_BUNDLE = BridgeTokenBundle(current="test-token-current")
 
 
 class TestHealthCheck:
@@ -167,7 +169,7 @@ class TestAuthentication:
 
     @pytest.mark.asyncio
     async def test_bearer_token_attached_to_health_request(self):
-        """Bearer token is attached to health check requests."""
+        """Bearer token is attached to health check requests when token_bundle provided."""
         service = PicoclawBridgeService()
 
         mock_response = AsyncMock(spec=httpx.Response)
@@ -177,7 +179,7 @@ class TestAuthentication:
         with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
 
-            await service.check_health(SANDBOX_URL)
+            await service.check_health(SANDBOX_URL, token_bundle=TEST_TOKEN_BUNDLE)
 
             # Verify Authorization header was sent
             call_args = mock_get.call_args
@@ -187,7 +189,7 @@ class TestAuthentication:
 
     @pytest.mark.asyncio
     async def test_bearer_token_attached_to_execute_request(self):
-        """Bearer token is attached to execute requests."""
+        """Bearer token is attached to execute requests with token_bundle."""
         service = PicoclawBridgeService()
 
         # Mock health check to pass
@@ -212,6 +214,7 @@ class TestAuthentication:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             # Verify Authorization header was sent
@@ -240,6 +243,7 @@ class TestFailClosed:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.success is False
@@ -262,6 +266,7 @@ class TestFailClosed:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.success is False
@@ -289,6 +294,7 @@ class TestFailClosed:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             # Execute should never be called
@@ -323,6 +329,7 @@ class TestTimeout:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.success is False
@@ -385,6 +392,7 @@ class TestRetry:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.success is True
@@ -420,6 +428,7 @@ class TestRetry:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             # Should not retry on 4xx
@@ -456,6 +465,7 @@ class TestErrorTyping:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.error.error_type == BridgeErrorType.TRANSPORT_ERROR
@@ -490,6 +500,7 @@ class TestErrorTyping:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.error.error_type == BridgeErrorType.MALFORMED_RESPONSE
@@ -519,6 +530,7 @@ class TestErrorTyping:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
             )
 
             assert result.error.remediation is not None
@@ -529,22 +541,23 @@ class TestConvenienceFunction:
     """Tests for the module-level convenience function."""
 
     @pytest.mark.asyncio
-    async def test_execute_via_bridge_creates_service(self):
-        """Convenience function creates service and executes."""
-        service = PicoclawBridgeService(
-            health_retries=0, execute_retries=0, health_backoff=0.01
+    async def test_execute_via_bridge_requires_token_bundle(self):
+        """Convenience function requires token_bundle for authentication."""
+        result = await execute_via_bridge(
+            sandbox_url=SANDBOX_URL,
+            message=MESSAGE,
+            session_key=SESSION_KEY,
+            token_bundle=None,  # No token bundle
         )
 
-        # Health passes
-        mock_health_response = AsyncMock(spec=httpx.Response)
-        mock_health_response.status_code = 200
-        mock_health_response.json.return_value = {"status": "ok"}
+        # Should fail-closed with AUTH_FAILED
+        assert result.success is False
+        assert result.error is not None
+        assert result.error.error_type == BridgeErrorType.AUTH_FAILED
 
-        # Execute succeeds
-        mock_execute_response = AsyncMock(spec=httpx.Response)
-        mock_execute_response.status_code = 200
-        mock_execute_response.json.return_value = {"output": "test response"}
-
+    @pytest.mark.asyncio
+    async def test_execute_via_bridge_creates_service_with_token_bundle(self):
+        """Convenience function creates service and executes with token bundle."""
         with patch.object(
             PicoclawBridgeService, "execute", new_callable=AsyncMock
         ) as mock_execute:
@@ -556,6 +569,7 @@ class TestConvenienceFunction:
                 sandbox_url=SANDBOX_URL,
                 message=MESSAGE,
                 session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
                 workspace_id=WORKSPACE_ID,
                 agent_pack_id=AGENT_PACK_ID,
                 run_id=RUN_ID,
@@ -593,3 +607,115 @@ class TestConfiguration:
         assert service.health_backoff == 0.5
         assert service.execute_timeout == 60
         assert service.execute_retries == 2
+
+
+class TestTokenBundle:
+    """Tests for sandbox-scoped token bundle authentication."""
+
+    def test_token_bundle_current_token(self):
+        """Token bundle returns current token for authentication."""
+        bundle = BridgeTokenBundle(current="token-123")
+        assert bundle.get_effective_token() == "token-123"
+
+    def test_token_bundle_grace_token_valid(self):
+        """Grace token is valid during grace period."""
+        from datetime import datetime, timedelta
+
+        future_time = datetime.utcnow() + timedelta(seconds=30)
+        bundle = BridgeTokenBundle(
+            current="token-new",
+            previous="token-old",
+            previous_expires_at=future_time,
+        )
+        assert bundle.is_grace_token_valid() is True
+        assert bundle.get_effective_token(attempt=1) == "token-old"
+
+    def test_token_bundle_grace_token_expired(self):
+        """Grace token is rejected after expiry."""
+        from datetime import datetime, timedelta
+
+        past_time = datetime.utcnow() - timedelta(seconds=1)
+        bundle = BridgeTokenBundle(
+            current="token-new",
+            previous="token-old",
+            previous_expires_at=past_time,
+        )
+        assert bundle.is_grace_token_valid() is False
+        assert bundle.get_effective_token(attempt=1) == "token-new"
+
+    def test_token_bundle_no_grace_token(self):
+        """Token bundle without previous token uses current on retry."""
+        bundle = BridgeTokenBundle(current="token-only")
+        assert bundle.is_grace_token_valid() is False
+        assert bundle.get_effective_token(attempt=0) == "token-only"
+        assert bundle.get_effective_token(attempt=1) == "token-only"
+
+
+class TestSandboxScopedAuth:
+    """Tests for per-sandbox token authentication."""
+
+    @pytest.mark.asyncio
+    async def test_execute_requires_token_bundle(self):
+        """Execute requires token_bundle and fails-closed without it."""
+        service = PicoclawBridgeService()
+
+        result = await service.execute(
+            sandbox_url=SANDBOX_URL,
+            message=MESSAGE,
+            session_key=SESSION_KEY,
+            token_bundle=None,
+        )
+
+        # Should fail-closed with AUTH_FAILED
+        assert result.success is False
+        assert result.error is not None
+        assert result.error.error_type == BridgeErrorType.AUTH_FAILED
+
+    @pytest.mark.asyncio
+    async def test_health_check_without_token_succeeds(self):
+        """Health check without token proceeds (may return 401 from upstream)."""
+        service = PicoclawBridgeService()
+
+        mock_response = AsyncMock(spec=httpx.Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+
+        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+
+            # No token_bundle passed
+            status = await service.check_health(SANDBOX_URL, token_bundle=None)
+
+            # Should proceed without auth header
+            call_args = mock_get.call_args
+            headers = call_args.kwargs.get("headers", {})
+            assert "Authorization" not in headers
+            assert status.healthy is True
+
+    @pytest.mark.asyncio
+    async def test_token_rotation_uses_current_first(self):
+        """First attempt uses current token, not grace token."""
+        from datetime import datetime, timedelta
+
+        service = PicoclawBridgeService()
+
+        future_time = datetime.utcnow() + timedelta(seconds=30)
+        bundle = BridgeTokenBundle(
+            current="token-current",
+            previous="token-previous",
+            previous_expires_at=future_time,
+        )
+
+        mock_response = AsyncMock(spec=httpx.Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
+
+        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+
+            await service.check_health(SANDBOX_URL, token_bundle=bundle)
+
+            # First attempt should use current token
+            call_args = mock_get.call_args
+            headers = call_args.kwargs.get("headers", {})
+            assert headers["Authorization"] == "Bearer token-current"
