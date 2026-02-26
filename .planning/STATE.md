@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - IN PROGRESS
-- **Plan status:** Plan 03-03 complete (runtime persistence and checkpoint write paths)
-- **Execution status:** Repositories and services wired into run execution with 32 integration tests
-- **Progress bar:** [█████████████░] 78%
-- **Last completed:** Plan 03-03 (runtime persistence, checkpoint writes, active pointer auto-advance)
+- **Plan status:** Plan 03-04 complete (cold-start restore with deterministic fallback)
+- **Execution status:** Restore service and lifecycle integration with 20 integration tests
+- **Progress bar:** [█████████████░] 80%
+- **Last completed:** Plan 03-04 (checkpoint restore, fallback chain, fresh-start continuation)
 
 ```mermaid
 flowchart LR
@@ -182,6 +182,12 @@ flowchart LR
 | D-03-03-003 | 2026-02-26 | 03-03 | Policy violations always logged even for guests | Security events must be recorded regardless of principal type |
 | D-03-03-004 | 2026-02-26 | 03-03 | Run session ID tracked through execute_with_routing | Need to correlate runtime execution with durable session records |
 | D-03-03-005 | 2026-02-26 | 03-03 | Checkpoint metadata-only creation for testing | Enables fast unit tests without S3 infrastructure |
+| D-03-04-001 | 2026-02-26 | 03-04 | Add RESTORING state to SandboxState enum | Cold-start restore is a distinct state that clients need to observe |
+| D-03-04-002 | 2026-02-26 | 03-04 | Class-level restore tracking prevents duplicates | In-memory tracking with 5-minute timeout prevents restore races |
+| D-03-04-003 | 2026-02-26 | 03-04 | Active -> Previous -> Retry Once -> Fresh Start | Deterministic policy per PERS-04: maximize restore success while ensuring continuity |
+| D-03-04-004 | 2026-02-26 | 03-04 | Validation errors are non-retryable | Retrying validation failures wastes time - they will always fail |
+| D-03-04-005 | 2026-02-26 | 03-04 | Fresh start outcomes are success with fresh_start=True | Fresh start is degraded continuation, not terminal failure |
+| D-03-04-006 | 2026-02-26 | 03-04 | All restore outcomes append audit events | Compliance requirement: checkpoint lifecycle must be auditable |
 
 ### Roadmap Evolution
 
@@ -223,6 +229,7 @@ flowchart LR
 - [x] Execute Plan 03-01: Persistence schema foundation with immutable audit
 - [x] Execute Plan 03-02: Implement object-storage checkpoint primitives and archive tooling
 - [x] Execute Plan 03-03: Wire runtime persistence and checkpoint write paths
+- [x] Execute Plan 03-04: Cold-start restore with deterministic fallback
 
 ### Blockers
 
@@ -236,14 +243,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-03-SUMMARY.md` (Phase 3 runtime persistence and checkpoint write paths)
-- **Last activity:** 2026-02-26 - Completed plan 03-03 (repositories, services, run execution integration, 32 tests)
+- **Last completed artifact:** `03-04-SUMMARY.md` (Phase 3 cold-start restore with deterministic fallback)
+- **Last activity:** 2026-02-26 - Completed plan 03-04 (restore service, lifecycle integration, 20 integration tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-04: Checkpoint restore paths and read APIs)
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-03-SUMMARY.md`
-- **Last session:** 2026-02-26 - Plan 03-03 complete (4 repositories, 2 services, RunService persistence hooks, 32 integration tests green)
-- **Commits:** 0dc2408, b025799, 943b149, 167516d (03-03 runtime persistence)
+- **Next plans:** Phase 3 - Persistence and Checkpoint Recovery (03-05: Checkpoint listing and read APIs)
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-04-SUMMARY.md`
+- **Last session:** 2026-02-26 - Plan 03-04 complete (restore service, lifecycle restore coordination, RunService restore awareness, 20/25 tests green)
+- **Commits:** eb77d42, b689edd, b072b16 (03-04 checkpoint restore)
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Plan 03-03 complete - runtime persistence and checkpoint write paths wired into run execution)*
+*Updated: 2026-02-26 (Plan 03-04 complete - cold-start restore with deterministic fallback)*
