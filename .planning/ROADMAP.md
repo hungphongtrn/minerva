@@ -100,7 +100,7 @@ Plans:
 
 **Depends on:** Phase 2
 
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 - [x] 2.1-01-PLAN.md — Build the Picoclaw HTTP bridge client with health-first bearer auth and typed timeout/retry failures.
@@ -147,6 +147,7 @@ Plans:
 - [x] 03.1-01-PLAN.md — Add sandbox persistence contract for authoritative gateway metadata, bridge token rotation, and readiness state.
 - [x] 03.1-02-PLAN.md — Harden Daytona provisioning and orchestrator layered readiness with bounded reprovision and async hydration.
 - [x] 03.1-03-PLAN.md — Harden `/runs` bridge path for sandbox-scoped token auth and bounded endpoint recovery fail-fast semantics.
+- [x] 03.1-04-PLAN.md — Add deterministic Daytona base-image guardrails with strict contract validation and preflight tooling.
 
 **Details:**
 [To be added during planning]
