@@ -56,7 +56,8 @@ flowchart LR
   S36 --> S37[03-05: Persistence APIs ✓]
   S37 --> S38[Phase 3 Verification: Passed ✓]
   S38 --> S39[03.1-01: Persistence Contract ✓]
-  S39 --> S40[03.1-03: Bridge Token Integration ✓]
+  S39 --> S40[03.1-02: Production-Ready Daytona ✓]
+  S40 --> S41[03.1-03: Bridge Token Integration ✓]
 ```
 
 ## Performance Metrics
@@ -204,6 +205,13 @@ flowchart LR
 | D-03.1-01-003 | 2026-02-26 | 03.1-01 | Identity readiness is hard gate for request acceptance | Fail-closed security: sandbox must not serve requests until identity files are mounted |
 | D-03.1-01-004 | 2026-02-26 | 03.1-01 | Hydration state persistence separate from identity readiness | Allows serving requests while checkpoint hydration runs asynchronously in background |
 | D-03.1-01-005 | 2026-02-26 | 03.1-01 | SandboxHydrationStatus enum: pending, in_progress, completed, degraded, failed | Explicit states for checkpoint restore lifecycle with degraded state for partial recovery |
+| D-03.1-02-001 | 2026-02-26 | 03.1-02 | Image-first Daytona provisioning with explicit runtime config | Ensures production sandboxes use configured registry image with identity files pre-installed |
+| D-03.1-02-002 | 2026-02-26 | 03.1-02 | Layered readiness gates: identity (hard) -> health (ready) -> hydration (non-blocking) | Fail-closed security with clear gate semantics |
+| D-03.1-02-003 | 2026-02-26 | 03.1-02 | Bounded reprovision: 3 attempts with exponential backoff (1-5s) | Prevents indefinite hangs while allowing transient recovery |
+| D-03.1-02-004 | 2026-02-26 | 03.1-02 | Gateway endpoint resolution priority: metadata > preview URL > constructed | One authoritative path, no synthetic URL construction |
+| D-03.1-02-005 | 2026-02-26 | 03.1-02 | Async hydration with degraded state tracking | Non-blocking checkpoint restore failures don't affect routing success |
+| D-03.1-02-006 | 2026-02-26 | 03.1-02 | Typed provider errors: SandboxIdentityError, SandboxGatewayError | Specific failure modes for targeted remediation |
+| D-03.1-02-007 | 2026-02-26 | 03.1-02 | Auto-stop interval defaults to 0 for runtime continuity | Production sandboxes stay running unless explicitly stopped |
 | D-03.1-03-001 | 2026-02-26 | 03.1-03 | BridgeTokenBundle with grace period validation | 30-second window for in-flight requests during token rotation |
 | D-03.1-03-002 | 2026-02-26 | 03.1-03 | Fail-closed on missing token_bundle | Prevents accidental unauthenticated bridge requests |
 | D-03.1-03-003 | 2026-02-26 | 03.1-03 | Authoritative endpoint resolution only | No synthetic URL construction; fail-closed when gateway_url missing |
@@ -256,11 +264,12 @@ flowchart LR
 - [x] Execute Plan 03-05: Persistence query APIs and pointer security controls
 - [x] Execute Plan 03-UAT-GAPS: Add gateway_url column to sandbox_instances (unblocked 8 UAT tests)
 - [x] Execute Plan 03.1-01: Add persistence contract for bridge tokens and readiness tracking
+- [x] Execute Plan 03.1-02: Production-ready Daytona control-plane with identity gates and bounded reprovision
+- [x] Execute Plan 03.1-03: Bridge token integration and gateway endpoint resolution
 
 ### Next Plans
 
-- [ ] 03.1-02: Sandbox identity readiness with mount detection
-- [x] 03.1-03: Bridge token integration and gateway endpoint resolution
+- [ ] Phase 4: Execution Orchestration and Fairness
 
 ### Blockers
 
@@ -274,14 +283,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.1-03-SUMMARY.md` (status: complete, bridge token integration with sandbox-scoped auth)
-- **Last activity:** 2026-02-26 - Phase 3.1 Plan 03 complete (token bundle auth, bounded recovery, 50 tests)
+- **Last completed artifact:** `03.1-02-SUMMARY.md` (status: complete, production-ready Daytona control-plane)
+- **Last activity:** 2026-02-26 - Phase 3.1 Plan 02 complete (image-first provisioning, identity gates, bounded reprovision, 9 new tests)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3.1 Plan 02 - Sandbox identity readiness with mount detection
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-03-SUMMARY.md`
-- **Last session:** 2026-02-26 - Phase 3.1-03 bridge token integration delivered
-- **Commits:** c0c9aa9, 47bce9e
+- **Next plans:** Phase 4 - Execution Orchestration and Fairness
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-02-SUMMARY.md`
+- **Last session:** 2026-02-26 - Phase 3.1-02 production-ready Daytona delivered
+- **Commits:** 10b0b09, f0ea96e, 7defe38
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Phase 3.1 Plan 03 complete - bridge token integration with sandbox-scoped auth and bounded recovery)*
+*Updated: 2026-02-26 (Phase 3.1 Plan 02 complete - production-ready Daytona with identity gates and bounded reprovision)*
