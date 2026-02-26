@@ -15,9 +15,12 @@ from uuid import UUID, uuid4
 
 import zstandard
 
+from src.infrastructure.checkpoints.s3_checkpoint_store import (
+    CheckpointManifest,
+)
+
 if TYPE_CHECKING:
     from src.infrastructure.checkpoints.s3_checkpoint_store import (
-        CheckpointManifest,
         S3CheckpointStore,
     )
 

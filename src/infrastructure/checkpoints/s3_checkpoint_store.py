@@ -271,10 +271,12 @@ class S3CheckpointStore:
                 "last_modified": response.get("LastModified"),
                 "checksum": response.get("Metadata", {}).get("archive-checksum"),
             }
-        except self._client.exceptions.ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "Unknown")
-            if error_code == "404":
-                return None
+        except Exception as e:
+            # Handle ClientError for 404 Not Found
+            if hasattr(e, "response"):
+                error_code = e.response.get("Error", {}).get("Code", "Unknown")
+                if error_code in ("404", "NoSuchKey"):
+                    return None
             raise StorageError(f"Failed to check manifest existence: {e}") from e
 
     def delete_checkpoint(
