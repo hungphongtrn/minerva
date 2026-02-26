@@ -80,6 +80,62 @@ class Settings(BaseSettings):
         PICOCLAW_BRIDGE='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
     """
 
+    # Checkpoint Storage Configuration (S3-compatible)
+    CHECKPOINT_S3_BUCKET: str = ""
+    """S3 bucket name for checkpoint archives.
+
+    Required for checkpoint persistence in non-guest workspaces.
+    Leave empty to disable checkpoint persistence (development mode).
+    """
+
+    CHECKPOINT_S3_ENDPOINT: str = ""
+    """S3-compatible endpoint URL.
+
+    Examples:
+        - AWS S3: "https://s3.us-east-1.amazonaws.com"
+        - MinIO: "http://localhost:9000"
+        - Ceph: "http://ceph-rgw.local:7480"
+
+    Leave empty to use AWS S3 default endpoint (requires CHECKPOINT_S3_REGION).
+    """
+
+    CHECKPOINT_S3_REGION: str = "us-east-1"
+    """AWS region for S3 bucket (default: us-east-1).
+
+    Used when CHECKPOINT_S3_ENDPOINT is empty (AWS S3 mode).
+    """
+
+    CHECKPOINT_S3_ACCESS_KEY: str = ""
+    """S3 access key for checkpoint storage authentication.
+
+    Required when CHECKPOINT_S3_BUCKET is set.
+    """
+
+    CHECKPOINT_S3_SECRET_KEY: str = ""
+    """S3 secret key for checkpoint storage authentication.
+
+    Required when CHECKPOINT_S3_BUCKET is set.
+    """
+
+    CHECKPOINT_MILESTONE_INTERVAL_SECONDS: int = 300
+    """Minimum interval between automatic checkpoint milestones (default: 300s / 5 min).
+
+    Prevents checkpoint spam while ensuring reasonable recovery granularity.
+    Minimum: 60 seconds, Recommended: 300-600 seconds.
+    """
+
+    CHECKPOINT_SAFETY_MARGIN_BYTES: int = 100 * 1024 * 1024  # 100MB
+    """Maximum checkpoint size before triggering safety measures (default: 100MB).
+
+    Checkpoints exceeding this size may be rejected or trigger warnings.
+    """
+
+    CHECKPOINT_ENABLED: bool = False
+    """Global checkpoint persistence toggle (default: False).
+
+    Set to True to enable checkpoint persistence for non-guest workspaces.
+    Requires valid CHECKPOINT_S3_* configuration."""
+
 
 # Global settings instance
 settings = Settings()
