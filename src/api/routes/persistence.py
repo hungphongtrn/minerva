@@ -34,7 +34,11 @@ from src.db.models import (
     CheckpointState,
     AuditEventCategory,
 )
-from src.services.workspace_checkpoint_service import WorkspaceCheckpointService
+from src.services.workspace_checkpoint_service import (
+    WorkspaceCheckpointService,
+    PointerUpdateForbiddenError,
+    PointerRollbackForbiddenError,
+)
 
 
 router = APIRouter(prefix="/persistence", tags=["Persistence"])
@@ -764,14 +768,19 @@ async def update_active_checkpoint(
         principal, "principal_id", str(getattr(principal, "workspace_id", "unknown"))
     )
 
+    # Determine if principal is an operator (has admin scope)
+    principal_scopes = getattr(principal, "scopes", [])
+    is_operator = "admin" in principal_scopes or "*" in principal_scopes
+
     try:
         result = service.set_active_checkpoint_guarded(
             workspace_id=workspace_id,
             checkpoint_db_id=checkpoint.id,
             changed_by=principal_id,
             changed_reason=request.reason or "Manual pointer update via API",
+            is_operator=is_operator,
         )
-    except PermissionError as e:
+    except PointerUpdateForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
@@ -780,12 +789,12 @@ async def update_active_checkpoint(
                 "remediation": "Contact an operator to change the active checkpoint pointer",
             },
         )
-    except ValueError as e:
+    except PointerRollbackForbiddenError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": str(e),
-                "error_type": "invalid_pointer_transition",
+                "error_type": "pointer_rollback_forbidden",
                 "remediation": "In Phase 3, you can only advance to the newest checkpoint. Rollback to older revisions is not allowed.",
             },
         )
