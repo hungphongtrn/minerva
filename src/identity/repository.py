@@ -58,7 +58,7 @@ class ApiKeyRepository:
         """
         stmt = select(ApiKey).where(ApiKey.workspace_id == workspace_id)
         if active_only:
-            stmt = stmt.where(ApiKey.is_active == True)
+            stmt = stmt.where(ApiKey.is_active)
         return list(self.db.execute(stmt).scalars().all())
 
     def create(

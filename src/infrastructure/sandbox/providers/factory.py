@@ -70,7 +70,7 @@ def get_provider(profile: str | None = None) -> SandboxProvider:
             f"Available profiles: {available}"
         )
 
-    provider_class = _PROVIDER_REGISTRY[profile_key]
+    _PROVIDER_REGISTRY[profile_key]
 
     # Instantiate with profile-specific configuration
     if profile_key == "local_compose":

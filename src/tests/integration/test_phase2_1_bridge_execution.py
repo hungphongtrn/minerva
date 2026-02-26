@@ -9,11 +9,9 @@ Tests verify:
 
 import pytest
 from uuid import uuid4
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
-from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.db.models import (
@@ -24,7 +22,6 @@ from src.db.models import (
     SandboxState,
     SandboxHealthStatus,
     SandboxProfile,
-    User,
 )
 from src.services.run_service import RunService, RoutingErrorType
 
@@ -299,6 +296,8 @@ class TestValidPackRegression:
         assert hasattr(RoutingErrorType, "BRIDGE_HEALTH_CHECK_FAILED")
         assert hasattr(RoutingErrorType, "BRIDGE_AUTH_FAILED")
         assert hasattr(RoutingErrorType, "BRIDGE_TIMEOUT")
+
+
 class TestEndpointFailFast:
     """Tests for authoritative endpoint resolution and fail-fast behavior."""
 
@@ -344,9 +343,6 @@ class TestEndpointFailFast:
     ):
         """Bridge tokens are resolved from sandbox metadata."""
         from src.services.run_service import RunService, RunRoutingResult
-        from src.db.repositories.sandbox_instance_repository import (
-            SandboxInstanceRepository,
-        )
 
         # Create sandbox with bridge token
         sandbox = SandboxInstance(
@@ -463,7 +459,6 @@ class TestBoundedRecovery:
         from src.services.run_service import (
             RunService,
             RunRoutingResult,
-            RoutingErrorType,
         )
         from src.services.picoclaw_bridge_service import (
             BridgeResult,

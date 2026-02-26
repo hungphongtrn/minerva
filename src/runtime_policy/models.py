@@ -4,7 +4,7 @@ Defines data structures for egress, tool, and secret policies.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 
 @dataclass(frozen=True)

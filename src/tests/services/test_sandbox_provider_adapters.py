@@ -597,7 +597,6 @@ class TestSemanticParityLifecycle:
     async def test_update_activity_refreshes_timestamp_local(self, local_provider):
         """Local provider updates activity timestamp."""
         import asyncio
-        from datetime import datetime, timezone
 
         workspace_id = uuid4()
         config = SandboxConfig(workspace_id=workspace_id)
@@ -1820,11 +1819,10 @@ class TestPackStaleDetection:
         self, db_session, test_user, test_workspace, mock_provider
     ):
         """Orchestrator passes pack digest for stale detection."""
-        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.models import AgentPackValidationStatus
         from src.db.repositories.agent_pack_repository import AgentPackRepository
         from src.services.sandbox_orchestrator_service import (
             SandboxOrchestratorService,
-            RoutingResult,
         )
 
         # Create a valid agent pack with digest
@@ -1879,11 +1877,10 @@ class TestPackStaleDetection:
         self, db_session, test_user, test_workspace, mock_provider
     ):
         """Each sandbox gets unique bridge auth token."""
-        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.models import AgentPackValidationStatus
         from src.db.repositories.agent_pack_repository import AgentPackRepository
         from src.services.sandbox_orchestrator_service import (
             SandboxOrchestratorService,
-            RoutingResult,
         )
 
         # Create a valid agent pack
@@ -1921,13 +1918,13 @@ class TestPackStaleDetection:
         )
 
         # Provision first sandbox
-        result1 = await orchestrator.resolve_sandbox(
+        await orchestrator.resolve_sandbox(
             workspace_id=test_workspace.id,
             agent_pack_id=pack.id,
         )
 
         # Provision second sandbox
-        result2 = await orchestrator.resolve_sandbox(
+        await orchestrator.resolve_sandbox(
             workspace_id=test_workspace.id,
             agent_pack_id=pack.id,
         )
@@ -2047,9 +2044,6 @@ class TestDaytonaProductionReadiness:
     @pytest.mark.asyncio
     async def test_daytona_identity_verification_fails_when_not_running(self, provider):
         """Identity verification fails when sandbox is not running."""
-        from src.infrastructure.sandbox.providers.daytona import (
-            IdentityVerificationResult,
-        )
 
         # Mock the SDK with stopped sandbox
         mock_sandbox = MagicMock()

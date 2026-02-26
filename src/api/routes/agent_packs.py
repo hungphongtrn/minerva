@@ -4,7 +4,7 @@ Provides endpoints for scaffolding, registering, and validating
 agent packs with path-linked registration and stale detection.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

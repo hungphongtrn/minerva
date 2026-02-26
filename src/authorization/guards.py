@@ -4,7 +4,6 @@ Provides FastAPI-compatible dependency functions for enforcing
 authorization policies on protected routes.
 """
 
-from functools import wraps
 from typing import Optional
 from uuid import UUID
 
@@ -19,7 +18,6 @@ from src.authorization.policy import (
     Role,
     Principal as AuthPrincipal,
     authorize_action,
-    require_workspace_access,
     get_role_from_string,
 )
 from src.identity.key_material import Principal as IdentityPrincipal
@@ -237,8 +235,13 @@ def require_workspace_match_dep(workspace_id_param: str = "workspace_id"):
 
 
 # Convenience guards for common patterns
-guard_read_resource = lambda: guard_workspace_resource(Action.READ)
-guard_create_resource = lambda: guard_workspace_resource(Action.CREATE)
-guard_update_resource = lambda: guard_workspace_resource(Action.UPDATE)
-guard_delete_resource = lambda: guard_workspace_resource(Action.DELETE)
-guard_admin_resource = lambda: guard_workspace_resource(Action.ADMIN)
+def guard_read_resource():
+    return guard_workspace_resource(Action.READ)
+def guard_create_resource():
+    return guard_workspace_resource(Action.CREATE)
+def guard_update_resource():
+    return guard_workspace_resource(Action.UPDATE)
+def guard_delete_resource():
+    return guard_workspace_resource(Action.DELETE)
+def guard_admin_resource():
+    return guard_workspace_resource(Action.ADMIN)

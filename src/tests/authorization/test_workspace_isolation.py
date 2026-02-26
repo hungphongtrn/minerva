@@ -11,8 +11,7 @@ Covers:
 """
 
 import pytest
-from uuid import UUID, uuid4
-from datetime import datetime
+from uuid import uuid4
 
 # Import directly from policy to avoid circular imports through guards
 from src.authorization.policy import (
@@ -25,7 +24,7 @@ from src.authorization.policy import (
     require_workspace_access,
     get_role_from_string,
 )
-from src.db.rls_context import RLSContext, with_rls_context, get_rls_context
+from src.db.rls_context import RLSContext, with_rls_context
 
 
 # ============================================================================
@@ -644,7 +643,7 @@ class TestRLSContextRegression:
         This test will fail if set_config() is not used correctly
         or if SQL syntax errors are introduced.
         """
-        from unittest.mock import MagicMock, call
+        from unittest.mock import MagicMock
 
         mock_db = MagicMock()
         workspace_id = uuid4()

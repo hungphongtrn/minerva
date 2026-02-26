@@ -6,12 +6,12 @@ actually invoked during execute_run, not just available.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from uuid import uuid4
 
-from src.services.run_service import RunService, RunContext, RunResult
+from src.services.run_service import RunService, RunContext
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
-from src.runtime_policy.enforcer import RuntimeEnforcer, PolicyViolationError
+from src.runtime_policy.enforcer import RuntimeEnforcer
 from src.guest.identity import create_guest_principal
 from src.identity.key_material import Principal
 

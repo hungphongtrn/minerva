@@ -7,22 +7,19 @@ with comprehensive coverage of valid, invalid, rotated, and revoked key flows.
 import pytest
 from datetime import datetime, timedelta
 from uuid import uuid4, UUID
-from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException, status
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 from src.identity.key_material import (
     generate_api_key,
     verify_key,
-    KeyPair,
-    Principal,
     is_key_expired,
 )
-from src.identity.service import ApiKeyService, ValidationResult, KeyInfo
+from src.identity.service import ApiKeyService
 from src.identity.repository import ApiKeyRepository
-from src.db.models import ApiKey, Base
+from src.db.models import Base
 from src.api.dependencies.auth import resolve_principal, optional_principal
 
 

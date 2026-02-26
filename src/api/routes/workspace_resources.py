@@ -26,9 +26,7 @@ from src.authorization.policy import (
     Principal as AuthPrincipal,
     Action,
     ResourceType,
-    Role,
     authorize_action,
-    require_workspace_access,
     get_role_from_string,
 )
 

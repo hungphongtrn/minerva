@@ -7,7 +7,6 @@ Provides safe, idempotent generation of required template files:
 - skills/: Directory for agent skills
 """
 
-import os
 from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass

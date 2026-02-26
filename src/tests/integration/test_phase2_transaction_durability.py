@@ -11,10 +11,8 @@ These tests verify production-equivalent transaction behavior:
 
 import pytest
 import tempfile
-from pathlib import Path
 from uuid import uuid4, UUID
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, patch
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -25,7 +23,6 @@ from src.db.models import (
     SandboxHealthStatus,
     SandboxProfile,
     AgentPack,
-    WorkspaceLease,
 )
 
 
@@ -214,7 +211,6 @@ class TestSandboxResolveReuse:
 
         Fails if resolve does not commit transaction before returning.
         """
-        from src.db.models import Workspace
 
         # Bootstrap workspace
         bootstrap_response = client.post(
@@ -226,7 +222,7 @@ class TestSandboxResolveReuse:
         workspace_id = UUID(workspace_id_str)
 
         # Count sandboxes before resolve
-        before_count = (
+        (
             db_session.query(SandboxInstance)
             .filter(SandboxInstance.workspace_id == workspace_id)
             .count()

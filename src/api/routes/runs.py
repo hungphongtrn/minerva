@@ -5,7 +5,6 @@ full runtime policy enforcement and guest mode support.
 """
 
 from typing import Optional, Dict, Any
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -13,7 +12,7 @@ from pydantic import BaseModel, Field
 from src.api.dependencies.auth import resolve_principal_or_guest, AnyPrincipal
 from src.db.session import get_db
 from src.guest.identity import is_guest_principal
-from src.services.run_service import RunService, RunContext, RunResult
+from src.services.run_service import RunService
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
 from sqlalchemy.orm import Session
 

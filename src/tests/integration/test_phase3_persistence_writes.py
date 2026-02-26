@@ -6,23 +6,16 @@ active pointer advancement, and append-only audit logging.
 
 import json
 import pytest
-from datetime import datetime, timezone
-from uuid import uuid4, UUID
+from uuid import UUID
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    RunSession,
     RunSessionState,
-    RuntimeEvent,
     RuntimeEventType,
-    WorkspaceCheckpoint,
     CheckpointState,
-    WorkspaceActiveCheckpoint,
-    AuditEvent,
     AuditEventCategory,
-    SandboxInstance,
     SandboxState,
     SandboxHealthStatus,
     SandboxProfile,
@@ -42,7 +35,6 @@ from src.services.workspace_checkpoint_service import (
     GuestCheckpointError,
 )
 from src.services.run_service import RunService
-from src.guest.identity import create_guest_principal
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
 
 
@@ -757,7 +749,7 @@ class TestEndToEndPersistence:
         service = WorkspaceCheckpointService(db_session)
 
         # Create first checkpoint
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="chk-auto-001",
             storage_key="workspaces/test/chk-auto-001",
@@ -770,7 +762,7 @@ class TestEndToEndPersistence:
         assert active1["checkpoint_id"] == "chk-auto-001"
 
         # Create second checkpoint
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="chk-auto-002",
             storage_key="workspaces/test/chk-auto-002",

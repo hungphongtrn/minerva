@@ -10,23 +10,18 @@ Tests for workspace/sandbox/pack isolation boundaries:
 import pytest
 import tempfile
 from pathlib import Path
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import datetime, timezone, timedelta
 
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from src.db.models import (
-    Workspace,
     SandboxInstance,
     SandboxState,
     SandboxHealthStatus,
     SandboxProfile,
-    AgentPack,
     WorkspaceLease,
 )
 from src.services.workspace_lease_service import WorkspaceLeaseService
-from src.services.agent_pack_service import AgentPackService
 from src.services.agent_scaffold_service import AgentScaffoldService
 
 
@@ -100,7 +95,7 @@ class TestCrossWorkspaceLeaseIsolation:
         )
 
         # Try to release using wrong workspace should fail silently (no-op)
-        result = service.release_lease(
+        service.release_lease(
             workspace_id=workspace_beta.id,  # Wrong workspace
             holder_run_id="run-alpha",
         )
@@ -492,7 +487,6 @@ class TestDaytonaSdkFailClosedHandling:
         """Daytona SDK returning stopped state is excluded from active sandboxes."""
         from unittest.mock import AsyncMock, MagicMock, patch
         from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
-        from src.infrastructure.sandbox.providers.base import SandboxState
 
         provider = DaytonaSandboxProvider(api_key="test-key")
         workspace_id = workspace_alpha.id
@@ -529,12 +523,10 @@ class TestDaytonaSdkFailClosedHandling:
         """Daytona SDK unhealthy sandboxes are excluded from healthy routing (SECU-05)."""
         from unittest.mock import AsyncMock, MagicMock, patch
         from uuid import uuid4
-        from datetime import datetime, timezone
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
         from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
         from src.infrastructure.sandbox.providers.base import (
             SandboxState,
-            SandboxHealth,
         )
         from src.db.models import SandboxInstance, SandboxProfile, SandboxHealthStatus
 
@@ -654,7 +646,7 @@ class TestHealthFailureHandling:
         db_session.commit()
 
         # Orchestrator should detect no healthy candidates
-        orchestrator = SandboxOrchestratorService(db_session)
+        SandboxOrchestratorService(db_session)
 
         # The unhealthy sandbox should be in the excluded list
         # This verifies unhealthy exclusion logic
@@ -726,7 +718,6 @@ class TestLeaseExpirationRecovery:
 
     def test_expired_lease_is_reclaimed(self, db_session, workspace_alpha):
         """Expired leases are automatically reclaimed."""
-        from datetime import datetime, timezone, timedelta
 
         # Create an expired lease
         expired_time = datetime.now(timezone.utc) - timedelta(minutes=10)

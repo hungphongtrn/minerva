@@ -183,7 +183,7 @@ class TestTTLCleanupBeforeRouting:
     ):
         """Sandbox with recent activity (within TTL) should NOT be cleaned up."""
         workspace_id = str(workspace_alpha.id)
-        recent_id = str(active_recent_sandbox.id)
+        str(active_recent_sandbox.id)
 
         # Call resolve endpoint
         response = client.post(
@@ -387,7 +387,7 @@ class TestTTLPersistence:
     ):
         """TTL state must survive separate HTTP request boundaries."""
         workspace_id = str(workspace_alpha.id)
-        expired_id = str(expired_sandbox.id)
+        str(expired_sandbox.id)
 
         # Request 1: Trigger TTL cleanup
         response1 = client.post(

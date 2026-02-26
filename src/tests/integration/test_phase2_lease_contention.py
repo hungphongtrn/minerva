@@ -11,10 +11,7 @@ These tests prove that concurrent same-workspace resolve requests:
 
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from typing import List
 
-import pytest
 from sqlalchemy.orm import Session
 
 from src.db.models import User, Workspace, WorkspaceLease
@@ -22,7 +19,6 @@ from src.db.repositories.workspace_lease_repository import WorkspaceLeaseReposit
 from src.services.workspace_lease_service import (
     WorkspaceLeaseService,
     LeaseResult,
-    LeaseAcquisitionResult,
 )
 
 
@@ -51,7 +47,7 @@ class TestLeaseContentionRegression:
             LeaseAcquisitionError,
         )
 
-        repository = WorkspaceLeaseRepository(db_session)
+        WorkspaceLeaseRepository(db_session)
 
         # Verify exception type exists and can be instantiated
         exc = LeaseAcquisitionError(
@@ -86,7 +82,6 @@ class TestLeaseContentionRegression:
         When contention persists beyond max wait, the service should return
         CONFLICT_RETRYABLE result with retry_after_seconds guidance.
         """
-        from src.db.models import User
 
         service = WorkspaceLeaseService(db_session)
 

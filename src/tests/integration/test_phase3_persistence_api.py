@@ -5,23 +5,16 @@ management, and audit timeline visibility through the API layer.
 """
 
 import json
-import pytest
-from datetime import datetime, timezone
-from uuid import uuid4, UUID
+from datetime import datetime
+from uuid import uuid4
 from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    RunSession,
-    RunSessionState,
-    RuntimeEvent,
     RuntimeEventType,
     WorkspaceCheckpoint,
-    CheckpointState,
-    WorkspaceActiveCheckpoint,
-    AuditEvent,
     AuditEventCategory,
 )
 from src.db.repositories import (
@@ -68,7 +61,7 @@ class TestRunTimelineEndpoints:
 
         # Query via API
         response = client.get(
-            f"/api/v1/persistence/runs/api-timeline-run-001/timeline",
+            "/api/v1/persistence/runs/api-timeline-run-001/timeline",
             headers=owner_headers,
         )
 
@@ -306,7 +299,7 @@ class TestActivePointerEndpoints:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="api-active-chk",
             storage_key="workspaces/test/active",
@@ -586,7 +579,7 @@ class TestPointerUpdateEndpoint:
         service = WorkspaceCheckpointService(db_session)
 
         # Create first checkpoint
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="api-ptr-chk-001",
             storage_key="workspaces/test/ptr-001",
@@ -595,7 +588,7 @@ class TestPointerUpdateEndpoint:
         )
 
         # Create second checkpoint (newer)
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="api-ptr-chk-002",
             storage_key="workspaces/test/ptr-002",
@@ -644,7 +637,7 @@ class TestPointerUpdateEndpoint:
         """Test that active checkpoint response includes pointer metadata."""
         service = WorkspaceCheckpointService(db_session)
 
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="api-ptr-meta-chk",
             storage_key="workspaces/test/meta",

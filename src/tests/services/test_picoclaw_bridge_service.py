@@ -11,7 +11,7 @@ Uses mocked HTTP transport - does not require live sandbox runtime.
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 import httpx
 
 from src.services.picoclaw_bridge_service import (
@@ -19,7 +19,6 @@ from src.services.picoclaw_bridge_service import (
     BridgeErrorType,
     BridgeResult,
     BridgeTokenBundle,
-    HealthStatus,
     execute_via_bridge,
 )
 

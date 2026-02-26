@@ -4,7 +4,7 @@ Provides endpoints for workspace bootstrap and sandbox resolution
 with durable workspace continuity across sessions.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -173,7 +173,6 @@ async def bootstrap_workspace(
     # Determine if this is a new workspace or an existing one
     # We can detect this by checking if the workspace was just created
     # (created_at and updated_at are very close)
-    from datetime import datetime, timezone
 
     created_recently = (workspace.updated_at - workspace.created_at).total_seconds() < 5
 
@@ -218,7 +217,6 @@ async def resolve_sandbox(
     """
     from uuid import uuid4
     from src.db.models import Workspace
-    from src.identity.key_material import Principal
 
     # Validate workspace_id format
     try:

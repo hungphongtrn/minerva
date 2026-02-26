@@ -8,8 +8,7 @@ and use isolated database state for reliable integration testing.
 import pytest
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4, UUID
-from typing import Dict, Any, List, Generator, Tuple
-from unittest.mock import MagicMock
+from typing import Dict, Any, Generator, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
@@ -17,8 +16,8 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 from src.db.session import get_db, Base
-from src.db.models import User, Workspace, Membership, ApiKey, WorkspaceResource
-from src.identity.key_material import generate_api_key, KeyPair
+from src.db.models import User, Workspace, Membership, WorkspaceResource
+from src.identity.key_material import KeyPair
 from src.identity.service import ApiKeyService
 from src.identity.key_material import Principal
 from src.guest.identity import GuestPrincipal, create_guest_principal

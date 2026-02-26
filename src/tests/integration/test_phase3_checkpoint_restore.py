@@ -11,14 +11,11 @@ Tests the cold-start restore flow with fallback policy:
 import json
 import pytest
 from datetime import datetime, timedelta
-from uuid import UUID, uuid4
-from unittest.mock import Mock, patch, AsyncMock
+from uuid import uuid4
 
-import pytest_asyncio
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    CheckpointState,
     AuditEventCategory,
     Workspace,
     User,

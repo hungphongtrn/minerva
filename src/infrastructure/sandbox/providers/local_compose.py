@@ -6,7 +6,6 @@ It's designed for local development and testing scenarios.
 
 import asyncio
 import hashlib
-import json
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
@@ -15,10 +14,8 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxConfig,
     SandboxConfigurationError,
     SandboxHealth,
-    SandboxHealthCheckError,
     SandboxInfo,
     SandboxNotFoundError,
-    SandboxProfileError,
     SandboxProvider,
     SandboxProvisionError,
     SandboxRef,
@@ -209,7 +206,7 @@ class LocalComposeSandboxProvider(SandboxProvider):
         # - Store the expected config path
         # - Store the pack digest for stale detection
 
-        materialized_path = f"/workspace/pack"
+        materialized_path = "/workspace/pack"
         config_path = f"{materialized_path}/config.json"
 
         return {
@@ -284,7 +281,7 @@ class LocalComposeSandboxProvider(SandboxProvider):
         # Generate Picoclaw config if we have runtime config
         materialized_config_path = None
         if config.runtime_bridge_config:
-            picoclaw_config = self._generate_picoclaw_config(config)
+            self._generate_picoclaw_config(config)
             # In production, this would write to sandbox volume
             # For simulation, we track that config was "generated"
             materialized_config_path = materialization.get("config_path")

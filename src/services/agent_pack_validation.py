@@ -10,7 +10,7 @@ Digest: Stable SHA-256 hash of pack content for change detection.
 import hashlib
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Dict, Any

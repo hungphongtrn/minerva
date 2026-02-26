@@ -5,8 +5,8 @@ and idle TTL enforcement with health-aware routing decisions.
 """
 
 import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
 from typing import List, Optional, Dict, Any
 from uuid import UUID
@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from src.config.settings import settings
 from src.db.models import (
-    AgentPack,
     AgentPackValidationStatus,
     SandboxInstance,
     SandboxState,
@@ -29,7 +28,6 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxProvider,
     SandboxConfig,
     SandboxInfo,
-    SandboxState as ProviderSandboxState,
     SandboxHealth as ProviderSandboxHealth,
     SandboxNotFoundError,
     SandboxProviderError,
@@ -477,7 +475,6 @@ class SandboxOrchestratorService:
         Returns:
             SandboxRoutingResult with provisioning outcome.
         """
-        import asyncio
 
         if stopped_sandbox_ids is None:
             stopped_sandbox_ids = []

@@ -7,7 +7,6 @@ Covers:
 - Error handling
 """
 
-import os
 import tempfile
 from pathlib import Path
 import pytest
@@ -58,11 +57,11 @@ class TestAgentScaffoldService:
         pack_path = "test_pack"
 
         # First generation
-        results1 = service.generate(pack_path)
+        service.generate(pack_path)
 
         # Read content after first generation
         pack_full_path = temp_dir / pack_path
-        agent_content_1 = (pack_full_path / "AGENT.md").read_text()
+        (pack_full_path / "AGENT.md").read_text()
 
         # Add custom content to one file
         custom_content = "# Custom Content\n\nThis should be preserved."
@@ -104,7 +103,7 @@ class TestAgentScaffoldService:
         """Test that generate handles nested pack paths."""
         pack_path = "nested/deep/pack"
 
-        results = service.generate(pack_path)
+        service.generate(pack_path)
 
         pack_full_path = temp_dir / pack_path
         assert pack_full_path.exists()
@@ -115,7 +114,7 @@ class TestAgentScaffoldService:
         """Test that generate works with absolute paths under base."""
         pack_path = str(temp_dir / "absolute_pack")
 
-        results = service.generate(pack_path)
+        service.generate(pack_path)
 
         assert (temp_dir / "absolute_pack" / "AGENT.md").exists()
 

@@ -6,7 +6,7 @@ with transaction-safe conflict behavior and expiration-based recovery.
 
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum, auto
 from typing import Optional
 from uuid import UUID
@@ -140,7 +140,6 @@ class WorkspaceLeaseService:
         start_time = time.monotonic()
         attempt = 0
         retry_delay_ms = self.INITIAL_RETRY_DELAY_MS
-        last_conflict_lease = None
 
         while True:
             attempt += 1
@@ -207,7 +206,6 @@ class WorkspaceLeaseService:
                         )
 
                     # Store conflict info and wait before retry
-                    last_conflict_lease = active_lease
 
                     # Sleep with exponential backoff
                     sleep_seconds = min(
@@ -231,7 +229,7 @@ class WorkspaceLeaseService:
                     ),
                 )
 
-            except LeaseAcquisitionError as e:
+            except LeaseAcquisitionError:
                 # Lock contention error - check if we should retry
                 elapsed_seconds = time.monotonic() - start_time
                 if elapsed_seconds >= self.MAX_CONTENTION_WAIT_SECONDS:
@@ -413,7 +411,7 @@ class WorkspaceLeaseService:
                 result=LeaseResult.NOT_FOUND,
                 lease=None,
                 new_expires_at=None,
-                message=f"Lease renewal failed: ambiguous state",
+                message="Lease renewal failed: ambiguous state",
             )
 
         except Exception as e:

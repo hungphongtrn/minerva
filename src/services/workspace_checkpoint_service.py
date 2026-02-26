@@ -12,7 +12,6 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    CheckpointState,
     AuditEventCategory,
 )
 from src.db.repositories.workspace_checkpoint_repository import (

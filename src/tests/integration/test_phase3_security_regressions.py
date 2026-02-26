@@ -4,30 +4,17 @@ Tests operator-only pointer controls, rollback prevention, and audit immutabilit
 Verifies SECU-04 requirements for pointer operations and timeline access.
 """
 
-import json
 import pytest
-from datetime import datetime, timedelta
-from uuid import uuid4, UUID
 from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    RunSession,
-    RunSessionState,
-    RuntimeEvent,
-    RuntimeEventType,
     WorkspaceCheckpoint,
-    CheckpointState,
-    WorkspaceActiveCheckpoint,
-    AuditEvent,
     AuditEventCategory,
 )
 from src.db.repositories import (
-    RunSessionRepository,
-    RuntimeEventRepository,
-    WorkspaceCheckpointRepository,
     AuditEventRepository,
 )
 from src.services.workspace_checkpoint_service import (
@@ -54,7 +41,7 @@ class TestOperatorOnlyPointerUpdates:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-ptr-chk",
             storage_key="workspaces/test/sec-ptr",
@@ -89,7 +76,7 @@ class TestOperatorOnlyPointerUpdates:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoints
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-ptr-operator-chk",
             storage_key="workspaces/test/sec-ptr-op",
@@ -124,7 +111,7 @@ class TestOperatorOnlyPointerUpdates:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-ptr-audit-chk",
             storage_key="workspaces/test/sec-ptr-audit",
@@ -166,7 +153,7 @@ class TestNoRollbackToOlderRevisions:
         service = WorkspaceCheckpointService(db_session)
 
         # Create first checkpoint (older)
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-older-chk",
             storage_key="workspaces/test/older",
@@ -180,7 +167,7 @@ class TestNoRollbackToOlderRevisions:
         time.sleep(0.01)
 
         # Create second checkpoint (newer)
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-newer-chk",
             storage_key="workspaces/test/newer",
@@ -216,7 +203,7 @@ class TestNoRollbackToOlderRevisions:
         service = WorkspaceCheckpointService(db_session)
 
         # Create first checkpoint
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-first-chk",
             storage_key="workspaces/test/first",
@@ -229,7 +216,7 @@ class TestNoRollbackToOlderRevisions:
         time.sleep(0.01)
 
         # Create second checkpoint (newer)
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-second-chk",
             storage_key="workspaces/test/second",
@@ -257,7 +244,7 @@ class TestNoRollbackToOlderRevisions:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoints with timestamps
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-audit-older-chk",
             storage_key="workspaces/test/audit-older",
@@ -269,7 +256,7 @@ class TestNoRollbackToOlderRevisions:
 
         time.sleep(0.01)
 
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-audit-newer-chk",
             storage_key="workspaces/test/audit-newer",
@@ -362,7 +349,6 @@ class TestAuditImmutability:
 
         Attempting to update an audit event at the DB level should fail.
         """
-        from sqlalchemy import update
 
         repo = AuditEventRepository(db_session)
 
@@ -440,7 +426,7 @@ class TestCheckpointPointerAuditing:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-audit-ptr-chk",
             storage_key="workspaces/test/audit-ptr",
@@ -475,7 +461,7 @@ class TestCheckpointPointerAuditing:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="sec-ptr-meta-chk",
             storage_key="workspaces/test/ptr-meta",
@@ -509,7 +495,7 @@ class TestServiceLevelPointerGuardrails:
         service = WorkspaceCheckpointService(db_session)
 
         # Create checkpoint
-        result = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="svc-guard-chk",
             storage_key="workspaces/test/guard",
@@ -541,7 +527,7 @@ class TestServiceLevelPointerGuardrails:
         service = WorkspaceCheckpointService(db_session)
 
         # Create older checkpoint
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="svc-rollback-old",
             storage_key="workspaces/test/rollback-old",
@@ -554,7 +540,7 @@ class TestServiceLevelPointerGuardrails:
         time.sleep(0.01)
 
         # Create newer checkpoint
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="svc-rollback-new",
             storage_key="workspaces/test/rollback-new",
@@ -586,7 +572,7 @@ class TestServiceLevelPointerGuardrails:
         service = WorkspaceCheckpointService(db_session)
 
         # Create older checkpoint
-        result1 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="svc-advance-old",
             storage_key="workspaces/test/advance-old",
@@ -599,7 +585,7 @@ class TestServiceLevelPointerGuardrails:
         time.sleep(0.01)
 
         # Create newer checkpoint
-        result2 = service.create_checkpoint_metadata_only(
+        service.create_checkpoint_metadata_only(
             workspace_id=workspace_alpha.id,
             checkpoint_id="svc-advance-new",
             storage_key="workspaces/test/advance-new",

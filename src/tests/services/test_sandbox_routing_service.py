@@ -6,7 +6,7 @@ and configurable TTL behavior.
 
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
@@ -29,7 +29,6 @@ from src.services.sandbox_orchestrator_service import (
 from src.infrastructure.sandbox.providers.base import (
     SandboxInfo,
     SandboxRef,
-    SandboxConfig,
     SandboxState as ProviderSandboxState,
     SandboxHealth as ProviderSandboxHealth,
 )
@@ -225,10 +224,10 @@ class TestStopEligibility:
 
         # Create mock session and repository
         mock_session = MagicMock()
-        repo = SandboxInstanceRepository(mock_session)
+        SandboxInstanceRepository(mock_session)
 
         # Create sandbox with recent activity
-        sandbox = SandboxInstance(
+        SandboxInstance(
             id=uuid4(),
             workspace_id=test_workspace.id,
             profile=SandboxProfile.LOCAL_COMPOSE,
@@ -253,7 +252,7 @@ class TestStopEligibility:
 
     def test_stop_eligibility_idle_exceeds_ttl(self, test_workspace: Workspace):
         """Test sandbox exceeding TTL is eligible for stop."""
-        sandbox = SandboxInstance(
+        SandboxInstance(
             id=uuid4(),
             workspace_id=test_workspace.id,
             profile=SandboxProfile.LOCAL_COMPOSE,
@@ -451,7 +450,7 @@ class TestHealthAwareRouting:
         mock_provider,
     ):
         """Test that pack source_path is resolved and passed to provider config."""
-        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.models import AgentPackValidationStatus
         from src.db.repositories.agent_pack_repository import AgentPackRepository
 
         # Create a valid agent pack
@@ -503,7 +502,7 @@ class TestHealthAwareRouting:
         mock_provider,
     ):
         """Test that pack from different workspace is rejected (fail-closed)."""
-        from src.db.models import AgentPack, AgentPackValidationStatus, Workspace
+        from src.db.models import AgentPackValidationStatus, Workspace
         from src.db.repositories.agent_pack_repository import AgentPackRepository
 
         # Create another workspace
@@ -571,7 +570,7 @@ class TestHealthAwareRouting:
         mock_provider,
     ):
         """Test that inactive pack fails closed."""
-        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.models import AgentPackValidationStatus
         from src.db.repositories.agent_pack_repository import AgentPackRepository
 
         pack_repo = AgentPackRepository(db_session)
@@ -604,7 +603,7 @@ class TestHealthAwareRouting:
         mock_provider,
     ):
         """Test that non-VALID pack status fails closed."""
-        from src.db.models import AgentPack, AgentPackValidationStatus
+        from src.db.models import AgentPackValidationStatus
         from src.db.repositories.agent_pack_repository import AgentPackRepository
 
         pack_repo = AgentPackRepository(db_session)

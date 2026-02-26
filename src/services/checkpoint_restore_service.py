@@ -12,14 +12,13 @@ All outcomes are auditable via audit events.
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from src.db.models import AuditEventCategory, CheckpointState
+from src.db.models import CheckpointState
 from src.db.repositories.workspace_checkpoint_repository import (
     WorkspaceCheckpointRepository,
 )
@@ -259,7 +258,7 @@ class CheckpointRestoreService:
             except (ManifestValidationError, ArchiveValidationError) as e:
                 # Validation errors are not retryable
                 last_error = str(e)
-                audit_event = self._audit_repo.log_checkpoint_management(
+                self._audit_repo.log_checkpoint_management(
                     workspace_id=workspace_id,
                     checkpoint_id=checkpoint.checkpoint_id,
                     action="restore_validation_failed",
@@ -285,7 +284,7 @@ class CheckpointRestoreService:
                     )
                 else:
                     # Final attempt failed
-                    audit_event = self._audit_repo.log_checkpoint_management(
+                    self._audit_repo.log_checkpoint_management(
                         workspace_id=workspace_id,
                         checkpoint_id=checkpoint.checkpoint_id,
                         action="restore_failed",

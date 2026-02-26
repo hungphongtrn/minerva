@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from src.db.session import get_db
 from src.identity.service import ApiKeyService, KeyInfo
-from src.identity.key_material import KeyPair
 from src.api.dependencies.auth import resolve_principal, Principal
 
 

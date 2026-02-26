@@ -13,9 +13,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from src.db.models import (
-    RunSessionState,
     RuntimeEventType,
-    AuditEventCategory,
 )
 from src.db.repositories.run_session_repository import RunSessionRepository
 from src.db.repositories.runtime_event_repository import RuntimeEventRepository

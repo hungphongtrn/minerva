@@ -13,28 +13,19 @@ Tests mapped directly to Phase 2 success criteria:
 
 import pytest
 import tempfile
-import os
 from pathlib import Path
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import datetime, timezone, timedelta
 
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from src.db.models import (
-    User,
-    Workspace,
     SandboxInstance,
     SandboxState,
     SandboxHealthStatus,
     SandboxProfile,
-    AgentPack,
     AgentPackValidationStatus,
-    WorkspaceLease,
 )
 from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
-from src.services.agent_pack_service import AgentPackService
-from src.services.agent_scaffold_service import AgentScaffoldService
 from src.services.workspace_lease_service import WorkspaceLeaseService
 from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
 from src.infrastructure.sandbox.providers.factory import get_provider
@@ -132,7 +123,7 @@ class TestAgentPackScaffoldFlow:
                 headers=owner_headers,
             )
             assert response1.status_code == 201
-            data1 = response1.json()
+            response1.json()
 
             # Second scaffold - should not fail
             response2 = client.post(
@@ -249,7 +240,7 @@ class TestSandboxRouting:
         db_session.commit()
 
         # Resolve should find existing sandbox
-        lifecycle = WorkspaceLifecycleService(db_session)
+        WorkspaceLifecycleService(db_session)
         # Mock the provider to return healthy status
 
         # Verify sandbox exists and is healthy
@@ -376,7 +367,6 @@ class TestIdleTTLBehavior:
 
     def test_stop_eligibility_computed_from_ttl(self, db_session, workspace_alpha):
         """Stop eligibility is computed from configured TTL and last activity."""
-        from src.config.settings import Settings
 
         # Create sandbox with old activity
         old_time = datetime.now(timezone.utc) - timedelta(hours=2)
@@ -487,10 +477,6 @@ class TestProfileSemanticParity:
         from src.infrastructure.sandbox.providers.local_compose import (
             LocalComposeSandboxProvider,
         )
-        from src.infrastructure.sandbox.providers.base import (
-            SandboxState,
-            SandboxHealth,
-        )
 
         provider = LocalComposeSandboxProvider()
 
@@ -503,7 +489,6 @@ class TestProfileSemanticParity:
     def test_daytona_adapter_has_semantic_states(self):
         """TEST-22: Daytona adapter exposes semantic state (ready, hydrating, etc.)."""
         from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
-        from src.infrastructure.sandbox.providers.base import SandboxState
 
         # Provider can be instantiated with config
         provider = DaytonaSandboxProvider(
@@ -517,10 +502,6 @@ class TestProfileSemanticParity:
 
     def test_provider_factory_returns_configured_provider(self):
         """TEST-23: Factory returns appropriate provider based on configuration."""
-        from src.infrastructure.sandbox.providers.factory import get_provider
-        from src.infrastructure.sandbox.providers.local_compose import (
-            LocalComposeSandboxProvider,
-        )
 
         # Default should return local compose for testing
         provider = get_provider()
@@ -550,7 +531,6 @@ class TestRegisteredPackBindingParity:
         """Create and register a real agent pack for workspace_alpha."""
         import tempfile
         from src.db.repositories.agent_pack_repository import AgentPackRepository
-        from src.db.models import AgentPackValidationStatus
         from datetime import datetime, timezone
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -596,7 +576,6 @@ class TestRegisteredPackBindingParity:
         """Local compose profile binds registered pack during sandbox resolution (via factory)."""
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-        from src.infrastructure.sandbox.providers.factory import get_provider
 
         ctx = registered_pack_for_workspace
         pack_id = ctx["pack_id"]
@@ -650,7 +629,6 @@ class TestRegisteredPackBindingParity:
         from datetime import datetime, timezone
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-        from src.infrastructure.sandbox.providers.factory import get_provider
         from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
         from src.db.models import (
             SandboxInstance,
@@ -752,8 +730,6 @@ class TestRegisteredPackBindingParity:
         from unittest.mock import AsyncMock, MagicMock, patch
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-        from src.infrastructure.sandbox.providers.factory import get_provider
-        from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
 
         ctx = registered_pack_for_workspace
         pack_id = ctx["pack_id"]
@@ -890,7 +866,6 @@ class TestRegisteredPackBindingParity:
         from unittest.mock import AsyncMock, MagicMock, patch
         from src.services.workspace_lifecycle_service import WorkspaceLifecycleService
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
-        from src.infrastructure.sandbox.providers.factory import get_provider
         from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
         from src.infrastructure.sandbox.providers.base import (
             SandboxState,

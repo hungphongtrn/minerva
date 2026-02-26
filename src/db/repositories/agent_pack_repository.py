@@ -114,7 +114,7 @@ class AgentPackRepository:
         stmt = select(AgentPack).where(AgentPack.workspace_id == workspace_id)
 
         if not include_inactive:
-            stmt = stmt.where(AgentPack.is_active == True)
+            stmt = stmt.where(AgentPack.is_active)
 
         stmt = stmt.order_by(AgentPack.created_at.desc())
 

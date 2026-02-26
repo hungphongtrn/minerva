@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
 from src.db.models import (
@@ -574,7 +574,7 @@ class SandboxInstanceRepository:
             List of SandboxInstance records with identity_ready=False.
         """
         conditions = [
-            SandboxInstance.identity_ready == False,
+            not SandboxInstance.identity_ready,
         ]
 
         if workspace_id:

@@ -7,7 +7,7 @@ and enforcing authentication on protected routes.
 from typing import Union
 
 from fastapi import Depends, HTTPException, Header, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.db.session import get_db

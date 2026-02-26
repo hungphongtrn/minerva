@@ -4,8 +4,7 @@ Tests workspace resolution, lease integration, sandbox routing,
 and guaranteed lease cleanup in success/failure branches.
 """
 
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4, UUID
 
 import pytest
@@ -23,7 +22,6 @@ from src.db.models import (
 )
 from src.services.workspace_lifecycle_service import (
     WorkspaceLifecycleService,
-    LifecycleTarget,
     LifecycleContext,
 )
 from src.services.workspace_lease_service import (
@@ -318,7 +316,7 @@ class TestSandboxRoutingIntegration:
         mock_orchestrator,
     ):
         """Test that agent_pack_id is forwarded from lifecycle to orchestrator."""
-        from uuid import uuid4, UUID
+        from uuid import uuid4
 
         mock_orchestrator.resolve_sandbox.return_value = SandboxRoutingResult(
             success=True,

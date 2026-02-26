@@ -9,15 +9,11 @@ Tests map directly to roadmap success criteria:
 6. SECU-01/02/03: Runtime policy enforces default-deny egress/tool/secret semantics
 """
 
-import pytest
-from uuid import uuid4, UUID
-from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 from fastapi import status
 
-from src.identity.key_material import Principal, KeyPair
-from src.guest.identity import GuestPrincipal
+from src.identity.key_material import KeyPair
 
 
 # ============================================================================

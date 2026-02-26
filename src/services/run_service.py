@@ -8,7 +8,6 @@ Provides run execution with:
 - Scoped secret injection based on policy
 """
 
-import secrets
 from typing import Optional, Dict, Any
 from uuid import uuid4, UUID
 from dataclasses import dataclass
@@ -35,7 +34,6 @@ from src.services.runtime_persistence_service import (
 )
 from src.services.checkpoint_restore_service import (
     CheckpointRestoreService,
-    RestoreOutcome,
 )
 
 
@@ -656,7 +654,7 @@ class RunService:
             except GuestPersistenceError:
                 # Expected for guests - no persistence
                 pass
-            except Exception as e:
+            except Exception:
                 # Log but don't fail the run if persistence fails
                 # (could be a DB error, but run should continue)
                 pass

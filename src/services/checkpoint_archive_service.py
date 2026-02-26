@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import tarfile
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO

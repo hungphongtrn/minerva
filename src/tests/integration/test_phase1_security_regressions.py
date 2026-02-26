@@ -9,15 +9,11 @@ Focused regression tests for known high-risk pitfalls:
 These tests fail loudly if any critical identity/policy boundary is weakened.
 """
 
-import pytest
-from uuid import uuid4, UUID
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from fastapi import status
 
-from sqlalchemy.orm import Session
 
 
 # ============================================================================
@@ -168,7 +164,7 @@ class TestCrossTenantLeakage:
         # Get list of keys in workspace_alpha
         alpha_keys = client.get("/api/v1/api-keys", headers=owner_headers)
         assert alpha_keys.status_code == status.HTTP_200_OK
-        alpha_key_count = len(alpha_keys.json())
+        len(alpha_keys.json())
 
         # Try to revoke a workspace_beta key using workspace_alpha credentials
         other_key_pair, other_key_info = other_workspace_key
@@ -582,7 +578,7 @@ class TestCombinedRegressionScenarios:
         )
         assert rotate_response.status_code == status.HTTP_200_OK
 
-        revoke_response = client.post(
+        client.post(
             f"/api/v1/api-keys/{key_id}/revoke",
             headers=owner_headers,
         )

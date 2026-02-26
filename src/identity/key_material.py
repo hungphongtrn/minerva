@@ -7,7 +7,7 @@ using cryptographically secure methods.
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import NamedTuple, Optional
 
 

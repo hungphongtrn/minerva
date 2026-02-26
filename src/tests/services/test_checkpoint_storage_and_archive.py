@@ -14,7 +14,7 @@ import hashlib
 import json
 from io import BytesIO
 from tarfile import TarFile
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest

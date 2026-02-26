@@ -5,7 +5,7 @@ identity readiness, and checkpoint hydration state persistence.
 """
 
 from datetime import datetime, timedelta
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine

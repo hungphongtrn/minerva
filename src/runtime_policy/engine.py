@@ -5,13 +5,11 @@ All decisions default to deny unless explicitly allowed.
 """
 
 from urllib.parse import urlparse
-from typing import Optional
 
 from src.runtime_policy.models import (
     PolicyDecision,
     EgressPolicy,
     ToolPolicy,
-    SecretScope,
 )
 
 

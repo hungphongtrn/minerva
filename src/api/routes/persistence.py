@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from src.api.dependencies.auth import (
     resolve_principal_or_guest,
     AnyPrincipal,
-    require_scopes,
 )
 from src.db.session import get_db
 from src.db.repositories import (
@@ -30,7 +29,6 @@ from src.db.repositories import (
 )
 from src.db.models import (
     RunSessionState,
-    RuntimeEventType,
     CheckpointState,
     AuditEventCategory,
 )
@@ -556,7 +554,7 @@ async def get_active_checkpoint(
         )
 
     # Get pointer metadata from active_checkpoint record
-    pointer_info = checkpoint_repo.get_active_checkpoint(workspace_id)
+    checkpoint_repo.get_active_checkpoint(workspace_id)
     active_pointer = checkpoint_repo._session.execute(
         __import__("sqlalchemy")
         .select(

@@ -7,17 +7,14 @@ Requirements covered:
 - AUTH-05: Owner/member roles produce different authorization outcomes
 """
 
-import pytest
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
 from src.db.models import User, Workspace, Membership, WorkspaceResource
 from src.identity.service import ApiKeyService
-from src.identity.key_material import KeyPair
 
 
 class TestOwnerMemberDivergence:

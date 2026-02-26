@@ -191,7 +191,7 @@ class DaytonaBaseImagePreflight:
                 # Step 2: Verify sandbox is running
                 try:
                     if verbose:
-                        print(f"Verifying sandbox is running...")
+                        print("Verifying sandbox is running...")
 
                     sandbox = await asyncio.wait_for(
                         daytona.get(sandbox_id),
@@ -214,7 +214,7 @@ class DaytonaBaseImagePreflight:
                 # Step 3: Check identity files (simulated - actual file check requires SDK support)
                 try:
                     if verbose:
-                        print(f"Checking identity files...")
+                        print("Checking identity files...")
 
                     # In production, this would use Daytona SDK file operations
                     # to verify REQUIRED_IDENTITY_FILES exist in the workspace
@@ -239,7 +239,7 @@ class DaytonaBaseImagePreflight:
                 # Step 4: Check gateway readiness
                 try:
                     if verbose:
-                        print(f"Checking gateway readiness...")
+                        print("Checking gateway readiness...")
 
                     gateway_url = self._resolve_gateway_url(sandbox, sandbox_id)
                     checks["gateway"] = {
@@ -307,7 +307,7 @@ class DaytonaBaseImagePreflight:
                                 pass  # Already gone or never created
 
                     if verbose:
-                        print(f"Cleanup complete.")
+                        print("Cleanup complete.")
 
                 except Exception as e:
                     if verbose:
@@ -513,31 +513,31 @@ async def main_async() -> int:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print(f"\n{'=' * 60}")
-        print(f"Daytona Base Image Preflight")
+        print("Daytona Base Image Preflight")
         print(f"{'=' * 60}")
         print(f"Image: {result.image}")
         print(f"Sandbox ID: {result.sandbox_id}")
         print(f"Duration: {result.duration_seconds:.2f}s")
         print(f"{'=' * 60}")
 
-        print(f"\nResults:")
+        print("\nResults:")
         for check_name, check_result in result.checks.items():
             status = check_result.get("status", "unknown")
             icon = "✓" if status == "passed" else "✗"
             print(f"  {icon} {check_name}: {status}")
 
         if result.success:
-            print(f"\n✓ PREFLIGHT PASSED")
-            print(f"  This image is ready for production rollout.")
+            print("\n✓ PREFLIGHT PASSED")
+            print("  This image is ready for production rollout.")
         else:
-            print(f"\n✗ PREFLIGHT FAILED")
+            print("\n✗ PREFLIGHT FAILED")
             if result.errors:
-                print(f"\nErrors:")
+                print("\nErrors:")
                 for error in result.errors:
                     print(f"  - {error}")
 
             if result.remediation:
-                print(f"\nRemediation:")
+                print("\nRemediation:")
                 print(result.remediation)
 
     return 0 if result.success else 1

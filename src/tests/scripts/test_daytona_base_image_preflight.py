@@ -6,8 +6,7 @@ Validates preflight pass/fail, cleanup, and report output.
 import json
 import os
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
-from uuid import UUID
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Import the preflight module
 from src.scripts.daytona_base_image_preflight import (
@@ -16,7 +15,6 @@ from src.scripts.daytona_base_image_preflight import (
     REQUIRED_IDENTITY_FILES,
     REQUIRED_IDENTITY_DIRS,
     create_parser,
-    main,
 )
 
 
@@ -85,7 +83,6 @@ class TestPreflightInitialization:
 
     def test_init_defaults_from_env(self, monkeypatch):
         """Initialize defaults from environment variables."""
-        import os
 
         # Use monkeypatch to set env vars (it handles cleanup automatically)
         monkeypatch.setenv("DAYTONA_API_KEY", "env-key")
@@ -105,7 +102,6 @@ class TestPreflightInitialization:
 
     def test_init_defaults_when_env_empty(self, monkeypatch):
         """Initialize with defaults when env vars not set."""
-        import os
 
         # Clear env vars
         for var in ["DAYTONA_API_KEY", "DAYTONA_API_URL", "DAYTONA_TARGET"]:

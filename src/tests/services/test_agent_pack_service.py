@@ -7,20 +7,18 @@ Covers:
 - Stale detection and revalidation
 """
 
-import json
 import tempfile
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 from src.db.models import (
     Base,
     User,
     Workspace,
-    AgentPack,
     AgentPackValidationStatus,
 )
 from src.services.agent_pack_service import (

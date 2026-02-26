@@ -8,7 +8,6 @@ Tests verify:
 
 import pytest
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -18,7 +17,6 @@ from src.db.models import (
     AgentPack,
     AgentPackValidationStatus,
     Workspace,
-    User,
 )
 from src.services.run_service import RoutingErrorType
 

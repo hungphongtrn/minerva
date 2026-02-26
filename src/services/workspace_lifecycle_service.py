@@ -14,8 +14,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from src.db.models import Workspace, User, SandboxState, SandboxHealthStatus
-from src.db.repositories.workspace_lease_repository import WorkspaceLeaseRepository
+from src.db.models import Workspace
 from src.services.workspace_lease_service import (
     WorkspaceLeaseService,
     LeaseAcquisitionResult,

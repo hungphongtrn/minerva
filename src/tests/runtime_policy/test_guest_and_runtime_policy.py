@@ -5,13 +5,11 @@ SECU-02 (default-deny tool access), and SECU-03 (scoped secrets).
 """
 
 import pytest
-from datetime import datetime, timedelta
 from uuid import uuid4, UUID
-from unittest.mock import MagicMock, patch, Mock
 
 from fastapi import HTTPException, status
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 from src.guest.identity import (
     create_guest_principal,
@@ -21,10 +19,8 @@ from src.guest.identity import (
 from src.api.dependencies.auth import (
     resolve_principal_or_guest,
     require_non_guest,
-    AnyPrincipal,
 )
 from src.runtime_policy.models import (
-    PolicyDecision,
     EgressPolicy,
     ToolPolicy,
     SecretScope,
@@ -32,7 +28,7 @@ from src.runtime_policy.models import (
 from src.runtime_policy.engine import RuntimePolicyEngine
 from src.runtime_policy.enforcer import RuntimeEnforcer
 from src.identity.service import ApiKeyService
-from src.db.models import ApiKey, Base
+from src.db.models import Base
 
 
 # ============================================================================
@@ -248,7 +244,7 @@ class TestRequireNonGuest:
         )
 
         # The check should not raise
-        dependency = require_non_guest()
+        require_non_guest()
         # In real usage this would be called by FastAPI's Depends
         # Here we just verify the principal would pass the check
         assert is_guest_principal(principal) is False

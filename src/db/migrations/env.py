@@ -10,7 +10,6 @@ from src.config.settings import settings
 from src.db.session import Base
 
 # Import models to ensure they're registered with Base.metadata
-from src.db import models
 
 # this is the Alembic Config object
 config = context.config

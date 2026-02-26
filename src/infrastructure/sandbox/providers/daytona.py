@@ -26,7 +26,6 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxIdentityError,
     SandboxInfo,
     SandboxNotFoundError,
-    SandboxProfileError,
     SandboxProviderError,
     SandboxProvisionError,
     SandboxRef,
@@ -246,7 +245,7 @@ class DaytonaSandboxProvider:
                 violation = "missing_tag_or_digest"
 
             raise SandboxImageContractError(
-                message=f"DAYTONA_BASE_IMAGE must use digest-pinned format for production safety",
+                message="DAYTONA_BASE_IMAGE must use digest-pinned format for production safety",
                 image_ref=self._base_image,
                 contract_violation=violation,
                 remediation=(
@@ -291,8 +290,6 @@ class DaytonaSandboxProvider:
         Raises:
             SandboxIdentityError: If verification fails irrecoverably.
         """
-        import os
-        from datetime import datetime
 
         try:
             config = self._create_config()
@@ -764,7 +761,7 @@ class DaytonaSandboxProvider:
                     workspace_id=workspace_id,
                 )
 
-        except DaytonaError as e:
+        except DaytonaError:
             # Fail-closed: SDK errors result in None (no active sandbox)
             return None
         except Exception:

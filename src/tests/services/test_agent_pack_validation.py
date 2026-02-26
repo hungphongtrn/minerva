@@ -7,7 +7,6 @@ Covers:
 - Error and warning classification
 """
 
-import hashlib
 import tempfile
 from pathlib import Path
 
@@ -17,8 +16,6 @@ from src.services.agent_pack_validation import (
     AgentPackValidationService,
     ValidationCode,
     ValidationSeverity,
-    ChecklistEntry,
-    ValidationReport,
 )
 
 

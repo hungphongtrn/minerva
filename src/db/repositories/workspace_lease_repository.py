@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 

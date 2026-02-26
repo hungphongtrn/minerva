@@ -5,7 +5,7 @@ focus on concurrency behavior and fail-closed semantics.
 """
 
 from datetime import datetime, timedelta
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
@@ -16,9 +16,6 @@ from src.db.repositories.workspace_lease_repository import WorkspaceLeaseReposit
 from src.services.workspace_lease_service import (
     WorkspaceLeaseService,
     LeaseResult,
-    LeaseAcquisitionResult,
-    LeaseReleaseResult,
-    LeaseRenewalResult,
 )
 
 
