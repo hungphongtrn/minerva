@@ -11,10 +11,10 @@
 ## Current Position
 
 - **Phase:** 3 of 5 (Persistence and Checkpoint Recovery) - COMPLETE
-- **Plan status:** Phase 3 complete (all 5 plans complete)
-- **Execution status:** Phase goal verified (`passed`, 15/15 must-haves)
+- **Plan status:** Phase 3 complete (all 5 plans + 1 gap closure complete)
+- **Execution status:** Phase goal verified (`passed`, 15/15 must-haves) + UAT gap closed
 - **Progress bar:** [████████████████░░] 80%
-- **Last completed:** Phase 3 verification (persistence/checkpoint recovery goal achieved)
+- **Last completed:** Phase 3 UAT gap closure (gateway_url column added)
 
 ```mermaid
 flowchart LR
@@ -195,6 +195,8 @@ flowchart LR
 | D-03-05-001 | 2026-02-26 | 03-05 | Operator scope check includes `workspace:write` | Test fixtures use this scope; aligns with existing permission model |
 | D-03-05-002 | 2026-02-26 | 03-05 | Use checkpoint.created_at for rollback detection | Simple timestamp comparison; sufficient for Phase 3 restriction |
 | D-03-05-003 | 2026-02-26 | 03-05 | Transaction-scoped audit events | Audit events created in same transaction as operation; rolled back on API error |
+| D-03-UAT-001 | 2026-02-26 | 03-UAT-GAPS | Use nullable VARCHAR(512) for gateway_url column | Safe metadata-only operation in PostgreSQL, no full-table rewrite risk |
+| D-03-UAT-002 | 2026-02-26 | 03-UAT-GAPS | Idempotent migration operations | Check column existence before add/drop prevents errors on re-runs |
 
 ### Roadmap Evolution
 
@@ -238,6 +240,7 @@ flowchart LR
 - [x] Execute Plan 03-03: Wire runtime persistence and checkpoint write paths
 - [x] Execute Plan 03-04: Cold-start restore with deterministic fallback
 - [x] Execute Plan 03-05: Persistence query APIs and pointer security controls
+- [x] Execute Plan 03-UAT-GAPS: Add gateway_url column to sandbox_instances (unblocked 8 UAT tests)
 
 ### Blockers
 
@@ -251,13 +254,13 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03-persistence-and-checkpoint-recovery-VERIFICATION.md` (status: passed, score: 15/15)
-- **Last activity:** 2026-02-26 - Phase 3 verification passed (all must-haves verified; 136 tests passed, 3 skipped)
+- **Last completed artifact:** `03-UAT-GAPS-SUMMARY.md` (status: complete, 8 UAT tests unblocked)
+- **Last activity:** 2026-02-26 - Phase 3 UAT gap closure complete (gateway_url column added to sandbox_instances)
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 4 - Execution Orchestration and Fairness
-- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-persistence-and-checkpoint-recovery-VERIFICATION.md`
-- **Last session:** 2026-02-26 - Phase 3 complete (all plans executed, verification passed)
-- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82, 9ec3276, 7885665, 076567a, cf0d8c2, 4745219, 0dc2408, b025799, 943b149, 167516d, ece44a7, eb77d42, b689edd, b072b16, ce33f23, e9afb70, 78e3013, a218970, 65b5a0a, a5b9232
+- **Recovery note:** If context is lost, resume from `.planning/phases/03-persistence-and-checkpoint-recovery/03-UAT-GAPS-SUMMARY.md`
+- **Last session:** 2026-02-26 - Phase 3 UAT gap closed (all blockers resolved)
+- **Commits:** ad67e4d, ea90b2a, df34dfe, f83ce82, 9ec3276, 7885665, 076567a, cf0d8c2, 4745219, 0dc2408, b025799, 943b149, 167516d, ece44a7, eb77d42, b689edd, b072b16, ce33f23, e9afb70, 78e3013, a218970, 65b5a0a, a5b9232, 2b300ca
 
 ---
 *Initialized: 2026-02-23*
