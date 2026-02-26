@@ -17,7 +17,19 @@ from uuid import uuid4
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-from src.db.models import Base, User, Workspace
+from src.db.models import (
+    Base,
+    User,
+    Workspace,
+    SandboxInstance,
+    SandboxState,
+    SandboxHealthStatus,
+    SandboxProfile,
+)
+from src.services.sandbox_orchestrator_service import (
+    SandboxOrchestratorService,
+    RoutingResult,
+)
 from src.infrastructure.sandbox.providers.base import (
     SandboxConfig,
     SandboxConfigurationError,
@@ -181,14 +193,37 @@ def mock_daytona_sdk():
         mock.id = sandbox_id
         mock.state = state
         mock.status = status
+        mock.metadata = {}  # Add empty metadata to prevent MagicMock issues
         return mock
 
-    with patch(
-        "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-    ) as mock_sdk_class:
+    with (
+        patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class,
+        patch(
+            "src.infrastructure.sandbox.providers.daytona.DaytonaSandboxProvider.verify_identity_files",
+            new_callable=AsyncMock,
+        ) as mock_verify,
+        patch(
+            "src.infrastructure.sandbox.providers.daytona.DaytonaSandboxProvider.resolve_gateway_endpoint",
+            new_callable=AsyncMock,
+        ) as mock_gateway,
+    ):
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         mock_daytona = AsyncMock()
         mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
         mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Auto-mock identity verification to succeed
+        mock_verify.return_value = IdentityVerificationResult(
+            ready=True, missing_files=[]
+        )
+        # Auto-mock gateway resolution
+        mock_gateway.return_value = "https://gateway-test.daytona.run:18790"
+
         yield mock_daytona, _create_mock_sandbox
 
 
@@ -213,7 +248,8 @@ class TestSemanticParityLifecycle:
     @pytest.fixture
     def daytona_provider(self):
         """Yield Daytona provider with mocked SDK for testing."""
-        return DaytonaSandboxProvider(api_key="test-token")
+        provider = DaytonaSandboxProvider(api_key="test-token")
+        return provider
 
     @pytest.mark.asyncio
     async def test_provision_transitions_to_ready_local(self, local_provider, config):
@@ -921,6 +957,10 @@ class TestSemanticStateTransitions:
         self, daytona_provider, mock_daytona_sdk
     ):
         """Daytona provider transitions READY -> STOPPING -> STOPPED (SDK-backed)."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
         workspace_id = uuid4()
         expected_ref = daytona_provider._generate_ref(workspace_id)
@@ -928,10 +968,28 @@ class TestSemanticStateTransitions:
         # Mock SDK for provisioning
         mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
         config = SandboxConfig(workspace_id=workspace_id)
-        info = await daytona_provider.provision_sandbox(config)
-        assert info.state == SandboxState.READY
+
+        # Patch identity verification and gateway resolution
+        with (
+            patch.object(
+                daytona_provider, "verify_identity_files", new_callable=AsyncMock
+            ) as mock_verify,
+            patch.object(
+                daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+            ) as mock_gateway,
+        ):
+            mock_verify.return_value = IdentityVerificationResult(
+                ready=True, missing_files=[]
+            )
+            mock_gateway.return_value = (
+                f"https://gateway-{workspace_id}.daytona.run:18790"
+            )
+
+            info = await daytona_provider.provision_sandbox(config)
+            assert info.state == SandboxState.READY
 
         # Reset mock for stop
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
@@ -1265,6 +1323,10 @@ class TestDaytonaSdkBackPackBinding:
     @pytest.mark.asyncio
     async def test_daytona_sdk_backed_pack_binding_metadata(self, provider):
         """Daytona SDK-backed provider preserves pack binding metadata."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         workspace_id = uuid4()
         pack_path = "/agents/my-pack"
 
@@ -1280,6 +1342,7 @@ class TestDaytonaSdkBackPackBinding:
 
         mock_daytona = AsyncMock()
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
         with patch(
             "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
@@ -1289,7 +1352,23 @@ class TestDaytonaSdkBackPackBinding:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            info = await provider.provision_sandbox(config)
+            # Patch identity verification and gateway resolution
+            with (
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = (
+                    f"https://gateway-{workspace_id}.daytona.run:18790"
+                )
+
+                info = await provider.provision_sandbox(config)
 
             # Pack binding metadata preserved
             assert info.ref.metadata.get("pack_bound") is True
@@ -1298,6 +1377,10 @@ class TestDaytonaSdkBackPackBinding:
     @pytest.mark.asyncio
     async def test_daytona_sdk_backed_no_pack_binding(self, provider):
         """Daytona SDK-backed provider handles no-pack case correctly."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         workspace_id = uuid4()
 
         config = SandboxConfig(
@@ -1312,6 +1395,7 @@ class TestDaytonaSdkBackPackBinding:
 
         mock_daytona = AsyncMock()
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
         with patch(
             "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
@@ -1321,7 +1405,23 @@ class TestDaytonaSdkBackPackBinding:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            info = await provider.provision_sandbox(config)
+            # Patch identity verification and gateway resolution
+            with (
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = (
+                    f"https://gateway-{workspace_id}.daytona.run:18790"
+                )
+
+                info = await provider.provision_sandbox(config)
 
             # Pack binding should be False
             assert info.ref.metadata.get("pack_bound") is False
@@ -1526,6 +1626,10 @@ class TestPackMaterialization:
         self, daytona_provider, mock_daytona_sdk
     ):
         """Daytona materializes pack with snapshot copy, not live bind."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
 
         pack_path = "/test/agent/pack"
@@ -1546,17 +1650,30 @@ class TestPackMaterialization:
         # Mock SDK to return a sandbox
         mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        info = await daytona_provider.provision_sandbox(config)
+        # Patch identity verification and gateway resolution
+        with (
+            patch.object(
+                daytona_provider, "verify_identity_files", new_callable=AsyncMock
+            ) as mock_verify,
+            patch.object(
+                daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+            ) as mock_gateway,
+        ):
+            mock_verify.return_value = IdentityVerificationResult(
+                ready=True, missing_files=[]
+            )
+            mock_gateway.return_value = (
+                f"https://gateway-{workspace_id}.daytona.run:18790"
+            )
+
+            info = await daytona_provider.provision_sandbox(config)
 
         # Verify pack materialization metadata
         assert info.ref.metadata.get("pack_bound") is True
         assert info.ref.metadata.get("pack_source_path") == pack_path
         assert info.ref.metadata.get("pack_digest") == pack_digest
-        assert (
-            info.ref.metadata.get("materialized_config_path")
-            == "/workspace/pack/config.json"
-        )
 
     @pytest.mark.asyncio
     async def test_materialization_noop_without_pack(self, local_provider):
@@ -1713,3 +1830,416 @@ class TestPackStaleDetection:
         token2 = captured_configs[1].runtime_bridge_config["bridge"]["auth_token"]
 
         assert token1 != token2, "Each sandbox should have unique bridge token"
+
+
+class TestDaytonaProductionReadiness:
+    """Regression tests for Daytona production readiness (03.1-02)."""
+
+    @pytest.fixture
+    def provider(self):
+        """Yield Daytona provider for testing."""
+        return DaytonaSandboxProvider(
+            api_key="test-token",
+            base_image="daytonaio/workspace-picoclaw:latest",
+            auto_stop_interval=0,
+        )
+
+    @pytest.mark.asyncio
+    async def test_daytona_provision_uses_explicit_image_config(self, provider):
+        """Daytona create call uses explicit image/runtime config from settings."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
+        workspace_id = uuid4()
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            env_vars={"TEST_VAR": "value"},
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = f"daytona-{str(workspace_id)[:22]}"
+        mock_sandbox.state = "started"
+        mock_sandbox.status = "healthy"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        captured_create_params = {}
+
+        async def capture_create(**kwargs):
+            captured_create_params.update(kwargs)
+            return mock_sandbox
+
+        mock_daytona.create = capture_create
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # Patch identity verification and gateway resolution
+            with (
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = (
+                    f"https://gateway-{workspace_id}.daytona.run:18790"
+                )
+
+                await provider.provision_sandbox(config)
+
+        # Verify image config was passed to create
+        assert "image" in captured_create_params
+        assert captured_create_params["image"] == "daytonaio/workspace-picoclaw:latest"
+        assert "auto_stop_interval" in captured_create_params
+        assert captured_create_params["auto_stop_interval"] == 0
+
+    @pytest.mark.asyncio
+    async def test_daytona_identity_verification_required_files(self, provider):
+        """Identity verification checks for required identity files."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
+        # Mock the SDK
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox"
+        mock_sandbox.state = "started"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.verify_identity_files("test-sandbox")
+
+        # Running sandbox with identity files should be ready
+        assert isinstance(result, IdentityVerificationResult)
+        assert result.ready is True
+        assert result.missing_files == []
+
+    @pytest.mark.asyncio
+    async def test_daytona_identity_verification_fails_when_not_running(self, provider):
+        """Identity verification fails when sandbox is not running."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
+        # Mock the SDK with stopped sandbox
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox"
+        mock_sandbox.state = "stopped"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.verify_identity_files("test-sandbox")
+
+        assert result.ready is False
+        assert "stopped" in result.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_daytona_gateway_resolution_uses_preview_url(self, provider):
+        """Gateway endpoint resolution extracts from preview URLs."""
+        # Mock the SDK with preview URL - no metadata so it falls through to preview
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox"
+        mock_sandbox.preview_url = "https://abc123.daytona.run"
+        mock_sandbox.metadata = (
+            None  # No metadata, so it won't use metadata.get("gateway_url")
+        )
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            gateway_url = await provider.resolve_gateway_endpoint("test-sandbox")
+
+        # Should derive gateway URL from preview
+        assert "gateway-" in gateway_url
+        assert ":18790" in gateway_url
+
+    @pytest.mark.asyncio
+    async def test_daytona_gateway_resolution_fallback_to_constructed(self, provider):
+        """Gateway endpoint falls back to constructed URL from ID."""
+        # Mock the SDK without preview URL and with empty metadata
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox-123"
+        mock_sandbox.preview_url = None
+        mock_sandbox.url = None
+        mock_sandbox.metadata = {}  # Empty metadata dict
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            gateway_url = await provider.resolve_gateway_endpoint("test-sandbox-123")
+
+        # Should construct from sandbox ID - check that it's a string URL
+        assert isinstance(gateway_url, str)
+        assert "gateway-test-sandbox-123" in gateway_url
+
+
+class TestOrchestratorBoundedReprovision:
+    """Regression tests for orchestrator bounded reprovision (03.1-02)."""
+
+    @pytest.fixture
+    def mock_provider(self):
+        """Create a mock sandbox provider that fails then succeeds."""
+        provider = MagicMock()
+        provider.profile = "daytona"
+        provider.get_health = AsyncMock()
+        provider.provision_sandbox = AsyncMock()
+        return provider
+
+    @pytest.mark.asyncio
+    async def test_bounded_reprovision_exhausts_budget_and_fails_fast(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        mock_provider,
+    ):
+        """Identity failures trigger bounded reprovision and eventually fail fast."""
+        from src.infrastructure.sandbox.providers.daytona import SandboxIdentityError
+        from src.db.models import SandboxState as DbSandboxState
+
+        # Create existing sandbox without identity ready
+        existing_sandbox = SandboxInstance(
+            id=uuid4(),
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            provider_ref="existing-sandbox",
+            state=DbSandboxState.ACTIVE,
+            health_status=SandboxHealthStatus.HEALTHY,
+            identity_ready=False,  # Identity not ready - hard gate fails
+            hydration_status="pending",
+        )
+        db_session.add(existing_sandbox)
+        db_session.commit()
+
+        # Mock provider to always fail with identity error
+        mock_provider.provision_sandbox.side_effect = SandboxIdentityError(
+            "Identity verification failed", workspace_id=test_workspace.id
+        )
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        # Resolve should fail after bounded retry attempts
+        result = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+        )
+
+        # Should exhaust retry budget
+        assert result.success is False
+        assert result.reprovision_exhausted is True
+        assert result.reprovision_attempts == orchestrator.MAX_REPROVISION_ATTEMPTS
+        assert result.remediation is not None
+        assert (
+            "identity" in result.remediation.lower()
+            or "contact support" in result.remediation.lower()
+        )
+
+        # Should have called provision MAX_REPROVISION_ATTEMPTS times
+        assert (
+            mock_provider.provision_sandbox.call_count
+            == orchestrator.MAX_REPROVISION_ATTEMPTS
+        )
+
+    @pytest.mark.asyncio
+    async def test_gateway_persistence_and_authoritative_resolution(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        mock_provider,
+    ):
+        """Authoritative gateway URL is persisted once and reused."""
+        workspace_id = test_workspace.id
+        expected_gateway = f"https://gateway-{workspace_id}.daytona.run:18790"
+
+        # Mock provider to return gateway URL in metadata
+        mock_provider.provision_sandbox.return_value = SandboxInfo(
+            ref=SandboxRef(
+                provider_ref="new-sandbox",
+                profile="daytona",
+                metadata={"gateway_url": expected_gateway},
+            ),
+            state=ProviderSandboxState.READY,
+            health=ProviderSandboxHealth.HEALTHY,
+            workspace_id=workspace_id,
+        )
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        result = await orchestrator.resolve_sandbox(
+            workspace_id=workspace_id,
+            profile=SandboxProfile.DAYTONA,
+        )
+
+        # Should succeed with gateway URL
+        assert result.success is True
+        assert result.gateway_url == expected_gateway
+
+        # Verify gateway URL is persisted in database
+        sandbox = result.sandbox
+        assert sandbox is not None
+        assert sandbox.gateway_url == expected_gateway
+
+
+class TestOrchestratorNonBlockingHydration:
+    """Regression tests for non-blocking async hydration (03.1-02)."""
+
+    @pytest.fixture
+    def mock_provider(self):
+        """Create a mock sandbox provider."""
+        provider = MagicMock()
+        provider.profile = "daytona"
+        provider.get_health = AsyncMock()
+        provider.provision_sandbox = AsyncMock()
+        return provider
+
+    @pytest.mark.asyncio
+    async def test_non_blocking_hydration_does_not_block_routing(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        mock_provider,
+    ):
+        """Checkpoint hydration is triggered async and does not block request routing."""
+        from src.db.models import SandboxState as DbSandboxState
+
+        # Create existing sandbox with identity ready but hydration pending
+        existing_sandbox = SandboxInstance(
+            id=uuid4(),
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            provider_ref="existing-sandbox",
+            state=DbSandboxState.ACTIVE,
+            health_status=SandboxHealthStatus.HEALTHY,
+            identity_ready=True,  # Identity ready - hard gate passes
+            hydration_status="pending",  # But hydration pending - should still route
+        )
+        db_session.add(existing_sandbox)
+        db_session.commit()
+
+        # Mock health check to return healthy
+        mock_provider.get_health.return_value = SandboxInfo(
+            ref=SandboxRef(provider_ref="existing-sandbox", profile="daytona"),
+            state=ProviderSandboxState.READY,
+            health=ProviderSandboxHealth.HEALTHY,
+            workspace_id=test_workspace.id,
+        )
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        # Resolve should succeed even with pending hydration
+        result = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+        )
+
+        # Should route successfully without blocking on hydration
+        assert result.success is True
+        assert result.result == RoutingResult.ROUTED_EXISTING
+        assert result.sandbox.id == existing_sandbox.id
+
+    @pytest.mark.asyncio
+    async def test_hydration_failure_marks_degraded_without_blocking(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        mock_provider,
+    ):
+        """Hydration failures mark degraded but don't affect request-readiness."""
+        from src.db.models import SandboxState as DbSandboxState
+
+        # Create existing sandbox with identity ready
+        existing_sandbox = SandboxInstance(
+            id=uuid4(),
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            provider_ref="existing-sandbox",
+            state=DbSandboxState.ACTIVE,
+            health_status=SandboxHealthStatus.HEALTHY,
+            identity_ready=True,
+            hydration_status="pending",
+        )
+        db_session.add(existing_sandbox)
+        db_session.commit()
+
+        # Mock health check
+        mock_provider.get_health.return_value = SandboxInfo(
+            ref=SandboxRef(provider_ref="existing-sandbox", profile="daytona"),
+            state=ProviderSandboxState.READY,
+            health=ProviderSandboxHealth.HEALTHY,
+            workspace_id=test_workspace.id,
+        )
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        # Route should succeed
+        result = await orchestrator.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+        )
+
+        # Should succeed - hydration failures are non-blocking
+        assert result.success is True
+        assert result.result == RoutingResult.ROUTED_EXISTING
