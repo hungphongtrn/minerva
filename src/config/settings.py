@@ -58,6 +58,21 @@ class Settings(BaseSettings):
     DAYTONA_TARGET_REGION: str = "us"
     """Deprecated: Use DAYTONA_TARGET instead. Backward compatibility."""
 
+    # Daytona Image Configuration (for production registry images)
+    DAYTONA_BASE_IMAGE: str = "daytonaio/workspace-picoclaw:latest"
+    """Base Docker image for Daytona sandboxes (default: daytonaio/workspace-picoclaw:latest).
+    
+    In production, this should point to a Picoclaw-specific image with
+    identity files (AGENT.md, SOUL.md, IDENTITY.md) and skills/ pre-installed.
+    """
+
+    DAYTONA_AUTO_STOP_INTERVAL: int = 0
+    """Auto-stop interval in seconds (default: 0).
+    
+    0 disables auto-stop for runtime continuity. Set to positive value
+    for automatic cleanup after inactivity (minimum: 60 seconds).
+    """
+
     # Picoclaw Bridge Configuration
     PICOCLAW_BRIDGE_TOKEN: str = ""
     """Bearer token for Picoclaw gateway authentication.

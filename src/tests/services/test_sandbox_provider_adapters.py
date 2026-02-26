@@ -239,6 +239,10 @@ class TestSemanticParityLifecycle:
         self, daytona_provider, config, mock_daytona_sdk
     ):
         """Daytona provider transitions from HYDRATING to READY (SDK-backed)."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
 
         # Start with fresh config
@@ -255,9 +259,26 @@ class TestSemanticParityLifecycle:
             status="healthy",
         )
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        # Provision
-        info = await daytona_provider.provision_sandbox(test_config)
+        # Patch identity verification and gateway resolution
+        with (
+            patch.object(
+                daytona_provider, "verify_identity_files", new_callable=AsyncMock
+            ) as mock_verify,
+            patch.object(
+                daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+            ) as mock_gateway,
+        ):
+            mock_verify.return_value = IdentityVerificationResult(
+                ready=True, missing_files=[]
+            )
+            mock_gateway.return_value = (
+                f"https://gateway-{test_config.workspace_id}.daytona.run:18790"
+            )
+
+            # Provision
+            info = await daytona_provider.provision_sandbox(test_config)
 
         # Verify semantic state
         assert info.state == SandboxState.READY
@@ -956,7 +977,11 @@ class TestDaytonaSdkBackedProvider:
 
     @pytest.mark.asyncio
     async def test_daytona_provision_uses_sdk(self, provider):
-        """Daytona provision_sandbox uses SDK create method."""
+        """Daytona provision_sandbox uses SDK create method with image-first config."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         workspace_id = uuid4()
         config = SandboxConfig(
             workspace_id=workspace_id,
@@ -971,6 +996,7 @@ class TestDaytonaSdkBackedProvider:
 
         mock_daytona = AsyncMock()
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
         with patch(
             "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
@@ -980,7 +1006,23 @@ class TestDaytonaSdkBackedProvider:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            result = await provider.provision_sandbox(config)
+            # Patch identity verification and gateway resolution
+            with (
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = (
+                    f"https://gateway-{workspace_id}.daytona.run:18790"
+                )
+
+                result = await provider.provision_sandbox(config)
 
             # Verify SDK create was called
             mock_daytona.create.assert_called_once()
