@@ -29,16 +29,17 @@ class TestPhase3SchemaBootstrap:
         dialect = db_session.bind.dialect.name if db_session.bind else "unknown"
         return dialect == "postgresql"
 
-    def test_migration_chain_includes_revision_0004(self):
-        """Verify migration chain includes Phase 3 persistence revision."""
+    def test_migration_chain_includes_revision_0004_or_0005(self):
+        """Verify migration chain includes Phase 3 persistence revision (0004 or later)."""
         result = subprocess.run(
             ["uv", "run", "alembic", "current"],
             capture_output=True,
             text=True,
         )
 
-        assert "0004" in result.stdout, (
-            f"Expected revision 0004 in current migration. "
+        # Migration 0005 depends on 0004, so being at 0005 means 0004 is in the chain
+        assert "0004" in result.stdout or "0005" in result.stdout, (
+            f"Expected revision 0004 or 0005 in current migration. "
             f"stdout: {result.stdout}, stderr: {result.stderr}"
         )
 

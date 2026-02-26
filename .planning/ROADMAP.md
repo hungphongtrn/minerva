@@ -125,7 +125,7 @@ To be added during planning.
 4. Cold-start restore hydrates a workspace from its latest checkpoint and resumes expected state.
 5. Audit events are append-only and immutable once recorded.
 
-**Plans:** 5 plans
+**Plans:** 6 plans (5 + 1 gap closure)
 
 Plans:
 - [x] 03-01-PLAN.md — Add Phase 3 persistence schema and immutable audit enforcement.
@@ -133,6 +133,7 @@ Plans:
 - [x] 03-03-PLAN.md — Wire run/session/event persistence and milestone checkpoint writes.
 - [x] 03-04-PLAN.md — Implement cold-start restore with fallback and queued/restoring handling.
 - [x] 03-05-PLAN.md — Expose persistence/query APIs and operator pointer-control security checks.
+- [x] 03-UAT-GAPS-PLAN.md — Close UAT blocker: add gateway_url column to sandbox_instances.
 
 ### Phase 4 - Execution Orchestration and Fairness
 
