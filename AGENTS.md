@@ -5,6 +5,8 @@
 - All new implementations must be inside src/.
 - Database migration must be done via ORM instead of raw SQL command.
 - For Daytona integration, always use the Python Async SDK here https://www.daytona.io/docs/en/python-sdk/async/async-daytona/
+- Always avoid reinventing the wheel: prefer proven platform/native capabilities (for example Daytona registry images, volumes, snapshots) before building custom equivalents.
+- For discuss-phase workflows, explain brief context first, then ask exactly one question at a time; wait for the answer before asking the next question.
 
 ## Picoclaw Runtime Invariants
 
