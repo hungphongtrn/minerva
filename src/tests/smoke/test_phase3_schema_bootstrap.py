@@ -326,21 +326,23 @@ class TestPhase3AuditImmutability:
     def test_audit_events_insert_succeeds(self, db_session: Session):
         """Verify audit events can be inserted."""
         from uuid import uuid4
+        from datetime import datetime, timezone
 
-        # Insert a test audit event
-        audit_id = uuid4()
+        # Insert a test audit event using database-agnostic datetime
+        audit_id = str(uuid4())
+        occurred_at = datetime.now(timezone.utc)
         db_session.execute(
             text("""
             INSERT INTO audit_events (
                 id, category, resource_type, resource_id, action, outcome,
-                actor_id, actor_type, payload_json, reason, occurred_at, immutable
+                actor_id, actor_type, payload_json, reason, occurred_at, immutable, created_at
             ) VALUES (
                 :id, 'system_operation', 'workspace', 'test-workspace-123',
                 'test_action', 'success', 'test-actor', 'user',
-                '{"test": true}', 'Test audit event', NOW(), true
+                '{"test": true}', 'Test audit event', :occurred_at, true, :created_at
             )
         """),
-            {"id": audit_id},
+            {"id": audit_id, "occurred_at": occurred_at, "created_at": occurred_at},
         )
         db_session.commit()
 
@@ -357,20 +359,22 @@ class TestPhase3AuditImmutability:
             pytest.skip("PostgreSQL-specific test - SQLite doesn't support triggers")
 
         from uuid import uuid4
+        from datetime import datetime, timezone
 
         # Insert a test audit event
-        audit_id = uuid4()
+        audit_id = str(uuid4())
+        occurred_at = datetime.now(timezone.utc)
         db_session.execute(
             text("""
             INSERT INTO audit_events (
                 id, category, resource_type, resource_id, action, outcome,
-                actor_id, actor_type, occurred_at, immutable
+                actor_id, actor_type, occurred_at, immutable, created_at
             ) VALUES (
                 :id, 'system_operation', 'workspace', 'test-workspace-456',
-                'test_action', 'success', 'test-actor', 'user', NOW(), true
+                'test_action', 'success', 'test-actor', 'user', :occurred_at, true, :created_at
             )
         """),
-            {"id": audit_id},
+            {"id": audit_id, "occurred_at": occurred_at, "created_at": occurred_at},
         )
         db_session.commit()
 
@@ -394,20 +398,22 @@ class TestPhase3AuditImmutability:
             pytest.skip("PostgreSQL-specific test - SQLite doesn't support triggers")
 
         from uuid import uuid4
+        from datetime import datetime, timezone
 
         # Insert a test audit event
-        audit_id = uuid4()
+        audit_id = str(uuid4())
+        occurred_at = datetime.now(timezone.utc)
         db_session.execute(
             text("""
             INSERT INTO audit_events (
                 id, category, resource_type, resource_id, action, outcome,
-                actor_id, actor_type, occurred_at, immutable
+                actor_id, actor_type, occurred_at, immutable, created_at
             ) VALUES (
                 :id, 'system_operation', 'workspace', 'test-workspace-789',
-                'test_action', 'success', 'test-actor', 'user', NOW(), true
+                'test_action', 'success', 'test-actor', 'user', :occurred_at, true, :created_at
             )
         """),
-            {"id": audit_id},
+            {"id": audit_id, "occurred_at": occurred_at, "created_at": occurred_at},
         )
         db_session.commit()
 
