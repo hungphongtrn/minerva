@@ -1,7 +1,7 @@
 """Tests for sandbox orchestrator service and routing behavior.
 
 Tests health-aware routing, unhealthy exclusion, idle TTL enforcement,
-and configurable TTL behavior.
+configurable TTL behavior, and per-user sandbox routing keyed by external_user_id.
 """
 
 from datetime import datetime, timedelta
@@ -779,3 +779,233 @@ class TestSandboxActivityTracking:
 
         assert updated is not None
         assert updated.last_activity_at > old_activity
+
+
+class TestPerUserSandboxRouting:
+    """Tests for per-user sandbox routing keyed by external_user_id."""
+
+    @pytest.mark.asyncio
+    async def test_route_to_correct_user_sandbox_when_multiple_users_in_same_workspace(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that routing selects the sandbox matching the external_user_id."""
+        from src.db.repositories.sandbox_instance_repository import (
+            SandboxInstanceRepository,
+        )
+
+        # Create two active healthy sandboxes for different users in same workspace
+        repo = SandboxInstanceRepository(db_session)
+
+        sandbox_user_a = repo.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.LOCAL_COMPOSE,
+            external_user_id="user-a",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_a.state = SandboxState.ACTIVE
+        sandbox_user_a.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_user_a.identity_ready = True
+        sandbox_user_a.provider_ref = "sandbox-user-a"
+
+        sandbox_user_b = repo.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.LOCAL_COMPOSE,
+            external_user_id="user-b",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_b.state = SandboxState.ACTIVE
+        sandbox_user_b.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_user_b.identity_ready = True
+        sandbox_user_b.provider_ref = "sandbox-user-b"
+
+        db_session.commit()
+
+        # Mock provider to return healthy for both
+        async def mock_get_health(ref):
+            return SandboxInfo(
+                ref=ref,
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.get_health.side_effect = mock_get_health
+
+        # Act - route for user-a
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            external_user_id="user-a",
+        )
+
+        # Assert - should route to user-a's sandbox
+        assert result.success is True
+        assert result.sandbox is not None
+        assert result.sandbox.id == sandbox_user_a.id
+        assert result.sandbox.external_user_id == "user-a"
+
+        # Verify user-b's sandbox was NOT selected
+        assert result.sandbox.id != sandbox_user_b.id
+
+    @pytest.mark.asyncio
+    async def test_provision_includes_external_user_id_in_provider_config(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that provisioning passes external_user_id through SandboxConfig."""
+        from src.infrastructure.sandbox.providers.base import SandboxConfig
+
+        # Capture the config passed to provider
+        captured_config: SandboxConfig | None = None
+
+        async def capture_provision(config):
+            nonlocal captured_config
+            captured_config = config
+            return SandboxInfo(
+                ref=SandboxRef(provider_ref="new-sandbox", profile="local_compose"),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.provision_sandbox.side_effect = capture_provision
+
+        # Act - resolve with no existing sandboxes, providing external_user_id
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            external_user_id="user-a",
+        )
+
+        # Assert - provisioning happened with correct external_user_id
+        assert result.success is True
+        assert result.result == RoutingResult.PROVISIONED_NEW
+        assert captured_config is not None
+        assert captured_config.external_user_id == "user-a"
+
+    @pytest.mark.asyncio
+    async def test_route_to_sandbox_without_external_user_id_for_api_key_principal(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that routing without external_user_id finds sandboxes with NULL external_user_id."""
+        from src.db.repositories.sandbox_instance_repository import (
+            SandboxInstanceRepository,
+        )
+
+        repo = SandboxInstanceRepository(db_session)
+
+        # Create sandbox without external_user_id (API-key based)
+        sandbox_api = repo.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.LOCAL_COMPOSE,
+            external_user_id=None,
+            idle_ttl_seconds=3600,
+        )
+        sandbox_api.state = SandboxState.ACTIVE
+        sandbox_api.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_api.identity_ready = True
+        sandbox_api.provider_ref = "sandbox-api"
+
+        db_session.commit()
+
+        # Mock provider
+        mock_provider.get_health.return_value = SandboxInfo(
+            ref=SandboxRef(provider_ref="sandbox-api", profile="local_compose"),
+            state=ProviderSandboxState.READY,
+            health=ProviderSandboxHealth.HEALTHY,
+            workspace_id=test_workspace.id,
+        )
+
+        # Act - route without external_user_id (backwards compatibility)
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+        )
+
+        # Assert - should route to the API-key sandbox
+        assert result.success is True
+        assert result.sandbox is not None
+        assert result.sandbox.id == sandbox_api.id
+        assert result.sandbox.external_user_id is None
+
+    @pytest.mark.asyncio
+    async def test_provision_new_sandbox_for_new_user_no_existing(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that a new user gets a new sandbox provisioned."""
+        from src.infrastructure.sandbox.providers.base import SandboxConfig
+
+        captured_config: SandboxConfig | None = None
+
+        async def capture_provision(config):
+            nonlocal captured_config
+            captured_config = config
+            return SandboxInfo(
+                ref=SandboxRef(provider_ref="new-sandbox", profile="local_compose"),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+
+        mock_provider.provision_sandbox.side_effect = capture_provision
+
+        # Act - resolve for a user with no existing sandboxes
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            external_user_id="new-user",
+        )
+
+        # Assert - new sandbox provisioned with correct external_user_id
+        assert result.success is True
+        assert result.result == RoutingResult.PROVISIONED_NEW
+        assert captured_config is not None
+        assert captured_config.external_user_id == "new-user"
+
+    @pytest.mark.asyncio
+    async def test_external_user_id_persisted_to_database(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """Test that external_user_id is persisted to the SandboxInstance record."""
+        from src.db.repositories.sandbox_instance_repository import (
+            SandboxInstanceRepository,
+        )
+
+        mock_provider.provision_sandbox.return_value = SandboxInfo(
+            ref=SandboxRef(provider_ref="test-sandbox", profile="local_compose"),
+            state=ProviderSandboxState.READY,
+            health=ProviderSandboxHealth.HEALTHY,
+            workspace_id=test_workspace.id,
+        )
+
+        # Act - provision for a specific user
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            external_user_id="test-user-123",
+        )
+
+        # Assert
+        assert result.success is True
+        assert result.sandbox is not None
+
+        # Verify persistence by fetching from DB
+        repo = SandboxInstanceRepository(db_session)
+        persisted = repo.get_by_id(result.sandbox.id)
+
+        assert persisted is not None
+        assert persisted.external_user_id == "test-user-123"

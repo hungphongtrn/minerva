@@ -1,7 +1,8 @@
 """Tests for sandbox instance repository.
 
 Tests bridge token rotation with grace overlap, gateway URL authority,
-identity readiness, and checkpoint hydration state persistence.
+identity readiness, checkpoint hydration state persistence, and
+external_user_id persistence for per-user sandbox routing.
 """
 
 from datetime import datetime, timedelta
@@ -738,3 +739,185 @@ class TestHydrationPersistence:
         # Assert - token preserved
         assert result is not None
         assert result.bridge_auth_token == "persistent-token-123"
+
+
+class TestExternalUserIdPersistence:
+    """Tests for external_user_id persistence and filtering in per-user sandbox routing."""
+
+    def test_create_persists_external_user_id(
+        self,
+        repository: SandboxInstanceRepository,
+        test_workspace: Workspace,
+        db_session: Session,
+    ):
+        """Test that create persists external_user_id on the SandboxInstance row."""
+        # Act
+        sandbox = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id="user-123",
+            idle_ttl_seconds=3600,
+        )
+        db_session.commit()
+
+        # Assert
+        assert sandbox is not None
+        assert sandbox.external_user_id == "user-123"
+
+        # Verify persistence via fetch
+        result = repository.get_by_id(sandbox.id)
+        assert result is not None
+        assert result.external_user_id == "user-123"
+
+    def test_list_active_healthy_filters_by_external_user_id(
+        self,
+        repository: SandboxInstanceRepository,
+        test_workspace: Workspace,
+        db_session: Session,
+    ):
+        """Test that list_active_healthy_by_workspace returns only sandboxes for the specified external_user_id."""
+        # Arrange - create sandboxes for two users in the same workspace
+        sandbox_user_a = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id="user-a",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_a.state = SandboxState.ACTIVE
+        sandbox_user_a.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_user_a.identity_ready = True
+
+        sandbox_user_b = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id="user-b",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_b.state = SandboxState.ACTIVE
+        sandbox_user_b.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_user_b.identity_ready = True
+
+        # Create a sandbox without external_user_id (e.g., API-key based)
+        sandbox_no_user = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id=None,
+            idle_ttl_seconds=3600,
+        )
+        sandbox_no_user.state = SandboxState.ACTIVE
+        sandbox_no_user.health_status = SandboxHealthStatus.HEALTHY
+        sandbox_no_user.identity_ready = True
+
+        db_session.commit()
+
+        # Act - query for user-a
+        results_user_a = repository.list_active_healthy_by_workspace(
+            workspace_id=test_workspace.id,
+            external_user_id="user-a",
+        )
+
+        # Assert - should only return sandbox for user-a
+        assert len(results_user_a) == 1
+        assert results_user_a[0].id == sandbox_user_a.id
+        assert results_user_a[0].external_user_id == "user-a"
+
+        # Act - query for user-b
+        results_user_b = repository.list_active_healthy_by_workspace(
+            workspace_id=test_workspace.id,
+            external_user_id="user-b",
+        )
+
+        # Assert - should only return sandbox for user-b
+        assert len(results_user_b) == 1
+        assert results_user_b[0].id == sandbox_user_b.id
+
+        # Act - query without external_user_id filter (backwards compatibility)
+        results_all = repository.list_active_healthy_by_workspace(
+            workspace_id=test_workspace.id,
+        )
+
+        # Assert - should return all active healthy sandboxes
+        assert len(results_all) == 3
+
+    def test_list_by_workspace_filters_by_external_user_id(
+        self,
+        repository: SandboxInstanceRepository,
+        test_workspace: Workspace,
+        db_session: Session,
+    ):
+        """Test that list_by_workspace filters by external_user_id when provided."""
+        # Arrange
+        sandbox_user_a = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id="user-a",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_a.state = SandboxState.ACTIVE
+
+        sandbox_user_b = repository.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.DAYTONA,
+            external_user_id="user-b",
+            idle_ttl_seconds=3600,
+        )
+        sandbox_user_b.state = SandboxState.ACTIVE
+
+        db_session.commit()
+
+        # Act - query for user-a
+        results_user_a = repository.list_by_workspace(
+            workspace_id=test_workspace.id,
+            external_user_id="user-a",
+        )
+
+        # Assert
+        assert len(results_user_a) == 1
+        assert results_user_a[0].external_user_id == "user-a"
+
+        # Act - query without filter
+        results_all = repository.list_by_workspace(
+            workspace_id=test_workspace.id,
+        )
+
+        # Assert - should return all
+        assert len(results_all) == 2
+
+    def test_list_active_healthy_excludes_other_users_same_workspace(
+        self,
+        repository: SandboxInstanceRepository,
+        test_workspace: Workspace,
+        db_session: Session,
+    ):
+        """Test that query excludes sandboxes belonging to other users in the same workspace."""
+        # Arrange - multiple users in same workspace
+        for user_id in ["alice", "bob", "charlie"]:
+            sandbox = repository.create(
+                workspace_id=test_workspace.id,
+                profile=SandboxProfile.DAYTONA,
+                external_user_id=user_id,
+                idle_ttl_seconds=3600,
+            )
+            sandbox.state = SandboxState.ACTIVE
+            sandbox.health_status = SandboxHealthStatus.HEALTHY
+            sandbox.identity_ready = True
+
+        db_session.commit()
+
+        # Act - query for only alice
+        results = repository.list_active_healthy_by_workspace(
+            workspace_id=test_workspace.id,
+            external_user_id="alice",
+        )
+
+        # Assert - only alice's sandbox returned
+        assert len(results) == 1
+        assert results[0].external_user_id == "alice"
+
+        # Verify bob and charlie are excluded
+        bob_results = repository.list_active_healthy_by_workspace(
+            workspace_id=test_workspace.id,
+            external_user_id="bob",
+        )
+        assert len(bob_results) == 1
+        assert bob_results[0].external_user_id == "bob"
