@@ -16,9 +16,9 @@ See: .planning/PROJECT.md
 ### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
 
 - [x] Plan 01: External Identity Infrastructure
-  - Commits: 8323c0a
-  - Duration: TBD
-  - Artifacts: ExternalIdentity model, settings, Alembic migration
+  - Commits: 8323c0a, b3c0bf3
+  - Duration: 5 min
+  - Artifacts: ExternalIdentity model, settings, Alembic migration, rewritten identity resolution, preflight workspace validation
 
 - [x] Plan 02: Mount Isolation and Per-User Routing
   - Commits: be91323, 30ec425
@@ -56,6 +56,10 @@ See: .planning/PROJECT.md
 8. **03.3-02**: Symlink identity files using `ln -sf` for re-provisioning support
 9. **03.3-02**: Hash external_user_id with SHA-256 for deterministic 10-char sandbox ref suffix
 10. **03.3-02**: Identity verification checks workspace path to confirm symlinks work end-to-end
+11. **03.3-01**: End-users NEVER create rows in the developer `users` table (security invariant)
+12. **03.3-01**: All end-users resolve to the developer's workspace via MINERVA_WORKSPACE_ID
+13. **03.3-01**: Workspace-scoped uniqueness via composite key (workspace_id, external_user_id)
+14. **03.3-01**: Guest requests get no DB record and no session continuity
 
 ## Accumulated Context
 
@@ -66,10 +70,11 @@ See: .planning/PROJECT.md
 ### Pending Todos
 
 - [x] Fix workspace/pack mount mixing static and dynamic data (infrastructure) - Completed in Plan 02
-- [ ] Resolve Identity Collision between Developer and End-User (auth) - Remaining
+- [x] Resolve Identity Collision between Developer and End-User (auth) - Completed in Plan 01
 
 ## Session Log
 
+- 2026-03-02: Completed plan 03.3-01 (External Identity Infrastructure - Identity Collision Fix)
 - 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
 - 2026-03-02: Completed plan 03.2-07 (GAP-02 closure - Idempotent Snapshot Build)
@@ -78,5 +83,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
+- **Stopped at:** Completed plan 03.3-01 (External Identity Infrastructure)
 - **Resume file:** None

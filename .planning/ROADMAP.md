@@ -183,8 +183,8 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 03.3-01-PLAN.md — Decouple end-user identity with external_identities table, MINERVA_WORKSPACE_ID resolution, and preflight validation.
-- [ ] 03.3-02-PLAN.md — Implement mount isolation in Daytona provider with symlink-based workspace/pack separation.
+- [x] 03.3-01-PLAN.md — Decouple end-user identity with external_identities table, MINERVA_WORKSPACE_ID resolution, and preflight validation.
+- [x] 03.3-02-PLAN.md — Implement mount isolation in Daytona provider with symlink-based workspace/pack separation.
 - [ ] 03.3-03-PLAN.md — Wire bridge sender_id/session_id forwarding and implement local_compose isolation parity.
 
 ### Phase 4: Execution Orchestration and Fairness
@@ -261,7 +261,8 @@ flowchart TD
 | 03 - Persistence and Checkpoint Recovery | Complete | 100% |
 | 03.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
 | 03.2 - OSS Agent Server MVP | Complete | 100% |
-| 03.3 - Close pack-mount isolation and identity-collision gaps | 1/3 | In Progress|  | 04 - Execution Orchestration and Fairness | Not Started | 0% |
+| 03.3 - Close pack-mount isolation and identity-collision gaps | 2/3 | In Progress |
+| 04 - Execution Orchestration and Fairness | Not Started | 0% |
 | 05 - Typed Event Streaming API | Not Started | 0% |
 
 **Overall Progress:** 71%
