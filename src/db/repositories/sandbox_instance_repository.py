@@ -39,6 +39,7 @@ class SandboxInstanceRepository:
         agent_pack_id: Optional[UUID] = None,
         idle_ttl_seconds: int = 3600,
         gateway_url: Optional[str] = None,
+        external_user_id: Optional[str] = None,
     ) -> SandboxInstance:
         """Create a new sandbox instance record.
 
@@ -49,6 +50,7 @@ class SandboxInstanceRepository:
             agent_pack_id: Optional ID of associated agent pack.
             idle_ttl_seconds: TTL for idle auto-stop in seconds.
             gateway_url: Optional URL for Picoclaw gateway bridge access.
+            external_user_id: Optional external user ID for per-user sandbox routing.
 
         Returns:
             The created SandboxInstance.
@@ -62,6 +64,7 @@ class SandboxInstanceRepository:
             agent_pack_id=agent_pack_id,
             idle_ttl_seconds=idle_ttl_seconds,
             gateway_url=gateway_url,
+            external_user_id=external_user_id,
         )
 
         self._session.add(sandbox)
@@ -99,19 +102,27 @@ class SandboxInstanceRepository:
         self,
         workspace_id: UUID,
         include_inactive: bool = False,
+        external_user_id: Optional[str] = None,
     ) -> List[SandboxInstance]:
         """List sandboxes for a workspace.
 
         Args:
             workspace_id: UUID of the workspace.
             include_inactive: If True, include stopped/failed sandboxes.
+            external_user_id: Optional filter by external user ID.
 
         Returns:
             List of SandboxInstance records.
         """
-        stmt = select(SandboxInstance).where(
-            SandboxInstance.workspace_id == workspace_id
-        )
+        conditions = [
+            SandboxInstance.workspace_id == workspace_id,
+        ]
+
+        # Filter by external_user_id if provided
+        if external_user_id is not None:
+            conditions.append(SandboxInstance.external_user_id == external_user_id)
+
+        stmt = select(SandboxInstance).where(and_(*conditions))
 
         if not include_inactive:
             stmt = stmt.where(
@@ -131,6 +142,7 @@ class SandboxInstanceRepository:
         self,
         workspace_id: UUID,
         profile: Optional[SandboxProfile] = None,
+        external_user_id: Optional[str] = None,
     ) -> List[SandboxInstance]:
         """List active and healthy sandboxes for routing decisions.
 
@@ -140,17 +152,22 @@ class SandboxInstanceRepository:
         Args:
             workspace_id: UUID of the workspace.
             profile: Optional profile filter (local_compose or daytona).
+            external_user_id: Optional filter by external user ID for per-user routing.
 
         Returns:
             List of active, healthy SandboxInstance records.
         """
-        stmt = select(SandboxInstance).where(
-            and_(
-                SandboxInstance.workspace_id == workspace_id,
-                SandboxInstance.state == SandboxState.ACTIVE,
-                SandboxInstance.health_status == SandboxHealthStatus.HEALTHY,
-            )
-        )
+        conditions = [
+            SandboxInstance.workspace_id == workspace_id,
+            SandboxInstance.state == SandboxState.ACTIVE,
+            SandboxInstance.health_status == SandboxHealthStatus.HEALTHY,
+        ]
+
+        # Filter by external_user_id if provided
+        if external_user_id is not None:
+            conditions.append(SandboxInstance.external_user_id == external_user_id)
+
+        stmt = select(SandboxInstance).where(and_(*conditions))
 
         if profile:
             stmt = stmt.where(SandboxInstance.profile == profile)
@@ -574,7 +591,7 @@ class SandboxInstanceRepository:
             List of SandboxInstance records with identity_ready=False.
         """
         conditions = [
-            not SandboxInstance.identity_ready,
+            SandboxInstance.identity_ready.is_(False),
         ]
 
         if workspace_id:

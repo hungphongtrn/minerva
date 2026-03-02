@@ -133,6 +133,7 @@ class WorkspaceLifecycleService:
         env_vars: Optional[Dict[str, str]] = None,
         workspace: Optional[Workspace] = None,
         agent_pack_id: Optional[str] = None,
+        external_user_id: Optional[str] = None,
     ) -> LifecycleTarget:
         """Resolve workspace and routing target for a principal.
 
@@ -151,12 +152,18 @@ class WorkspaceLifecycleService:
             env_vars: Optional environment variables for sandbox provisioning.
             workspace: Optional specific workspace to use (bypasses lookup).
             agent_pack_id: Optional agent pack ID to bind to the sandbox.
+            external_user_id: Optional external user ID for per-user sandbox routing.
+                If not provided, derived from principal.external_user_id.
 
         Returns:
             LifecycleTarget with workspace, lease status, and routing info.
         """
         generated_run_id = run_id or str(uuid4())
         lease_ttl = lease_ttl_seconds or self.DEFAULT_LEASE_TTL_SECONDS
+
+        # Derive external_user_id from principal if not explicitly provided
+        if external_user_id is None and principal is not None:
+            external_user_id = getattr(principal, "external_user_id", None)
 
         try:
             # Step 1: Resolve or create workspace (if not provided)
@@ -206,6 +213,7 @@ class WorkspaceLifecycleService:
                 run_id=generated_run_id,
                 env_vars=env_vars,
                 agent_pack_id=agent_pack_id,
+                external_user_id=external_user_id,
             )
 
             return LifecycleTarget(
@@ -325,6 +333,7 @@ class WorkspaceLifecycleService:
         run_id: str,
         env_vars: Optional[Dict[str, str]] = None,
         agent_pack_id: Optional[str] = None,
+        external_user_id: Optional[str] = None,
     ) -> Optional[SandboxRoutingResult]:
         """Resolve sandbox target for workspace.
 
@@ -333,6 +342,7 @@ class WorkspaceLifecycleService:
             run_id: Run identifier for tracking.
             env_vars: Optional environment variables.
             agent_pack_id: Optional agent pack ID to bind to the sandbox.
+            external_user_id: Optional external user ID for per-user sandbox routing.
 
         Returns:
             SandboxRoutingResult or None if resolution fails.
@@ -364,6 +374,7 @@ class WorkspaceLifecycleService:
                 workspace_id=workspace.id,
                 env_vars=env_vars,
                 agent_pack_id=pack_id_uuid,
+                external_user_id=external_user_id,
             )
             return result
         except Exception as e:

@@ -182,12 +182,13 @@ class SandboxOrchestratorService:
         profile: Optional[SandboxProfile] = None,
         agent_pack_id: Optional[UUID] = None,
         env_vars: Optional[Dict[str, str]] = None,
+        external_user_id: Optional[str] = None,
     ) -> SandboxRoutingResult:
         """Resolve a sandbox for workspace execution with layered readiness.
 
         Routing logic with layered readiness:
         1. Stop idle sandboxes that exceeded TTL (TTL cleanup enforcement)
-        2. List candidate sandboxes for workspace (filtered by profile if provided)
+        2. List candidate sandboxes for workspace (filtered by profile and external_user_id if provided)
         3. Layered readiness gates:
            a. Identity completeness (hard gate - must be ready)
            b. Gateway health (ready gate - must be healthy)
@@ -201,6 +202,7 @@ class SandboxOrchestratorService:
             profile: Optional deployment profile filter.
             agent_pack_id: Optional agent pack to attach.
             env_vars: Optional environment variables for new sandboxes.
+            external_user_id: Optional external user ID for per-user sandbox routing.
 
         Returns:
             SandboxRoutingResult with routing outcome.
@@ -221,10 +223,11 @@ class SandboxOrchestratorService:
                     f"exceeding TTL ({self._idle_ttl_seconds}s)"
                 )
 
-            # Step 2: Get active sandboxes for workspace
+            # Step 2: Get active sandboxes for workspace (filtered by external_user_id if provided)
             active_sandboxes = self._repository.list_active_healthy_by_workspace(
                 workspace_id=workspace_id,
                 profile=profile,
+                external_user_id=external_user_id,
             )
 
             # Step 3: Layered readiness checks
@@ -262,6 +265,7 @@ class SandboxOrchestratorService:
                 profile=profile,
                 agent_pack_id=agent_pack_id,
                 env_vars=env_vars,
+                external_user_id=external_user_id,
                 excluded_unhealthy=excluded_unhealthy,
                 ttl_cleanup_applied=ttl_cleanup_applied,
                 stopped_sandbox_ids=stopped_sandbox_ids,
@@ -455,6 +459,7 @@ class SandboxOrchestratorService:
         profile: Optional[SandboxProfile],
         agent_pack_id: Optional[UUID],
         env_vars: Optional[Dict[str, str]],
+        external_user_id: Optional[str],
         excluded_unhealthy: List[SandboxInstance],
         ttl_cleanup_applied: bool = False,
         stopped_sandbox_ids: Optional[List[str]] = None,
@@ -467,6 +472,7 @@ class SandboxOrchestratorService:
             profile: Deployment profile.
             agent_pack_id: Agent pack to attach.
             env_vars: Environment variables.
+            external_user_id: Optional external user ID for per-user sandbox routing.
             excluded_unhealthy: List of excluded unhealthy sandboxes.
             ttl_cleanup_applied: Whether TTL cleanup was applied before provisioning.
             stopped_sandbox_ids: List of sandbox IDs stopped during TTL cleanup.
@@ -489,6 +495,7 @@ class SandboxOrchestratorService:
                     profile=profile,
                     agent_pack_id=agent_pack_id,
                     env_vars=env_vars,
+                    external_user_id=external_user_id,
                     excluded_unhealthy=excluded_unhealthy,
                     ttl_cleanup_applied=ttl_cleanup_applied,
                     stopped_sandbox_ids=stopped_sandbox_ids,
@@ -596,6 +603,7 @@ class SandboxOrchestratorService:
         profile: Optional[SandboxProfile],
         agent_pack_id: Optional[UUID],
         env_vars: Optional[Dict[str, str]],
+        external_user_id: Optional[str],
         excluded_unhealthy: List[SandboxInstance],
         ttl_cleanup_applied: bool = False,
         stopped_sandbox_ids: Optional[List[str]] = None,
@@ -608,6 +616,7 @@ class SandboxOrchestratorService:
             profile: Deployment profile.
             agent_pack_id: Agent pack to attach.
             env_vars: Environment variables.
+            external_user_id: Optional external user ID for per-user sandbox routing.
             excluded_unhealthy: List of excluded unhealthy sandboxes.
             ttl_cleanup_applied: Whether TTL cleanup was applied before provisioning.
             stopped_sandbox_ids: List of sandbox IDs stopped during TTL cleanup.
@@ -701,6 +710,7 @@ class SandboxOrchestratorService:
                 profile=profile or SandboxProfile.LOCAL_COMPOSE,
                 agent_pack_id=agent_pack_id,
                 idle_ttl_seconds=self._idle_ttl_seconds,
+                external_user_id=external_user_id,
             )
 
             # Update state to CREATING
@@ -709,6 +719,7 @@ class SandboxOrchestratorService:
             # Provision via provider with pack source path and runtime config
             config = SandboxConfig(
                 workspace_id=workspace_id,
+                external_user_id=external_user_id,
                 idle_ttl_seconds=self._idle_ttl_seconds,
                 env_vars=env_vars or {},
                 pack_source_path=pack_source_path,

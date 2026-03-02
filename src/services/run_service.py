@@ -390,6 +390,63 @@ class RunService:
             )
 
         try:
+            # Check for OSS ExternalPrincipal with explicit workspace_id
+            # This handles end-user requests that specify workspace_id directly
+            principal_workspace_id = getattr(principal, "workspace_id", None)
+            principal_external_user_id = getattr(principal, "external_user_id", None)
+
+            if principal_workspace_id and principal_external_user_id:
+                # OSS ExternalPrincipal path: use explicit workspace_id, don't resolve by owner
+                try:
+                    workspace_uuid = UUID(principal_workspace_id)
+                except ValueError:
+                    return RunRoutingResult(
+                        success=False,
+                        error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
+                        error=f"Invalid workspace_id format: {principal_workspace_id}",
+                    )
+
+                # Initialize lifecycle service
+                lifecycle = self._lifecycle_service or WorkspaceLifecycleService(
+                    session=session
+                )
+
+                # Fetch workspace by ID (fail-closed if not found)
+                target_workspace = lifecycle.get_workspace(workspace_uuid)
+                if not target_workspace:
+                    return RunRoutingResult(
+                        success=False,
+                        error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
+                        error=f"Workspace not found: {principal_workspace_id}",
+                    )
+
+                # Resolve target with explicit workspace and external_user_id
+                target = await lifecycle.resolve_target(
+                    principal=principal,
+                    auto_create=False,  # Never auto-create for OSS principals
+                    acquire_lease=True,
+                    run_id=run_id,
+                    workspace=target_workspace,
+                    agent_pack_id=agent_pack_id,
+                    external_user_id=principal_external_user_id,
+                )
+
+                # Handle workspace resolution failure
+                if not target.workspace:
+                    return RunRoutingResult(
+                        success=False,
+                        error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
+                        error=target.error or "Workspace resolution failed",
+                    )
+
+                # Continue to routing result processing (skip the standard path)
+                return self._process_routing_target(
+                    target=target,
+                    run_id=run_id,
+                    lifecycle=lifecycle,
+                )
+
+            # Standard path: resolve workspace by principal owner
             # Initialize lifecycle service
             lifecycle = self._lifecycle_service or WorkspaceLifecycleService(
                 session=session
@@ -420,134 +477,11 @@ class RunService:
                 agent_pack_id=agent_pack_id,
             )
 
-            # Update restore check now that we have workspace
-            if target.workspace:
-                try:
-                    restore_in_progress = lifecycle.is_restore_in_progress(
-                        target.workspace.id
-                    )
-                    if restore_in_progress:
-                        restore_checkpoint_id = lifecycle.get_restore_checkpoint_id(
-                            target.workspace.id
-                        )
-                        # Return queued status - restore in progress
-                        return RunRoutingResult(
-                            success=True,  # Not a failure, just queued
-                            workspace_id=str(target.workspace.id),
-                            sandbox_id=None,
-                            sandbox_state="restoring",
-                            sandbox_health="unknown",
-                            lease_acquired=False,
-                            error=None,
-                            restore_in_progress=True,
-                            restore_checkpoint_id=restore_checkpoint_id,
-                            queued=True,
-                            lifecycle_target=target,
-                        )
-                except Exception:
-                    pass
-
-            # Fail-fast: workspace must exist for non-guest runs
-            if not target.workspace:
-                return RunRoutingResult(
-                    success=False,
-                    error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
-                    error=f"Workspace resolution failed: {target.error or 'No workspace found'}",
-                )
-
-            # Fail-fast: routing result must be successful
-            if not target.routing_result or not target.routing_result.success:
-                error_msg = target.error or (
-                    target.routing_result.message
-                    if target.routing_result
-                    else "Routing failed: no healthy sandbox available"
-                )
-                error_type = self._categorize_routing_error(error_msg)
-                return RunRoutingResult(
-                    success=False,
-                    workspace_id=str(target.workspace.id),
-                    error_type=error_type,
-                    error=error_msg,
-                    lease_acquired=target.lease_acquired,
-                    lifecycle_target=target,
-                )
-
-            # Fail-fast: sandbox must exist for successful routing
-            routing_result = target.routing_result
-            if not routing_result.sandbox:
-                error_type = self._categorize_routing_error(
-                    routing_result.message or ""
-                )
-                return RunRoutingResult(
-                    success=False,
-                    workspace_id=str(target.workspace.id),
-                    error_type=error_type,
-                    error=routing_result.message
-                    or "Routing failed: no sandbox provisioned",
-                    lease_acquired=target.lease_acquired,
-                    lifecycle_target=target,
-                )
-
-            # Extract sandbox info from successful routing
-            sandbox_id = str(routing_result.sandbox.id)
-            sandbox_state = None
-            sandbox_health = None
-
-            if hasattr(routing_result.sandbox, "state"):
-                state_val = routing_result.sandbox.state
-                # Handle both enum (PostgreSQL) and string (SQLite) types
-                if hasattr(state_val, "value"):
-                    sandbox_state = str(state_val.value)
-                else:
-                    sandbox_state = str(state_val)
-            if hasattr(routing_result.sandbox, "health_status"):
-                health = routing_result.sandbox.health_status
-                if health:
-                    # Handle both enum (PostgreSQL) and string (SQLite) types
-                    if hasattr(health, "value"):
-                        sandbox_health = str(health.value)
-                    else:
-                        sandbox_health = str(health)
-
-            # Handle RESTORING state - return queued status
-            if sandbox_state == "restoring":
-                return RunRoutingResult(
-                    success=True,  # Not a failure, just queued
-                    workspace_id=str(target.workspace.id),
-                    sandbox_id=sandbox_id,
-                    sandbox_state=sandbox_state,
-                    sandbox_health=sandbox_health,
-                    lease_acquired=target.lease_acquired,
-                    error=None,
-                    restore_in_progress=True,
-                    queued=True,
-                    lifecycle_target=target,
-                )
-
-            # Get sandbox URL and agent_pack_id from the sandbox instance
-            sandbox_url = None
-            agent_pack_id_str = None
-            if routing_result.sandbox:
-                if hasattr(routing_result.sandbox, "gateway_url"):
-                    sandbox_url = routing_result.sandbox.gateway_url
-                if (
-                    hasattr(routing_result.sandbox, "agent_pack_id")
-                    and routing_result.sandbox.agent_pack_id
-                ):
-                    agent_pack_id_str = str(routing_result.sandbox.agent_pack_id)
-
-            return RunRoutingResult(
-                success=True,
-                workspace_id=str(target.workspace.id),
-                sandbox_id=sandbox_id,
-                sandbox_state=sandbox_state or "unknown",
-                sandbox_health=sandbox_health,
-                sandbox_url=sandbox_url,
-                agent_pack_id=agent_pack_id_str,
-                lease_acquired=target.lease_acquired,
-                error=None,
-                error_type=None,
-                lifecycle_target=target,
+            # Process routing result through common path
+            return self._process_routing_target(
+                target=target,
+                run_id=run_id,
+                lifecycle=lifecycle,
             )
 
         except Exception as e:
@@ -556,6 +490,157 @@ class RunService:
                 error_type=RoutingErrorType.ROUTING_FAILED,
                 error=f"Routing resolution failed: {str(e)}",
             )
+
+    def _process_routing_target(
+        self,
+        target: Any,  # LifecycleTarget
+        run_id: str,
+        lifecycle: Any,  # WorkspaceLifecycleService
+    ) -> RunRoutingResult:
+        """Process a resolved lifecycle target and return routing result.
+
+        This helper centralizes the routing result processing for both
+        OSS ExternalPrincipal path and standard API-key principal path.
+
+        Args:
+            target: The resolved lifecycle target.
+            run_id: The run ID for lease tracking.
+            lifecycle: The lifecycle service instance.
+
+        Returns:
+            RunRoutingResult with routing information.
+        """
+        from src.services.workspace_lifecycle_service import LifecycleTarget
+
+        target = target  # type: LifecycleTarget
+
+        # Check for restore in progress
+        restore_in_progress = False
+        restore_checkpoint_id = None
+        if target.workspace:
+            try:
+                restore_in_progress = lifecycle.is_restore_in_progress(
+                    target.workspace.id
+                )
+                if restore_in_progress:
+                    restore_checkpoint_id = lifecycle.get_restore_checkpoint_id(
+                        target.workspace.id
+                    )
+                    # Return queued status - restore in progress
+                    return RunRoutingResult(
+                        success=True,  # Not a failure, just queued
+                        workspace_id=str(target.workspace.id),
+                        sandbox_id=None,
+                        sandbox_state="restoring",
+                        sandbox_health="unknown",
+                        lease_acquired=False,
+                        error=None,
+                        restore_in_progress=True,
+                        restore_checkpoint_id=restore_checkpoint_id,
+                        queued=True,
+                        lifecycle_target=target,
+                    )
+            except Exception:
+                pass
+
+        # Fail-fast: workspace must exist
+        if not target.workspace:
+            return RunRoutingResult(
+                success=False,
+                error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
+                error=target.error or "Workspace resolution failed",
+            )
+
+        # Fail-fast: routing result must be successful
+        if not target.routing_result or not target.routing_result.success:
+            error_msg = target.error or (
+                target.routing_result.message
+                if target.routing_result
+                else "Routing failed: no healthy sandbox available"
+            )
+            error_type = self._categorize_routing_error(error_msg)
+            return RunRoutingResult(
+                success=False,
+                workspace_id=str(target.workspace.id),
+                error_type=error_type,
+                error=error_msg,
+                lease_acquired=target.lease_acquired,
+                lifecycle_target=target,
+            )
+
+        # Fail-fast: sandbox must exist
+        routing_result = target.routing_result
+        if not routing_result.sandbox:
+            error_type = self._categorize_routing_error(routing_result.message or "")
+            return RunRoutingResult(
+                success=False,
+                workspace_id=str(target.workspace.id),
+                error_type=error_type,
+                error=routing_result.message
+                or "Routing failed: no sandbox provisioned",
+                lease_acquired=target.lease_acquired,
+                lifecycle_target=target,
+            )
+
+        # Extract sandbox info
+        sandbox_id = str(routing_result.sandbox.id)
+        sandbox_state = None
+        sandbox_health = None
+
+        if hasattr(routing_result.sandbox, "state"):
+            state_val = routing_result.sandbox.state
+            if hasattr(state_val, "value"):
+                sandbox_state = str(state_val.value)
+            else:
+                sandbox_state = str(state_val)
+        if hasattr(routing_result.sandbox, "health_status"):
+            health = routing_result.sandbox.health_status
+            if health:
+                if hasattr(health, "value"):
+                    sandbox_health = str(health.value)
+                else:
+                    sandbox_health = str(health)
+
+        # Handle RESTORING state
+        if sandbox_state == "restoring":
+            return RunRoutingResult(
+                success=True,
+                workspace_id=str(target.workspace.id),
+                sandbox_id=sandbox_id,
+                sandbox_state=sandbox_state,
+                sandbox_health=sandbox_health,
+                lease_acquired=target.lease_acquired,
+                error=None,
+                restore_in_progress=True,
+                queued=True,
+                lifecycle_target=target,
+            )
+
+        # Get sandbox URL and agent_pack_id
+        sandbox_url = None
+        agent_pack_id_str = None
+        if routing_result.sandbox:
+            if hasattr(routing_result.sandbox, "gateway_url"):
+                sandbox_url = routing_result.sandbox.gateway_url
+            if (
+                hasattr(routing_result.sandbox, "agent_pack_id")
+                and routing_result.sandbox.agent_pack_id
+            ):
+                agent_pack_id_str = str(routing_result.sandbox.agent_pack_id)
+
+        return RunRoutingResult(
+            success=True,
+            workspace_id=str(target.workspace.id),
+            sandbox_id=sandbox_id,
+            sandbox_state=sandbox_state or "unknown",
+            sandbox_health=sandbox_health,
+            sandbox_url=sandbox_url,
+            agent_pack_id=agent_pack_id_str,
+            lease_acquired=target.lease_acquired,
+            error=None,
+            error_type=None,
+            lifecycle_target=target,
+        )
 
     async def execute_with_routing(
         self,
