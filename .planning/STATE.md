@@ -41,6 +41,12 @@ See: .planning/PROJECT.md
 5. **03.2-07**: Add explicit `reused` boolean to SnapshotBuildResult for CLI/test observability
 6. **03.2-07**: Fail closed on auth errors (don't attempt create if get fails with permission error)
 
+## Accumulated Context
+
+### Pending Todos
+
+- [ ] Resolve Identity Collision between Developer and End-User (auth)
+
 ## Session Log
 
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
