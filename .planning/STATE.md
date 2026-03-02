@@ -11,11 +11,11 @@
 ## Current Position
 
 - **Phase:** 03.2 (OSS Agent Server MVP) - IN PROGRESS
-- **Current Plan:** 01 of 05 (CLI Skeleton + Preflight)
-- **Plan status:** Plan 03.2-01 complete
-- **Execution status:** CLI entrypoint working with preflight validation
+- **Current Plan:** 02 of 05 (Snapshot Build)
+- **Plan status:** Plan 03.2-02 complete
+- **Execution status:** Daytona snapshot build service with CLI command
 - **Progress bar:** [████████████████████] 96%
-- **Last completed:** Plan 03.2-01 - CLI Skeleton + Preflight Summary
+- **Last completed:** Plan 03.2-02 - Snapshot Build Summary
 
 ```mermaid
 flowchart LR
@@ -232,7 +232,13 @@ flowchart LR
 | D-03.2-01-003 | 2026-03-02 | 03.2-01 | Preflight checks are lazy (no network calls at import time) | Prevents import-time failures and allows partial startup |
 | D-03.2-01-004 | 2026-03-02 | 03.2-01 | Serve command enforces two gates: DB schema at head, snapshot exists | Never auto-migrate contract with actionable remediation |
 | D-03.2-01-005 | 2026-03-02 | 03.2-01 | Scaffold uses existing AgentScaffoldService with skills/README.md addition | Reuse existing service, add documentation placeholder |
+| D-03.2-02-001 | 2026-03-02 | 03.2-02 | Use Image.from_dockerfile() for self-contained Dockerfiles | Picoclaw Dockerfile is complete, from_dockerfile handles build context |
+| D-03.2-02-002 | 2026-03-02 | 03.2-02 | Clone repo with --depth 1 for faster builds | Only need specified ref, not full history |
+| D-03.2-02-003 | 2026-03-02 | 03.2-02 | Stream build logs via callback for real-time CLI output | Service remains testable without CLI coupling |
+| D-03.2-02-004 | 2026-03-02 | 03.2-02 | CLI args override env vars when both present | Explicit operator control takes precedence |
+| D-03.2-02-005 | 2026-03-02 | 03.2-02 | Structured error remediation for Daytona errors | Permission/auth errors include specific guidance |
 | Phase 03.2 P01 | 38 | 3 tasks | 10 files |
+| Phase 03.2 P02 | 8 | 2 tasks | 4 files |
 
 ### Roadmap Evolution
 
@@ -284,13 +290,14 @@ flowchart LR
 - [x] Execute Plan 03.1-03: Bridge token integration and gateway endpoint resolution
 - [x] Execute Plan 03.1-04: Base image guardrails with strict mode and preflight CLI
 - [x] Execute Plan 03.2-01: CLI skeleton with preflight validation and scaffold generation
+- [x] Execute Plan 03.2-02: Snapshot build service with CLI command
 
 ### Next Plans
 
-- [ ] Phase 03.2 Plan 02: Observability integration
-- [ ] Phase 03.2 Plan 03: API routes for agent packs
-- [ ] Phase 03.2 Plan 04: Runtime endpoints
-- [ ] Phase 03.2 Plan 05: Acceptance tests
+- [ ] Phase 03.2 Plan 03: Observability integration
+- [ ] Phase 03.2 Plan 04: API routes for agent packs
+- [ ] Phase 03.2 Plan 05: Runtime endpoints
+- [ ] Phase 03.2 Plan 06: Acceptance tests
 - [ ] Phase 04: Execution Orchestration and Fairness
 
 ### Blockers
@@ -305,14 +312,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.2-01-SUMMARY.md` (CLI Skeleton + Preflight)
-- **Last activity:** 2026-03-02 - Plan 03.2-01 complete with CLI entrypoint and preflight validation
+- **Last completed artifact:** `03.2-02-SUMMARY.md` (Snapshot Build)
+- **Last activity:** 2026-03-02 - Plan 03.2-02 complete with snapshot build service and CLI command
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 03.2 Plan 02 - Observability integration
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-01-SUMMARY.md`
-- **Last session:** 2026-03-02T05:18:53Z
-- **Commits:** 012b298, 5c253ad, 8e2441c
+- **Next plans:** Phase 03.2 Plan 03 - Observability integration
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-02-SUMMARY.md`
+- **Last session:** 2026-03-02T05:35:56Z
+- **Commits:** 1812421, 6b70fb8
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-03-02 (Phase 03.2 Plan 01 complete - CLI entrypoint with preflight validation)*
+*Updated: 2026-03-02 (Phase 03.2 Plan 02 complete - Snapshot build service with CLI)*

@@ -479,3 +479,44 @@ class TestRootLevelEndpoints:
         response = client.get("/api/v1/")
         # This should work (API root endpoint)
         assert response.status_code == 200
+
+
+class TestMetricsEndpoint:
+    """Tests for /metrics endpoint."""
+
+    def test_metrics_endpoint_exists(self, client: TestClient):
+        """Metrics endpoint is exposed at root level."""
+        response = client.get("/metrics")
+        # Metrics endpoint should exist and return Prometheus format
+        assert response.status_code == 200
+        # Prometheus metrics are text/plain
+        assert "text/plain" in response.headers.get("content-type", "")
+
+    def test_metrics_includes_default_fastapi_metrics(self, client: TestClient):
+        """Metrics include default FastAPI/HTTP metrics from instrumentator."""
+        # Make a few requests to generate metrics
+        client.get("/health")
+        client.get("/ready")
+
+        response = client.get("/metrics")
+        content = response.text
+
+        # Default instrumentator metrics include http_request_duration_seconds
+        assert "http_request" in content.lower() or "request" in content.lower()
+
+    def test_metrics_endpoint_does_not_require_auth(self, client: TestClient):
+        """Metrics endpoint is accessible without authentication."""
+        response = client.get("/metrics")
+        # Should not return 401 or 403
+        assert response.status_code != 401
+        assert response.status_code != 403
+
+    def test_metrics_at_root_level(self, client: TestClient):
+        """/metrics is accessible at root, not under /api/v1."""
+        # Should work at /metrics
+        response = client.get("/metrics")
+        assert response.status_code == 200
+
+        # Should NOT work at /api/v1/metrics
+        response = client.get("/api/v1/metrics")
+        assert response.status_code == 404
