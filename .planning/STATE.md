@@ -46,6 +46,7 @@ See: .planning/PROJECT.md
 ### Pending Todos
 
 - [ ] Resolve Identity Collision between Developer and End-User (auth)
+- [ ] Fix workspace/pack mount mixing static and dynamic data (infrastructure)
 
 ## Session Log
 
