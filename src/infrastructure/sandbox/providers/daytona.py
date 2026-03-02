@@ -11,6 +11,7 @@ The provider translates between Daytona-specific states and the
 semantic SandboxState/SandboxHealth enums used by core services.
 """
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -290,10 +291,11 @@ class DaytonaSandboxProvider:
         sandbox_id: str,
         timeout: float = 30.0,
     ) -> IdentityVerificationResult:
-        """Verify required identity files are mounted in the sandbox.
+        """Verify required identity files are mounted in the sandbox via file API.
 
         This is a hard gate for request acceptance - sandboxes must have
         AGENT.md, SOUL.md, IDENTITY.md, and skills/ directory mounted.
+        Uses Daytona SDK file operations to verify real file presence with polling.
 
         Args:
             sandbox_id: The Daytona sandbox ID to verify.
@@ -305,6 +307,12 @@ class DaytonaSandboxProvider:
         Raises:
             SandboxIdentityError: If verification fails irrecoverably.
         """
+        import asyncio
+
+        required_files = [f"/workspace/pack/{f}" for f in self.REQUIRED_IDENTITY_FILES]
+        required_dirs = [f"/workspace/pack/{d}" for d in self.REQUIRED_IDENTITY_DIRS]
+
+        start_time = asyncio.get_event_loop().time()
 
         try:
             config = self._create_config()
@@ -317,35 +325,60 @@ class DaytonaSandboxProvider:
                         provider_ref=sandbox_id,
                     )
 
-                # Check sandbox is in a state where files can be checked
-                state = "unknown"
-                if hasattr(sandbox, "state"):
-                    state = str(sandbox.state).lower()
-                elif hasattr(sandbox, "status"):
-                    state = str(sandbox.status).lower()
+                # Poll until files are ready or timeout
+                while True:
+                    elapsed = asyncio.get_event_loop().time() - start_time
+                    if elapsed > timeout:
+                        return IdentityVerificationResult(
+                            ready=False,
+                            missing_files=list(self.REQUIRED_IDENTITY_FILES),
+                            error_message=f"Timeout waiting for identity files ({elapsed:.1f}s)",
+                        )
 
-                if state not in ("running", "started"):
-                    return IdentityVerificationResult(
-                        ready=False,
-                        missing_files=list(self.REQUIRED_IDENTITY_FILES),
-                        error_message=f"Sandbox not running (state: {state})",
-                    )
+                    # Check sandbox is in a state where files can be checked
+                    state = "unknown"
+                    if hasattr(sandbox, "state"):
+                        state = str(sandbox.state).lower()
+                    elif hasattr(sandbox, "status"):
+                        state = str(sandbox.status).lower()
 
-                # In production, this would use Daytona SDK file operations
-                # to check for existence of required files/directories
-                # For now, we simulate success as Daytona workspace images
-                # include identity files as part of the workspace creation
+                    if state not in ("running", "started"):
+                        return IdentityVerificationResult(
+                            ready=False,
+                            missing_files=list(self.REQUIRED_IDENTITY_FILES),
+                            error_message=f"Sandbox not running (state: {state})",
+                        )
 
-                # TODO: Use Daytona SDK file API once available
-                # files_exist = await daytona.check_files_exist(sandbox_id, self.REQUIRED_IDENTITY_FILES)
-                # dirs_exist = await daytona.check_dirs_exist(sandbox_id, self.REQUIRED_IDENTITY_DIRS)
+                    # Check files exist using file API
+                    missing_files = []
+                    for file_path in required_files:
+                        try:
+                            file_info = await sandbox.fs.get_file_info(file_path)
+                            if not file_info or getattr(file_info, "is_dir", False):
+                                missing_files.append(file_path)
+                        except DaytonaError:
+                            missing_files.append(file_path)
 
-                # Simulate: all identity files present (production image includes them)
-                return IdentityVerificationResult(
-                    ready=True,
-                    missing_files=[],
-                    error_message=None,
-                )
+                    # Check directories exist and are directories
+                    missing_dirs = []
+                    for dir_path in required_dirs:
+                        try:
+                            dir_info = await sandbox.fs.get_file_info(dir_path)
+                            if not dir_info or not getattr(dir_info, "is_dir", False):
+                                missing_dirs.append(dir_path)
+                        except DaytonaError:
+                            missing_dirs.append(dir_path)
+
+                    # If all present, we're ready
+                    if not missing_files and not missing_dirs:
+                        return IdentityVerificationResult(
+                            ready=True,
+                            missing_files=[],
+                            error_message=None,
+                        )
+
+                    # Wait before retry
+                    await asyncio.sleep(0.5)
 
         except SandboxIdentityError:
             raise
@@ -928,11 +961,42 @@ class DaytonaSandboxProvider:
                         workspace_id=config.workspace_id,
                     )
 
+                # Write per-sandbox Picoclaw config via file API (outside shared pack volume)
+                config_path = "/home/daytona/.picoclaw/config.json"
+                try:
+                    # Fail-fast: ensure config path is outside shared pack volume
+                    assert not config_path.startswith("/workspace/pack"), (
+                        f"Config path must be outside /workspace/pack: {config_path}"
+                    )
+
+                    # Generate Picoclaw config
+                    picoclaw_config = self._generate_picoclaw_config(config)
+                    config_bytes = json.dumps(picoclaw_config, indent=2).encode("utf-8")
+
+                    # Create config directory via file API
+                    try:
+                        await sandbox.fs.create_folder("/home/daytona/.picoclaw", "700")
+                    except DaytonaError as e:
+                        # Ignore "already exists" errors
+                        if "already exists" not in str(e).lower():
+                            raise
+
+                    # Write config file via file API
+                    await sandbox.fs.upload_file(config_bytes, config_path)
+
+                except DaytonaError as e:
+                    raise SandboxProvisionError(
+                        f"Failed to write Picoclaw config: {e}",
+                        provider_ref=sandbox_id,
+                        workspace_id=config.workspace_id,
+                    )
+
                 # Store pack binding metadata on the sandbox if possible
                 # This is best-effort - not all Daytona versions support metadata
                 metadata: Dict[str, Any] = {
                     "gateway_url": gateway_url,
                     "identity_ready": True,
+                    "materialized_config_path": config_path,
                 }
                 if pack_bound:
                     metadata["pack_bound"] = True
@@ -947,6 +1011,7 @@ class DaytonaSandboxProvider:
                     pack_source_path=config.pack_source_path,
                     workspace_id=config.workspace_id,
                     pack_digest=config.pack_digest,
+                    materialized_config_path=config_path,
                 )
 
                 # Return the gateway URL separately in metadata for orchestrator
