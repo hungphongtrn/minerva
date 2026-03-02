@@ -300,6 +300,8 @@ class PicoclawBridgeService:
         agent_pack_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        sender_id: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Transform Minerva envelope to Picoclaw InboundMessage format.
 
@@ -310,16 +312,19 @@ class PicoclawBridgeService:
             agent_pack_id: Agent pack ID if bound
             run_id: Run ID for tracing
             metadata: Additional metadata
+            sender_id: External user identifier for Picoclaw conversation scoping
+            session_id: Session ID for thread continuity
 
         Returns:
             Picoclaw-format request dictionary
         """
         return {
             "channel": "bridge",
-            "sender_id": "minerva",
+            "sender_id": sender_id or "minerva",
             "chat_id": session_key,
             "content": message,
             "session_key": session_key,
+            "session_id": session_id,
             "metadata": {
                 "workspace_id": workspace_id,
                 "agent_pack_id": agent_pack_id,
@@ -338,6 +343,8 @@ class PicoclawBridgeService:
         agent_pack_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        sender_id: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> BridgeResult:
         """Execute request via bridge with health-first fail-closed flow.
 
@@ -357,6 +364,8 @@ class PicoclawBridgeService:
             agent_pack_id: Agent pack ID if bound
             run_id: Run ID for tracing
             metadata: Additional metadata
+            sender_id: External user identifier for Picoclaw conversation scoping
+            session_id: Session ID for thread continuity
 
         Returns:
             BridgeResult with success/output or error details
@@ -397,6 +406,8 @@ class PicoclawBridgeService:
             agent_pack_id=agent_pack_id,
             run_id=run_id,
             metadata=metadata,
+            sender_id=sender_id,
+            session_id=session_id,
         )
 
         # Step 3: Execute request with retries
@@ -484,6 +495,8 @@ async def execute_via_bridge(
     workspace_id: Optional[str] = None,
     agent_pack_id: Optional[str] = None,
     run_id: Optional[str] = None,
+    sender_id: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> BridgeResult:
     """Execute a message via the Picoclaw bridge.
 
@@ -499,6 +512,8 @@ async def execute_via_bridge(
         workspace_id: Workspace ID for scoping
         agent_pack_id: Agent pack ID if bound
         run_id: Run ID for tracing
+        sender_id: External user identifier for Picoclaw conversation scoping
+        session_id: Session ID for thread continuity
 
     Returns:
         BridgeResult with execution outcome
@@ -524,4 +539,6 @@ async def execute_via_bridge(
         workspace_id=workspace_id,
         agent_pack_id=agent_pack_id,
         run_id=run_id,
+        sender_id=sender_id,
+        session_id=session_id,
     )

@@ -688,12 +688,19 @@ class RunService:
         # If we have a sandbox and input message, execute via Picoclaw bridge
         bridge_error = None
         if routing.sandbox_id and input_message:
+            # Determine sender_id: guest uses "guest", otherwise use external_user_id
+            sender_id = (
+                "guest"
+                if context.is_guest
+                else getattr(principal, "external_user_id", None)
+            )
             bridge_result = await self._execute_via_bridge(
                 routing=routing,
                 message=input_message,
                 is_guest=context.is_guest,
                 session=session,
                 session_id=session_id,
+                sender_id=sender_id,
             )
 
             # Update result with bridge execution output
@@ -836,6 +843,7 @@ class RunService:
         is_guest: bool,
         session: Session,
         session_id: Optional[str] = None,
+        sender_id: Optional[str] = None,
     ) -> BridgeResult:
         """Execute request via Picoclaw bridge with bounded recovery.
 
@@ -851,6 +859,7 @@ class RunService:
             is_guest: Whether this is a guest request
             session: Database session for token resolution and recovery
             session_id: Optional session ID for continuity
+            sender_id: External user identifier for Picoclaw conversation scoping
 
         Returns:
             BridgeResult with execution outcome
@@ -910,6 +919,8 @@ class RunService:
                 if routing.lifecycle_target
                 else None,
                 run_id=session_key.split(":")[-1],
+                sender_id=sender_id,
+                session_id=session_id,
             )
 
             if result.success:
