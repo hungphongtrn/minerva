@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
 **Current plan:** 06
-**Status:** Complete
+**Status:** Ready to plan
 
 ## Completed Plans
 
