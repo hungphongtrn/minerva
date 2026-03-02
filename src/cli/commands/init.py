@@ -116,6 +116,13 @@ DAYTONA_AUTO_STOP_INTERVAL=0
 # PICOCLAW - Snapshot Configuration
 # =============================================================================
 
+# Git repository URL for Picoclaw source code
+# Required for `minerva snapshot build`
+PICOCLAW_REPO_URL=
+
+# Git ref (branch/tag/sha) for Picoclaw source (default: main)
+PICOCLAW_REPO_REF=main
+
 # Name of the Daytona snapshot to use for sandbox provisioning
 # Required for production: Set after running `minerva snapshot build`
 DAYTONA_PICOCLAW_SNAPSHOT_NAME=

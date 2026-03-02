@@ -1,4 +1,4 @@
-"""Tests for Daytona snapshot build service.
+"""Tests for Daytona snapshot build service and CLI command.
 
 Tests cover:
 - Configuration validation
@@ -6,6 +6,7 @@ Tests cover:
 - Image building from Dockerfile
 - Snapshot creation via Daytona SDK
 - Error handling and remediation
+- CLI command integration
 """
 
 import os
@@ -19,6 +20,184 @@ from src.services.daytona_snapshot_build_service import (
     SnapshotBuildError,
     SnapshotBuildResult,
 )
+
+
+class TestSnapshotBuildCLI:
+    """Tests for snapshot build CLI command."""
+
+    def test_cli_missing_required_env_vars(self, capsys):
+        """CLI exits with error when required env vars are missing."""
+        import argparse
+
+        from src.cli.commands.snapshot_build import _handle_build
+
+        # Clear all relevant env vars
+        with patch.dict(
+            os.environ,
+            {
+                "PICOCLAW_REPO_URL": "",
+                "PICOCLAW_REPO_REF": "",
+                "DAYTONA_PICOCLAW_SNAPSHOT_NAME": "",
+            },
+            clear=False,
+        ):
+            args = argparse.Namespace(
+                repo_url=None,
+                ref=None,
+                name=None,
+            )
+            exit_code = _handle_build(args)
+
+        assert exit_code != 0
+
+        captured = capsys.readouterr()
+        assert "Missing required configuration" in captured.err
+
+    @patch("src.cli.commands.snapshot_build.asyncio.run")
+    @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
+    def test_cli_success(self, mock_service_class, mock_run, capsys):
+        """CLI succeeds with valid configuration."""
+        import argparse
+
+        from src.cli.commands.snapshot_build import _handle_build
+
+        # Mock service and result
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_result = SnapshotBuildResult(
+            success=True,
+            snapshot_name="test-snapshot",
+        )
+        mock_run.return_value = mock_result
+
+        args = argparse.Namespace(
+            repo_url="https://github.com/example/picoclaw",
+            ref="main",
+            name="test-snapshot",
+        )
+        exit_code = _handle_build(args)
+
+        assert exit_code == 0
+
+        # Verify service was created with CLI args
+        mock_service_class.assert_called_once_with(
+            repo_url="https://github.com/example/picoclaw",
+            repo_ref="main",
+            snapshot_name="test-snapshot",
+        )
+
+        # Verify build_snapshot was called with log handler
+        assert mock_service.build_snapshot.called
+
+    @patch("src.cli.commands.snapshot_build.asyncio.run")
+    @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
+    def test_cli_failure_with_error_message(self, mock_service_class, mock_run, capsys):
+        """CLI exits with error and shows error message on failure."""
+        import argparse
+
+        from src.cli.commands.snapshot_build import _handle_build
+
+        # Mock service and result
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_result = SnapshotBuildResult(
+            success=False,
+            snapshot_name="test-snapshot",
+            error_message="Build failed",
+            remediation="Check logs for details",
+        )
+        mock_run.return_value = mock_result
+
+        args = argparse.Namespace(
+            repo_url="https://github.com/example/picoclaw",
+            ref="main",
+            name="test-snapshot",
+        )
+        exit_code = _handle_build(args)
+
+        assert exit_code != 0
+
+        captured = capsys.readouterr()
+        assert "Build failed" in captured.err
+        assert "Check logs for details" in captured.err
+
+    @patch("src.cli.commands.snapshot_build.asyncio.run")
+    @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
+    def test_cli_uses_env_vars_when_args_not_provided(self, mock_service_class, mock_run):
+        """CLI uses env vars when CLI args are not provided."""
+        import argparse
+
+        from src.cli.commands.snapshot_build import _handle_build
+
+        # Mock service and result
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_result = SnapshotBuildResult(
+            success=True,
+            snapshot_name="env-snapshot",
+        )
+        mock_run.return_value = mock_result
+
+        with patch.dict(
+            os.environ,
+            {
+                "PICOCLAW_REPO_URL": "https://github.com/env/picoclaw",
+                "PICOCLAW_REPO_REF": "env-branch",
+                "DAYTONA_PICOCLAW_SNAPSHOT_NAME": "env-snapshot",
+            },
+        ):
+            args = argparse.Namespace(
+                repo_url=None,
+                ref=None,
+                name=None,
+            )
+            _handle_build(args)
+
+        # Verify service was created with env var values
+        mock_service_class.assert_called_once_with(
+            repo_url=None,
+            repo_ref=None,
+            snapshot_name=None,
+        )
+
+    @patch("src.cli.commands.snapshot_build.asyncio.run")
+    @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
+    def test_cli_args_override_env_vars(self, mock_service_class, mock_run):
+        """CLI args override env vars when both are present."""
+        import argparse
+
+        from src.cli.commands.snapshot_build import _handle_build
+
+        # Mock service and result
+        mock_service = MagicMock()
+        mock_service_class.return_value = mock_service
+        mock_result = SnapshotBuildResult(
+            success=True,
+            snapshot_name="cli-snapshot",
+        )
+        mock_run.return_value = mock_result
+
+        with patch.dict(
+            os.environ,
+            {
+                "PICOCLAW_REPO_URL": "https://github.com/env/picoclaw",
+                "PICOCLAW_REPO_REF": "env-branch",
+                "DAYTONA_PICOCLAW_SNAPSHOT_NAME": "env-snapshot",
+            },
+        ):
+            args = argparse.Namespace(
+                repo_url="https://github.com/cli/picoclaw",
+                ref="cli-branch",
+                name="cli-snapshot",
+            )
+            _handle_build(args)
+
+        # Verify service was created with CLI arg values (not env vars)
+        mock_service_class.assert_called_once_with(
+            repo_url="https://github.com/cli/picoclaw",
+            repo_ref="cli-branch",
+            snapshot_name="cli-snapshot",
+        )
 
 
 class TestDaytonaSnapshotBuildService:

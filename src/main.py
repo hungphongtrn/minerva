@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from src.api.router import api_router
+from src.api.oss.router import oss_router
 from src.config.settings import settings
 
 
@@ -16,13 +17,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.DEBUG else None,
     )
 
-    # Register API routes
-    app.include_router(api_router)
+    # Register OSS operator endpoints (root level, no /api/v1 prefix)
+    # These include /health and /ready
+    app.include_router(oss_router)
 
-    @app.get("/health")
-    async def health_check() -> dict:
-        """Health check endpoint."""
-        return {"status": "healthy"}
+    # Register API routes (with /api/v1 prefix)
+    app.include_router(api_router)
 
     return app
 
