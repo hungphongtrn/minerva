@@ -26,6 +26,10 @@ from daytona import (
 )
 
 from src.infrastructure.sandbox.providers.base import (
+    CONFIG_PATH,
+    IDENTITY_DIRS,
+    IDENTITY_FILES,
+    PACK_MOUNT_PATH,
     SandboxConfig,
     SandboxConfigurationError,
     SandboxHealth,
@@ -37,6 +41,7 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxProvisionError,
     SandboxRef,
     SandboxState,
+    WORKSPACE_PATH,
 )
 
 
@@ -309,8 +314,8 @@ class DaytonaSandboxProvider:
         """
         import asyncio
 
-        required_files = [f"/workspace/pack/{f}" for f in self.REQUIRED_IDENTITY_FILES]
-        required_dirs = [f"/workspace/pack/{d}" for d in self.REQUIRED_IDENTITY_DIRS]
+        required_files = [f"{WORKSPACE_PATH}/{f}" for f in self.REQUIRED_IDENTITY_FILES]
+        required_dirs = [f"{WORKSPACE_PATH}/{d}" for d in self.REQUIRED_IDENTITY_DIRS]
 
         start_time = asyncio.get_event_loop().time()
 
@@ -550,6 +555,25 @@ class DaytonaSandboxProvider:
         # Daytona IDs are typically alphanumeric with hyphens
         return f"daytona-{str(workspace_id)[:22]}"
 
+    def _generate_user_ref(self, workspace_id: UUID, external_user_id: str) -> str:
+        """Generate a deterministic Daytona workspace ID from workspace UUID and external user ID.
+
+        Creates a per-user sandbox reference for multi-user isolation within the same workspace.
+        Each (workspace_id, external_user_id) pair gets its own sandbox.
+
+        Args:
+            workspace_id: The workspace UUID.
+            external_user_id: The end-user identifier for per-user isolation.
+
+        Returns:
+            Deterministic sandbox reference string.
+        """
+        import hashlib
+
+        # Hash the external_user_id to create a short, deterministic suffix
+        user_hash = hashlib.sha256(external_user_id.encode()).hexdigest()[:10]
+        return f"daytona-{str(workspace_id)[:12]}-{user_hash}"
+
     def _from_daytona_state(self, daytona_state: str) -> SandboxState:
         """Convert Daytona state string to semantic state.
 
@@ -680,7 +704,7 @@ class DaytonaSandboxProvider:
         picoclaw_config = {
             "agents": {
                 "defaults": {
-                    "workspace": "/workspace/pack",
+                    "workspace": WORKSPACE_PATH,
                     "restrict_to_workspace": True,
                     "model": "primary",
                     "max_tokens": 8192,
@@ -725,6 +749,33 @@ class DaytonaSandboxProvider:
 
         return picoclaw_config
 
+    async def _create_workspace_symlinks(self, sandbox) -> None:
+        """Create workspace directory and symlink identity files from pack volume.
+
+        Creates /home/daytona/workspace/ and symlinks:
+        - AGENT.md, SOUL.md, IDENTITY.md (files)
+        - skills/ (directory)
+        from /workspace/pack/ into the workspace directory.
+
+        This implements mount isolation: pack volume (read-only, shared) is mounted
+        at /workspace/pack, while dynamic runtime data lives at /home/daytona/workspace.
+        Identity files are symlinked to make them accessible from the workspace.
+        """
+        # Create workspace directory
+        await sandbox.process.exec(f"mkdir -p {WORKSPACE_PATH}")
+
+        # Symlink identity files
+        for f in IDENTITY_FILES:
+            await sandbox.process.exec(
+                f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}"
+            )
+
+        # Symlink identity directories
+        for d in IDENTITY_DIRS:
+            await sandbox.process.exec(
+                f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}"
+            )
+
     async def _materialize_pack(
         self,
         config: SandboxConfig,
@@ -753,8 +804,8 @@ class DaytonaSandboxProvider:
         # - Store the expected config path
         # - Store the pack digest for stale detection
 
-        materialized_path = "/workspace/pack"
-        config_path = f"{materialized_path}/config.json"
+        materialized_path = PACK_MOUNT_PATH
+        config_path = CONFIG_PATH
 
         return {
             "materialized": True,
@@ -768,13 +819,26 @@ class DaytonaSandboxProvider:
     async def get_active_sandbox(
         self,
         workspace_id: UUID,
+        external_user_id: Optional[str] = None,
     ) -> Optional[SandboxInfo]:
         """Get active sandbox for workspace using SDK.
 
         Queries Daytona via SDK for workspace associated with this workspace_id.
         Returns None if no active workspace exists or if sandbox is stopped.
+
+        Args:
+            workspace_id: The workspace UUID to look up.
+            external_user_id: Optional end-user identifier for per-user sandbox isolation.
+                If provided, looks up the sandbox specific to this user.
+
+        Returns:
+            SandboxInfo if active sandbox exists, None otherwise.
         """
-        ref = self._generate_ref(workspace_id)
+        # Use per-user ref if external_user_id provided
+        if external_user_id:
+            ref = self._generate_user_ref(workspace_id, external_user_id)
+        else:
+            ref = self._generate_ref(workspace_id)
 
         try:
             config = self._create_config()
@@ -923,7 +987,11 @@ class DaytonaSandboxProvider:
         - Pack digest stored in metadata for stale detection
         - Sensitive credentials remain env-var sourced
         """
-        ref = self._generate_ref(config.workspace_id)
+        # Use per-user ref if external_user_id provided, otherwise use workspace-only ref
+        if config.external_user_id:
+            ref = self._generate_user_ref(config.workspace_id, config.external_user_id)
+        else:
+            ref = self._generate_ref(config.workspace_id)
 
         # Pack binding: track pack info if provided
         pack_bound = config.pack_source_path is not None
@@ -942,7 +1010,12 @@ class DaytonaSandboxProvider:
                 if hasattr(sandbox, "id"):
                     sandbox_id = sandbox.id
 
-                # Verify identity files are mounted (hard gate)
+                # Create workspace directory and symlink identity files from pack volume
+                # This implements mount isolation: pack volume (read-only) vs workspace (writable)
+                await self._create_workspace_symlinks(sandbox)
+
+                # Verify identity files are mounted at workspace path (hard gate)
+                # This confirms symlinks work: files accessible at /home/daytona/workspace/...
                 identity_result = await self.verify_identity_files(sandbox_id)
                 if not identity_result.ready:
                     raise SandboxIdentityError(
@@ -962,11 +1035,11 @@ class DaytonaSandboxProvider:
                     )
 
                 # Write per-sandbox Picoclaw config via file API (outside shared pack volume)
-                config_path = "/home/daytona/.picoclaw/config.json"
+                config_path = CONFIG_PATH
                 try:
                     # Fail-fast: ensure config path is outside shared pack volume
-                    assert not config_path.startswith("/workspace/pack"), (
-                        f"Config path must be outside /workspace/pack: {config_path}"
+                    assert not config_path.startswith(PACK_MOUNT_PATH), (
+                        f"Config path must be outside {PACK_MOUNT_PATH}: {config_path}"
                     )
 
                     # Generate Picoclaw config
