@@ -245,6 +245,9 @@ flowchart LR
 - [Phase 03.2-03]: Real file API for identity verification (AGENT.md, SOUL.md, IDENTITY.md, skills/) — Fail-closed security: must verify actual file existence via Daytona sandbox.fs API
 - [Phase 03.2-03]: Per-sandbox config.json written outside shared pack volume at ~/.picoclaw/config.json — Prevents config pollution across sandboxes, each gets unique bridge auth token and LLM settings
 - [Phase 03.2-03]: Register command blocks on critical failures: validation (exit 1), database (exit 2), sync (exit 3) — Clear error messages guide operator remediation, non-zero exit enables CI/CD integration
+| Phase 03.2-04 P04 | 13min | 2 tasks | 6 files |
+- [Phase 03.2-04]: /health always 200 for monitoring, /ready 503 on failures for k8s readiness — Separation of concerns: health is observability, ready is traffic routing
+- [Phase 03.2-04]: Fail-closed readiness with snapshot gate and remediation — K8s readiness requires explicit failure signal with actionable guidance
 
 ### Roadmap Evolution
 
@@ -323,7 +326,7 @@ flowchart LR
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 03.2 Plan 03 - Observability integration
 - **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-02-SUMMARY.md`
-- **Last session:** 2026-03-02T05:41:53.043Z
+- **Last session:** 2026-03-02T05:42:34.020Z
 - **Commits:** 1812421, 6b70fb8
 
 ---
