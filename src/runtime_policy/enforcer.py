@@ -104,6 +104,9 @@ class RuntimeEnforcer:
         Returns:
             Dictionary containing only allowed secrets
         """
+        if "*" in policy.allowed_secrets:
+            return all_secrets.copy()
+
         allowed = {}
 
         for secret_name in policy.allowed_secrets:

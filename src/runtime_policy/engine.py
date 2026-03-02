@@ -56,6 +56,12 @@ class RuntimePolicyEngine:
         for allowed in allowed_hosts:
             allowed = allowed.lower().strip()
 
+            # Global wildcard
+            if allowed == "*":
+                return PolicyDecision(
+                    allowed=True, reason=f"Egress allowed: '*' policy permits all hosts"
+                )
+
             # Exact match
             if hostname == allowed:
                 return PolicyDecision(
@@ -96,10 +102,10 @@ class RuntimePolicyEngine:
         tool_id = tool_id.lower().strip()
         allowed_normalized = [t.lower().strip() for t in allowed_tools]
 
-        if tool_id in allowed_normalized:
+        if "*" in allowed_normalized or tool_id in allowed_normalized:
             return PolicyDecision(
                 allowed=True,
-                reason=f"Tool access allowed: '{tool_id}' is in allowed list",
+                reason=f"Tool access allowed: '{tool_id}' is in allowed list (or '*' present)",
             )
 
         return PolicyDecision(
@@ -129,10 +135,10 @@ class RuntimePolicyEngine:
         secret_name = secret_name.strip()
         allowed_normalized = [s.strip() for s in allowed_secrets]
 
-        if secret_name in allowed_normalized:
+        if "*" in allowed_normalized or secret_name in allowed_normalized:
             return PolicyDecision(
                 allowed=True,
-                reason=f"Secret access allowed: '{secret_name}' is in allowed list",
+                reason=f"Secret access allowed: '{secret_name}' is in allowed list (or '*' present)",
             )
 
         return PolicyDecision(
