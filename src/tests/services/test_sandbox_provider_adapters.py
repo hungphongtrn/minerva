@@ -737,6 +737,14 @@ class TestSemanticParityLifecycle:
             "Local compose should expose pack_source_path in metadata"
         )
 
+        # Pack mount contract: path and read-only enforcement
+        assert info.ref.metadata.get("pack_mount_path") == "/workspace/pack", (
+            "Local compose should expose pack_mount_path in metadata"
+        )
+        assert info.ref.metadata.get("pack_mount_read_only") is True, (
+            "Local compose should enforce pack_mount_read_only=True when pack_bound"
+        )
+
     @pytest.mark.asyncio
     async def test_pack_binding_metadata_parity_daytona(self, mock_daytona_sdk):
         """Daytona provider exposes pack binding in metadata with expected contract (SDK-backed)."""
@@ -786,6 +794,14 @@ class TestSemanticParityLifecycle:
         )
         assert info.ref.metadata.get("pack_source_path") == pack_path, (
             "Daytona should expose pack_source_path in metadata"
+        )
+
+        # Pack mount contract: path and read-only enforcement
+        assert info.ref.metadata.get("pack_mount_path") == "/workspace/pack", (
+            "Daytona should expose pack_mount_path in metadata"
+        )
+        assert info.ref.metadata.get("pack_mount_read_only") is True, (
+            "Daytona should enforce pack_mount_read_only=True when pack_bound"
         )
 
     @pytest.mark.asyncio

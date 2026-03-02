@@ -53,6 +53,10 @@ def create_mock_sandbox():
         mock.fs.create_folder = AsyncMock()
         mock.fs.upload_file = AsyncMock()
 
+        # Mock process operations for workspace symlink creation
+        mock.process = MagicMock()
+        mock.process.exec = AsyncMock(return_value="")
+
         return mock
 
     return _create
@@ -124,6 +128,16 @@ class TestVolumeMountWiring:
             # Volume name should be deterministic: agent-pack-{pack_id}-{digest}
             expected_volume_name = f"agent-pack-{pack_id}-{pack_digest}"
             assert volume_mount.volume_id == expected_volume_name
+
+            # Pack volume must be read-only (isolation contract enforcement)
+            read_only = getattr(volume_mount, "read_only", None)
+            if read_only is None:
+                read_only = getattr(volume_mount, "readonly", None)
+            if read_only is None and hasattr(volume_mount, "additional_properties"):
+                read_only = volume_mount.additional_properties.get("read_only")
+            if read_only is None and hasattr(volume_mount, "additional_properties"):
+                read_only = volume_mount.additional_properties.get("readonly")
+            assert read_only is True, f"Pack volume must be read-only, got: {read_only}"
 
     @pytest.mark.asyncio
     async def test_provision_without_pack_does_not_mount_volume(
