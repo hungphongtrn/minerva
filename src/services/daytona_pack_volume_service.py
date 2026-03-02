@@ -10,6 +10,7 @@ Key features:
 - Only syncs AGENT.md, SOUL.md, IDENTITY.md, skills/** (no runtime config/secrets)
 """
 
+import asyncio
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -225,9 +226,32 @@ class DaytonaPackVolumeService:
         try:
             config = self._create_config()
             async with AsyncDaytona(config=config) as daytona:
-                # Ensure volume exists (create if needed)
+                # Ensure volume exists (create if needed) and wait for ready state
                 try:
                     volume = await daytona.volume.get(volume_name, create=True)
+
+                    # Poll until volume is ready (transitions from pending_create)
+                    max_polls = 30
+                    poll_interval = 2  # seconds
+                    for _ in range(max_polls):
+                        if hasattr(volume.state, "value"):
+                            state_str = volume.state.value
+                        else:
+                            state_str = str(volume.state)
+
+                        if state_str.lower() == "ready":
+                            break
+
+                        await asyncio.sleep(poll_interval)
+                        volume = await daytona.volume.get(volume_name)
+                    else:
+                        raise PackSyncError(
+                            f"Volume {volume_name} did not become ready within {max_polls * poll_interval}s (state: {volume.state})",
+                            pack_id=pack_id,
+                            volume_name=volume_name,
+                        )
+                except PackSyncError:
+                    raise
                 except DaytonaError as e:
                     raise PackSyncError(
                         f"Failed to create/get volume {volume_name}: {e}",
@@ -242,7 +266,7 @@ class DaytonaPackVolumeService:
                         snapshot=self._snapshot_name,
                         volumes=[
                             VolumeMount(
-                                volume_id=volume_name,
+                                volume_id=volume.id,
                                 mount_path="/workspace/pack",
                             )
                         ],

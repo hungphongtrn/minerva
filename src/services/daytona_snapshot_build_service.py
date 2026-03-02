@@ -94,11 +94,9 @@ class DaytonaSnapshotBuildService:
             repo_ref: Git ref (branch/tag/sha, defaults to PICOCLAW_REPO_REF env var or 'main')
             snapshot_name: Target snapshot name (defaults to DAYTONA_PICOCLAW_SNAPSHOT_NAME env var)
         """
-        self.repo_url = repo_url or os.getenv("PICOCLAW_REPO_URL")
-        self.repo_ref = repo_ref or os.getenv("PICOCLAW_REPO_REF", "main")
-        self.snapshot_name = snapshot_name or os.getenv(
-            "DAYTONA_PICOCLAW_SNAPSHOT_NAME"
-        )
+        self.repo_url = repo_url or settings.PICOCLAW_REPO_URL
+        self.repo_ref = repo_ref or settings.PICOCLAW_REPO_REF
+        self.snapshot_name = snapshot_name or settings.DAYTONA_PICOCLAW_SNAPSHOT_NAME
 
     def _validate_config(self) -> None:
         """Validate required configuration.
@@ -154,25 +152,25 @@ class DaytonaSnapshotBuildService:
     def _build_image(self, repo_dir: Path) -> Image:
         """Build Daytona Image from Picoclaw Dockerfile.
 
-        The Dockerfile is a multi-stage Go build that:
-        1. Builds the picoclaw binary using golang:1.26.0-alpine
-        2. Packages it into alpine:3.23 with health checks
-
-        Since the Dockerfile is self-contained with COPY commands,
-        we use Image.from_dockerfile() which handles the build context.
-
         Args:
             repo_dir: Path to cloned repository
 
         Returns:
             Daytona Image configured from the Dockerfile
         """
+        # Check common locations for Dockerfile
         dockerfile_path = repo_dir / "Dockerfile"
+        if not dockerfile_path.exists():
+            # Try docker/Dockerfile (common pattern)
+            alt_dockerfile = repo_dir / "docker" / "Dockerfile"
+            if alt_dockerfile.exists():
+                # Copy Dockerfile to root so context is correct
+                shutil.copy2(alt_dockerfile, dockerfile_path)
 
         if not dockerfile_path.exists():
             raise SnapshotBuildError(
-                f"Dockerfile not found at {dockerfile_path}",
-                remediation="Ensure PICOCLAW_REPO_URL points to a valid Picoclaw repository",
+                f"Dockerfile not found in root or docker/ directory of {self.repo_url}",
+                remediation="Ensure PICOCLAW_REPO_URL points to a valid Picoclaw repository with a Dockerfile",
             )
 
         # Use from_dockerfile for self-contained Dockerfiles
