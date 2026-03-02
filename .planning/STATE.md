@@ -8,7 +8,7 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
-**Current plan:** 05
+**Current plan:** 06
 **Status:** Complete
 
 ## Completed Plans
@@ -39,6 +39,11 @@ See: .planning/PROJECT.md
   - Commits: 13cece5, ac75e61
   - Duration: 4 min
   - Artifacts: Daytona read-only VolumeMount, provider parity tests, local_compose fail-fast guard
+
+- [x] Plan 06: Plumb external_user_id end-to-end
+  - Commits: 928805f, 78ec863
+  - Duration: 6 min
+  - Artifacts: Per-user sandbox routing keyed on (workspace_id, external_user_id), OSS ExternalPrincipal path, repository query filtering
 
 ### Phase 03.2: OSS Agent Server MVP
 
@@ -83,6 +88,10 @@ See: .planning/PROJECT.md
 20. **03.3-05**: Use VolumeMount.additional_properties for read_only flag (Daytona SDK pattern)
 21. **03.3-05**: Provider parity through identical metadata keys (pack_mount_path, pack_mount_read_only)
 22. **03.3-05**: Fail-closed guard in local_compose prevents dynamic paths under read-only pack mount
+23. **03.3-06**: Repository filters by external_user_id only when explicitly provided (backwards compatible)
+24. **03.3-06**: OSS principal detected by workspace_id + external_user_id attributes on principal
+25. **03.3-06**: RunService uses _process_routing_target() helper for common routing result processing
+26. **03.3-06**: Fixed list_identity_not_ready() SQLAlchemy query syntax (use .is_(False) not 'not' operator)
 
 ## Accumulated Context
 
@@ -97,7 +106,8 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
-- 2026-03-02: Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract) - Phase 03.3 COMPLETE
+- 2026-03-02: Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
+- 2026-03-02: Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract)
 - 2026-03-02: Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
 - 2026-03-02: Completed plan 03.3-01 (External Identity Infrastructure - Identity Collision Fix)
 - 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
@@ -108,5 +118,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract) - Phase 03.3 COMPLETE
+- **Stopped at:** Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
 - **Resume file:** None

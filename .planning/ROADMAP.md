@@ -180,12 +180,15 @@ Plans:
 **Goal:** Fix two structural issues that break multi-tenant safety: identity collision between developer and end-user identities sharing the `users` table, and mount isolation where static pack files and dynamic runtime data share the same volume mount path.
 **Depends on:** Phase 3.2
 **Requirements:** AUTH-03, AGNT-02, AGNT-03
-**Plans:** 3 plans
+**Plans:** 6 plans
 
 Plans:
 - [x] 03.3-01-PLAN.md — Decouple end-user identity with external_identities table, MINERVA_WORKSPACE_ID resolution, and preflight validation.
 - [x] 03.3-02-PLAN.md — Implement mount isolation in Daytona provider with symlink-based workspace/pack separation.
 - [x] 03.3-03-PLAN.md — Wire bridge sender_id/session_id forwarding and implement local_compose isolation parity.
+- [x] 03.3-04-PLAN.md — Wire workspace-config preflight into serve startup with fail-closed behavior.
+- [x] 03.3-05-PLAN.md — Enforce pack mount read-only contract with Daytona VolumeMount and provider parity.
+- [x] 03.3-06-PLAN.md — Plumb external_user_id end-to-end from OSS principal through routing to sandbox persistence.
 
 ### Phase 4: Execution Orchestration and Fairness
 
