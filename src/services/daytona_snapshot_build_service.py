@@ -57,6 +57,9 @@ class SnapshotBuildResult:
     remediation: Optional[str] = None
     """Actionable guidance if build failed."""
 
+    reused: bool = False
+    """Whether an existing snapshot was reused instead of created."""
+
 
 class DaytonaSnapshotBuildService:
     """Service for building Picoclaw base snapshot via Daytona Declarative Builder.
@@ -93,7 +96,9 @@ class DaytonaSnapshotBuildService:
         """
         self.repo_url = repo_url or os.getenv("PICOCLAW_REPO_URL")
         self.repo_ref = repo_ref or os.getenv("PICOCLAW_REPO_REF", "main")
-        self.snapshot_name = snapshot_name or os.getenv("DAYTONA_PICOCLAW_SNAPSHOT_NAME")
+        self.snapshot_name = snapshot_name or os.getenv(
+            "DAYTONA_PICOCLAW_SNAPSHOT_NAME"
+        )
 
     def _validate_config(self) -> None:
         """Validate required configuration.
@@ -182,11 +187,15 @@ class DaytonaSnapshotBuildService:
     ) -> SnapshotBuildResult:
         """Build the Picoclaw base snapshot.
 
+        This method is idempotent: if the snapshot already exists, it will be
+        reused instead of creating a duplicate.
+
         This method:
         1. Validates configuration
-        2. Clones the repository
-        3. Builds the image from Dockerfile
-        4. Creates the snapshot
+        2. Checks if snapshot already exists (reuse if found)
+        3. Clones the repository
+        4. Builds the image from Dockerfile
+        5. Creates the snapshot (if not found)
 
         Args:
             on_logs: Optional callback for streaming build logs
@@ -197,6 +206,63 @@ class DaytonaSnapshotBuildService:
         try:
             # Validate configuration
             self._validate_config()
+
+            # Check if snapshot already exists (idempotent check)
+            async with AsyncDaytona() as daytona:
+                try:
+                    existing_snapshot = await daytona.snapshot.get(self.snapshot_name)
+                    # Snapshot exists - reuse it
+                    if on_logs:
+                        on_logs(
+                            f"Snapshot '{self.snapshot_name}' already exists; reusing\n"
+                        )
+
+                    return SnapshotBuildResult(
+                        success=True,
+                        snapshot_name=self.snapshot_name,
+                        reused=True,
+                    )
+                except DaytonaError as e:
+                    # Check if this is a "not found" error vs auth/permission error
+                    error_str = str(e).lower()
+                    is_not_found = (
+                        "not found" in error_str
+                        or "404" in error_str
+                        or "does not exist" in error_str
+                        or "no such snapshot" in error_str
+                    )
+
+                    if not is_not_found:
+                        # Auth/permission error - fail closed, don't attempt create
+                        error_msg = f"Failed to check snapshot: {e}"
+
+                        # Provide remediation based on error type
+                        if "write:snapshots" in error_str or "permission" in error_str:
+                            remediation = (
+                                "Ensure your Daytona API key has 'read:snapshots' scope. "
+                                "Check your Daytona Cloud or self-hosted configuration."
+                            )
+                        elif "unauthorized" in error_str or "401" in error_str:
+                            remediation = "Verify DAYTONA_API_KEY is set correctly"
+                        else:
+                            remediation = "Check Daytona logs for details"
+
+                        if on_logs:
+                            on_logs(f"\n❌ {error_msg}\n")
+                            on_logs(f"Remediation: {remediation}\n")
+
+                        return SnapshotBuildResult(
+                            success=False,
+                            snapshot_name=self.snapshot_name,
+                            error_message=error_msg,
+                            remediation=remediation,
+                        )
+
+                    # Not found - proceed to create (this is the expected path for new snapshots)
+                    if on_logs:
+                        on_logs(
+                            f"Snapshot '{self.snapshot_name}' not found, building...\n"
+                        )
 
             # Create temporary directory for repo clone
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -231,11 +297,14 @@ class DaytonaSnapshotBuildService:
                     )
 
                 if on_logs:
-                    on_logs(f"\n✅ Snapshot '{self.snapshot_name}' created successfully\n")
+                    on_logs(
+                        f"\n✅ Snapshot '{self.snapshot_name}' created successfully\n"
+                    )
 
                 return SnapshotBuildResult(
                     success=True,
                     snapshot_name=self.snapshot_name,
+                    reused=False,
                 )
 
         except SnapshotBuildError as e:
@@ -264,7 +333,9 @@ class DaytonaSnapshotBuildService:
             elif "unauthorized" in error_str or "401" in error_str:
                 remediation = "Verify DAYTONA_API_KEY is set correctly"
             elif "not found" in error_str or "404" in error_str:
-                remediation = "Verify DAYTONA_API_URL is correct (leave empty for Daytona Cloud)"
+                remediation = (
+                    "Verify DAYTONA_API_URL is correct (leave empty for Daytona Cloud)"
+                )
             else:
                 remediation = "Check Daytona logs for details"
 
