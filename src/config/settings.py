@@ -99,6 +99,16 @@ class Settings(BaseSettings):
     Set per-sandbox via environment variable. Leave empty for development.
     """
 
+    # Picoclaw Snapshot Configuration
+    PICOCLAW_REPO_URL: str = ""
+    """Git repository URL for Picoclaw source code."""
+
+    PICOCLAW_REPO_REF: str = "main"
+    """Git ref (branch/tag/sha) for Picoclaw source (default: main)."""
+
+    DAYTONA_PICOCLAW_SNAPSHOT_NAME: str = ""
+    """Name of the Daytona snapshot to use for sandbox provisioning."""
+
     # Bridge Configuration (accessed as PICOCLAW_BRIDGE dict)
     PICOCLAW_BRIDGE: dict = {}
     """Bridge timeout/retry/auth configuration.

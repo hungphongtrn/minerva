@@ -40,7 +40,10 @@ router = APIRouter()
 
 class OssRunError(Exception):
     """Error during OSS run execution."""
-    def __init__(self, message: str, category: str = "agent_error", retryable: bool = False):
+
+    def __init__(
+        self, message: str, category: str = "agent_error", retryable: bool = False
+    ):
         self.message = message
         self.category = category
         self.retryable = retryable
@@ -90,16 +93,15 @@ async def _execute_run_with_events(
 
         # Check for cold start (no existing sandboxes)
         sandbox_repo = SandboxInstanceRepository(db)
-        workspace_sandboxes = sandbox_repo.get_by_workspace(
-            workspace_id=__import__('uuid').UUID(principal.workspace_id)
+        workspace_sandboxes = sandbox_repo.list_by_workspace(
+            workspace_id=__import__("uuid").UUID(principal.workspace_id)
         )
 
         if not workspace_sandboxes:
             is_cold_start = True
             # Yield provisioning events for cold start
             yield event_builder.provisioning(
-                step="workspace_ready",
-                message="Workspace ready"
+                step="workspace_ready", message="Workspace ready"
             ).to_sse_lines()
 
         # Define the actual execution operation
@@ -108,9 +110,9 @@ async def _execute_run_with_events(
             return await run_service.execute_with_routing(
                 principal=principal,
                 session=db,
-                egress_policy=EgressPolicy.ALLOW_ALL,
-                tool_policy=ToolPolicy.ALLOW_ALL,
-                secret_policy=SecretScope.ALL,
+                egress_policy=EgressPolicy.allow_all(),
+                tool_policy=ToolPolicy.allow_all(),
+                secret_policy=SecretScope.allow_all(),
                 secrets={},
                 input_message=input_message,
                 session_id=session_id,
@@ -130,12 +132,10 @@ async def _execute_run_with_events(
         if not queue_result.success:
             # Execution failed
             error_info = sanitize_error_for_user(
-                queue_result.error or "Unknown error",
-                category="agent_error"
+                queue_result.error or "Unknown error", category="agent_error"
             )
             yield event_builder.failed(
-                error=error_info["message"],
-                error_category=error_info["category"]
+                error=error_info["message"], error_category=error_info["category"]
             ).to_sse_lines()
             return
 
@@ -145,23 +145,21 @@ async def _execute_run_with_events(
         yield event_builder.running(step="bridge_execute").to_sse_lines()
 
         # Check for bridge output
-        if result and hasattr(result, 'outputs') and result.outputs:
+        if result and hasattr(result, "outputs") and result.outputs:
             outputs = result.outputs
 
             # Check for final output from bridge
             final_output = outputs.get("final_output")
             if final_output:
                 yield event_builder.message(
-                    role="assistant",
-                    content=str(final_output)
+                    role="assistant", content=str(final_output)
                 ).to_sse_lines()
             elif outputs.get("bridge", {}).get("success"):
                 bridge_output = outputs["bridge"].get("output", {})
                 message = bridge_output.get("message") or bridge_output.get("content")
                 if message:
                     yield event_builder.message(
-                        role="assistant",
-                        content=str(message)
+                        role="assistant", content=str(message)
                     ).to_sse_lines()
 
         # Yield completed event
@@ -171,14 +169,22 @@ async def _execute_run_with_events(
         # Handle unexpected errors
         error_info = sanitize_error_for_user(str(e), category="agent_error")
         yield event_builder.failed(
-            error=error_info["message"],
-            error_category=error_info["category"]
+            error=error_info["message"], error_category=error_info["category"]
         ).to_sse_lines()
+
+
+from pydantic import BaseModel
+
+
+class RunRequest(BaseModel):
+    """OSS run request body."""
+
+    message: str
 
 
 @router.post("/runs")
 async def runs(
-    input_message: str,
+    request: RunRequest,
     principal: ExternalPrincipal = Depends(resolve_external_principal),
     x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
     x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
@@ -186,25 +192,25 @@ async def runs(
 ):
     """Execute a run and stream results as SSE.
 
-    This endpoint accepts a message from the end-user and streams back
-typed SSE events including:
-    - Lifecycle events: queued, provisioning, running, completed/failed
-    - Domain events: message (agent responses)
+        This endpoint accepts a message from the end-user and streams back
+    typed SSE events including:
+        - Lifecycle events: queued, provisioning, running, completed/failed
+        - Domain events: message (agent responses)
 
-    Headers:
-        X-User-ID: Required. Opaque user identifier from gateway.
-        X-Session-ID: Optional. Session ID for conversation continuity.
-        X-Idempotency-Key: Optional. Key for idempotent request handling.
+        Headers:
+            X-User-ID: Required. Opaque user identifier from gateway.
+            X-Session-ID: Optional. Session ID for conversation continuity.
+            X-Idempotency-Key: Optional. Key for idempotent request handling.
 
-    Args:
-        input_message: The user's input message
-        principal: External principal resolved from X-User-ID
-        x_session_id: Optional session ID for continuity
-        x_idempotency_key: Optional idempotency key
-        db: Database session
+        Args:
+            request: The run request body (contains message)
+            principal: External principal resolved from X-User-ID
+            x_session_id: Optional session ID for continuity
+            x_idempotency_key: Optional idempotency key
+            db: Database session
 
-    Returns:
-        EventSourceResponse with SSE stream
+        Returns:
+            EventSourceResponse with SSE stream
     """
     run_id = str(uuid4())
 
@@ -214,7 +220,7 @@ typed SSE events including:
         async for event in _execute_run_with_events(
             principal=principal,
             db=db,
-            input_message=input_message,
+            input_message=request.message,
             session_id=x_session_id,
             idempotency_key=x_idempotency_key,
             run_id=run_id,
