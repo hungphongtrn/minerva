@@ -15,26 +15,19 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
-from daytona import AsyncDaytona, DaytonaConfig, DaytonaError
+from daytona import (
+    AsyncDaytona,
+    DaytonaConfig,
+    DaytonaError,
+    CreateSandboxFromSnapshotParams,
+    VolumeMount,
+    FileUpload,
+)
 
 from src.infrastructure.sandbox.providers.base import (
     SandboxProviderError,
     SandboxConfigurationError,
 )
-
-
-class VolumeMount:
-    """Volume mount configuration for Daytona sandboxes."""
-
-    def __init__(self, volume_id: str, mount_path: str):
-        """Initialize volume mount.
-
-        Args:
-            volume_id: Daytona volume ID/name
-            mount_path: Path inside sandbox where volume is mounted
-        """
-        self.volume_id = volume_id
-        self.mount_path = mount_path
 
 
 class PackSyncError(SandboxProviderError):
@@ -108,11 +101,10 @@ class DaytonaPackVolumeService:
             source_digest: SHA-256 digest of pack content
 
         Returns:
-            Volume name: agent-pack-{pack_id}-{digest}
+            Volume name: agent-pack-{pack_id}-{source_digest}
+            (full UUID + full digest, no truncation)
         """
-        # Use first 16 chars of digest for readability
-        digest_short = source_digest[:16] if len(source_digest) >= 16 else source_digest
-        return f"agent-pack-{str(pack_id)[:8]}-{digest_short}"
+        return f"agent-pack-{pack_id}-{source_digest}"
 
     def _collect_pack_files(self, source_path: str) -> Dict[str, bytes]:
         """Collect pack files for upload.
@@ -245,19 +237,19 @@ class DaytonaPackVolumeService:
 
                 # Create disposable sandbox from snapshot with volume mounted
                 try:
-                    # Build sandbox params with volume mount
-                    sandbox_params: Dict[str, Any] = {
-                        "snapshot": self._snapshot_name,
-                        "volumes": [
+                    # Build sandbox params with volume mount using SDK types
+                    sandbox_params = CreateSandboxFromSnapshotParams(
+                        snapshot=self._snapshot_name,
+                        volumes=[
                             VolumeMount(
                                 volume_id=volume_name,
-                                mount_path="/workspace/pack"
+                                mount_path="/workspace/pack",
                             )
                         ],
-                        "timeout": 60,
-                    }
+                        timeout=60,
+                    )
 
-                    sandbox = await daytona.create(**sandbox_params)
+                    sandbox = await daytona.create(sandbox_params)
                     sandbox_id = sandbox.id if hasattr(sandbox, "id") else "unknown"
 
                 except DaytonaError as e:
@@ -269,12 +261,17 @@ class DaytonaPackVolumeService:
 
                 # Upload files into mounted volume
                 try:
-                    # Use bulk upload to copy all files at once
+                    # Convert files to FileUpload objects for SDK upload
                     # Files are uploaded to /workspace/pack/ which is the volume mount point
-                    await sandbox.fs.upload_files(
-                        files=files_to_upload,
-                        dest_dir="/workspace/pack",
-                    )
+                    file_uploads = [
+                        FileUpload(
+                            source=content,
+                            destination=f"/workspace/pack/{rel_path}",
+                        )
+                        for rel_path, content in files_to_upload.items()
+                    ]
+
+                    await sandbox.fs.upload_files(file_uploads)
 
                 except DaytonaError as e:
                     raise PackSyncError(
