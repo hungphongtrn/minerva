@@ -10,11 +10,12 @@
 
 ## Current Position
 
-- **Phase:** 03.1 (Make Daytona Production-Ready for Picoclaw Gateway Execution) - COMPLETE
-- **Plan status:** Phase 03.1 complete (all 4 plans complete)
-- **Execution status:** Phase goal re-verified (`passed`, 15/15 must-haves)
-- **Progress bar:** [███████████████████░] 95%
-- **Last completed:** Phase 03.1 re-verification passed (15/15 must-haves)
+- **Phase:** 03.2 (OSS Agent Server MVP) - IN PROGRESS
+- **Current Plan:** 01 of 05 (CLI Skeleton + Preflight)
+- **Plan status:** Plan 03.2-01 complete
+- **Execution status:** CLI entrypoint working with preflight validation
+- **Progress bar:** [████████████████████] 96%
+- **Last completed:** Plan 03.2-01 - CLI Skeleton + Preflight Summary
 
 ```mermaid
 flowchart LR
@@ -56,9 +57,10 @@ flowchart LR
   S36 --> S37[03-05: Persistence APIs ✓]
   S37 --> S38[Phase 3 Verification: Passed ✓]
   S38 --> S39[03.1-01: Persistence Contract ✓]
-S39 --> S40[03.1-02: Production-Ready Daytona ✓]
-S40 --> S41[03.1-03: Bridge Token Integration ✓]
-S41 --> S42[03.1-04: Base Image Guardrails ✓]
+  S39 --> S40[03.1-02: Production-Ready Daytona ✓]
+  S40 --> S41[03.1-03: Bridge Token Integration ✓]
+  S41 --> S42[03.1-04: Base Image Guardrails ✓]
+  S42 --> S43[03.2-01: CLI Skeleton + Preflight ✓]
 ```
 
 ## Performance Metrics
@@ -66,8 +68,8 @@ S41 --> S42[03.1-04: Base Image Guardrails ✓]
 - **v1 requirements total:** 36
 - **Requirements mapped to phases:** 36
 - **Coverage ratio:** 100%
-- **Completed phases:** 3/5 (plus inserted phases: 2.1 and 3.1 complete)
-- **Completed plans:** 33/33 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 4/4)
+- **Completed phases:** 3/5 (plus inserted phases: 2.1, 3.1, and 3.2 in progress)
+- **Completed plans:** 34/38 (Phase 2: 21/21, Phase 2.1: 3/3, Phase 3: 5/5, Phase 3.1: 4/4, Phase 3.2: 1/5)
 - **Completed requirements:** 23/36
 - **Phase 1 verification score:** 6/6 must-haves verified (all gaps closed via 01-09)
 - **Phase 2 verification score:** 11/11 truths verified
@@ -225,6 +227,12 @@ S41 --> S42[03.1-04: Base Image Guardrails ✓]
 | D-03.1-04-003 | 2026-02-26 | 03.1-04 | Stamp image contract metadata on provisioned sandboxes | Observability - can trace which image was used for debugging |
 | D-03.1-04-004 | 2026-02-26 | 03.1-04 | Always cleanup disposable preflight sandboxes in finally block | Prevents resource leaks and unexpected costs |
 | D-03.1-04-005 | 2026-02-26 | 03.1-04 | Support both human-readable and JSON output for CI integration | Operators need interactive debugging; CI needs machine-parseable output |
+| D-03.2-01-001 | 2026-03-02 | 03.2-01 | Use argparse for CLI (standard library, no additional dependencies) | Simplicity and zero-dependency approach for OSS CLI |
+| D-03.2-01-002 | 2026-03-02 | 03.2-01 | Use hatchling for build system (native uv support) | Modern build backend with first-class uv integration |
+| D-03.2-01-003 | 2026-03-02 | 03.2-01 | Preflight checks are lazy (no network calls at import time) | Prevents import-time failures and allows partial startup |
+| D-03.2-01-004 | 2026-03-02 | 03.2-01 | Serve command enforces two gates: DB schema at head, snapshot exists | Never auto-migrate contract with actionable remediation |
+| D-03.2-01-005 | 2026-03-02 | 03.2-01 | Scaffold uses existing AgentScaffoldService with skills/README.md addition | Reuse existing service, add documentation placeholder |
+| Phase 03.2 P01 | 38 | 3 tasks | 10 files |
 
 ### Roadmap Evolution
 
@@ -275,11 +283,15 @@ S41 --> S42[03.1-04: Base Image Guardrails ✓]
 - [x] Execute Plan 03.1-02: Production-ready Daytona control-plane with identity gates and bounded reprovision
 - [x] Execute Plan 03.1-03: Bridge token integration and gateway endpoint resolution
 - [x] Execute Plan 03.1-04: Base image guardrails with strict mode and preflight CLI
+- [x] Execute Plan 03.2-01: CLI skeleton with preflight validation and scaffold generation
 
 ### Next Plans
 
-- [ ] Phase 3.2: OSS Agent Server MVP
-- [ ] Phase 4: Execution Orchestration and Fairness
+- [ ] Phase 03.2 Plan 02: Observability integration
+- [ ] Phase 03.2 Plan 03: API routes for agent packs
+- [ ] Phase 03.2 Plan 04: Runtime endpoints
+- [ ] Phase 03.2 Plan 05: Acceptance tests
+- [ ] Phase 04: Execution Orchestration and Fairness
 
 ### Blockers
 
@@ -293,14 +305,14 @@ S41 --> S42[03.1-04: Base Image Guardrails ✓]
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.1-VERIFICATION.md` (status: passed, 15/15 must-haves verified)
-- **Last activity:** 2026-02-26 - Phase 03.1 re-verified passed after gap-closure plan 03.1-04
+- **Last completed artifact:** `03.2-01-SUMMARY.md` (CLI Skeleton + Preflight)
+- **Last activity:** 2026-03-02 - Plan 03.2-01 complete with CLI entrypoint and preflight validation
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
-- **Next plans:** Phase 3.2 - OSS Agent Server MVP
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.1-make-daytona-production-ready-for-picoclaw-gateway-execution/03.1-VERIFICATION.md`
-- **Last session:** 2026-03-02T03:22:44.872Z
-- **Commits:** c5ea066, 54e117d, 093705e, cb3d691, 7b41401
+- **Next plans:** Phase 03.2 Plan 02 - Observability integration
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-01-SUMMARY.md`
+- **Last session:** 2026-03-02T05:18:53Z
+- **Commits:** 012b298, 5c253ad, 8e2441c
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-02-26 (Phase 3.1 complete - all 4 plans executed and re-verified at 15/15)*
+*Updated: 2026-03-02 (Phase 03.2 Plan 01 complete - CLI entrypoint with preflight validation)*
