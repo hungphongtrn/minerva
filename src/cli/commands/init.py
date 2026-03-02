@@ -46,22 +46,19 @@ def handle(args: argparse.Namespace) -> int:
 
     # Exit non-zero on blocking failures
     if not result.is_healthy:
-        print("\n❌ Preflight failed: Fix BLOCKING issues before proceeding", file=sys.stderr)
+        print(
+            "\n❌ Preflight failed: Fix BLOCKING issues before proceeding",
+            file=sys.stderr,
+        )
         return 1
 
     print("\n✅ Preflight passed: Environment ready")
     return 0
 
 
-def _generate_env_example(force: bool) -> None:
-    """Generate .env.example with all documented env vars grouped by service."""
-    env_path = Path(".env.example")
-
-    if env_path.exists() and not force:
-        print(".env.example already exists (use --force to overwrite)")
-        return
-
-    content = """# Minerva Environment Configuration
+def _render_env_example_template() -> str:
+    """Return the .env.example template content as a deterministic string."""
+    return """# Minerva Environment Configuration
 # Copy this file to .env and customize as needed
 
 # =============================================================================
@@ -202,5 +199,15 @@ PICOCLAW_BRIDGE_TOKEN=
 PICOCLAW_BRIDGE={}
 """
 
+
+def _generate_env_example(force: bool) -> None:
+    """Generate .env.example with all documented env vars grouped by service."""
+    env_path = Path(".env.example")
+
+    if env_path.exists() and not force:
+        print(".env.example already exists (use --force to overwrite)")
+        return
+
+    content = _render_env_example_template()
     env_path.write_text(content)
     print(f"Generated {env_path}")
