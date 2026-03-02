@@ -20,6 +20,11 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxProvisionError,
     SandboxRef,
     SandboxState,
+    WORKSPACE_PATH,
+    PACK_MOUNT_PATH,
+    CONFIG_PATH,
+    IDENTITY_FILES,
+    IDENTITY_DIRS,
 )
 
 
@@ -80,6 +85,9 @@ class LocalComposeSandboxProvider(SandboxProvider):
             "compose_file": self._compose_file_path,
             "local_only": True,
             "pack_bound": pack_bound,
+            "workspace_path": data.get("workspace_path", WORKSPACE_PATH),
+            "pack_mount_path": data.get("pack_mount_path", PACK_MOUNT_PATH),
+            "workspace_symlinks_created": data.get("workspace_symlinks_created", False),
         }
 
         if pack_bound and pack_source_path:
@@ -103,6 +111,37 @@ class LocalComposeSandboxProvider(SandboxProvider):
             error_message=data.get("error_message"),
             provider_state=data.get("provider_state", "local_simulated"),
         )
+
+    def _generate_user_ref(self, workspace_id: UUID, external_user_id: str) -> str:
+        """Generate a deterministic provider reference for per-user sandbox isolation.
+
+        Each (workspace_id, external_user_id) pair gets its own sandbox,
+        enabling multi-user isolation within the same workspace context.
+
+        Args:
+            workspace_id: The workspace UUID
+            external_user_id: The external end-user identifier
+
+        Returns:
+            Deterministic provider reference string
+        """
+        hash_input = f"local-{workspace_id}-{external_user_id}"
+        short_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:12]
+        return f"local-sandbox-{short_hash}"
+
+    async def _create_workspace_symlinks(self, ref: str) -> None:
+        """Create workspace directory and symlink identity files (simulation).
+
+        In production Docker implementation, this would:
+        1. docker exec to create /home/daytona/workspace
+        2. docker exec to create symlinks from /workspace/pack/{file} to /home/daytona/workspace/{file}
+
+        For simulation, records that symlinks were configured in sandbox metadata.
+        """
+        if ref in self._sandboxes:
+            self._sandboxes[ref]["workspace_symlinks_created"] = True
+            self._sandboxes[ref]["workspace_path"] = WORKSPACE_PATH
+            self._sandboxes[ref]["pack_mount_path"] = PACK_MOUNT_PATH
 
     def _generate_picoclaw_config(
         self,
@@ -133,7 +172,7 @@ class LocalComposeSandboxProvider(SandboxProvider):
         picoclaw_config = {
             "agents": {
                 "defaults": {
-                    "workspace": "/workspace/pack",
+                    "workspace": WORKSPACE_PATH,
                     "restrict_to_workspace": True,
                     "model": "primary",
                     "max_tokens": 8192,
@@ -203,11 +242,11 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
         # For local compose simulation:
         # - Track that materialization occurred
-        # - Store the expected config path
+        # - Store the expected config path (outside pack volume for isolation)
         # - Store the pack digest for stale detection
 
-        materialized_path = "/workspace/pack"
-        config_path = f"{materialized_path}/config.json"
+        materialized_path = PACK_MOUNT_PATH
+        config_path = CONFIG_PATH  # Outside pack volume for isolation parity
 
         return {
             "materialized": True,
@@ -221,12 +260,24 @@ class LocalComposeSandboxProvider(SandboxProvider):
     async def get_active_sandbox(
         self,
         workspace_id: UUID,
+        external_user_id: Optional[str] = None,
     ) -> Optional[SandboxInfo]:
         """Get active sandbox for workspace.
 
         Returns the sandbox if it exists and is not in terminal STOPPED state.
+
+        Args:
+            workspace_id: The workspace to look up
+            external_user_id: Optional external user ID for per-user sandbox isolation
+
+        Returns:
+            SandboxInfo if active sandbox exists, None otherwise
         """
-        ref = self._generate_ref(workspace_id)
+        # Use per-user ref if external_user_id is provided
+        if external_user_id:
+            ref = self._generate_user_ref(workspace_id, external_user_id)
+        else:
+            ref = self._generate_ref(workspace_id)
 
         if ref not in self._sandboxes:
             return None
@@ -258,7 +309,11 @@ class LocalComposeSandboxProvider(SandboxProvider):
         - Pack digest stored in metadata for stale detection
         - Sensitive credentials remain env-var sourced
         """
-        ref = self._generate_ref(config.workspace_id)
+        # Use per-user ref if external_user_id is set
+        if config.external_user_id:
+            ref = self._generate_user_ref(config.workspace_id, config.external_user_id)
+        else:
+            ref = self._generate_ref(config.workspace_id)
 
         # Check if sandbox already exists and is active
         if ref in self._sandboxes:
@@ -301,6 +356,9 @@ class LocalComposeSandboxProvider(SandboxProvider):
             "materialized_config_path": materialized_config_path,
             "materialization": materialization,
         }
+
+        # Create workspace symlinks for mount isolation parity (before READY)
+        await self._create_workspace_symlinks(ref)
 
         # Simulate async provisioning delay
         await asyncio.sleep(0.01)
