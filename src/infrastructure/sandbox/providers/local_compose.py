@@ -92,6 +92,8 @@ class LocalComposeSandboxProvider(SandboxProvider):
 
         if pack_bound and pack_source_path:
             metadata["pack_source_path"] = pack_source_path
+            # Pack mount isolation contract: always expose read-only status
+            metadata["pack_mount_read_only"] = True
         if pack_digest:
             metadata["pack_digest"] = pack_digest
         if materialized_config_path:
@@ -340,6 +342,16 @@ class LocalComposeSandboxProvider(SandboxProvider):
             # In production, this would write to sandbox volume
             # For simulation, we track that config was "generated"
             materialized_config_path = materialization.get("config_path")
+
+        # Fail-fast contract guard: dynamic paths must not be under pack mount
+        if materialized_config_path and materialized_config_path.startswith(
+            PACK_MOUNT_PATH
+        ):
+            raise SandboxConfigurationError(
+                f"Config path must be outside pack mount {PACK_MOUNT_PATH}: {materialized_config_path}",
+                provider_ref=ref,
+                workspace_id=config.workspace_id,
+            )
 
         # Start in HYDRATING state
         self._sandboxes[ref] = {

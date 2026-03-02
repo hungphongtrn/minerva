@@ -194,6 +194,17 @@ def mock_daytona_sdk():
         mock.state = state
         mock.status = status
         mock.metadata = {}  # Add empty metadata to prevent MagicMock issues
+
+        # Mock file system operations
+        mock.fs = MagicMock()
+        mock.fs.get_file_info = AsyncMock(return_value=MagicMock(is_dir=False))
+        mock.fs.create_folder = AsyncMock()
+        mock.fs.upload_file = AsyncMock()
+
+        # Mock process operations for workspace symlink creation
+        mock.process = MagicMock()
+        mock.process.exec = AsyncMock(return_value="")
+
         return mock
 
     with (

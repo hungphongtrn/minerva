@@ -647,6 +647,9 @@ class DaytonaSandboxProvider:
 
         if pack_bound and pack_source_path:
             metadata["pack_source_path"] = pack_source_path
+            # Pack mount isolation contract: always expose path and read-only status
+            metadata["pack_mount_path"] = PACK_MOUNT_PATH
+            metadata["pack_mount_read_only"] = True
         if pack_digest:
             metadata["pack_digest"] = pack_digest
         if materialized_config_path:
@@ -933,6 +936,7 @@ class DaytonaSandboxProvider:
                 VolumeMount(
                     volume_id=volume_name,
                     mount_path="/workspace/pack",
+                    additional_properties={"read_only": True},
                 )
             )
 
