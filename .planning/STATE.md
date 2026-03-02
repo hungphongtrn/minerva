@@ -25,11 +25,12 @@ See: .planning/PROJECT.md
   - Duration: 15 min
   - Artifacts: Idempotent DaytonaSnapshotBuildService with reused flag, 2 new tests
 
-## Quick Tasks Completed
+### Quick Tasks Completed
 
-| Task | Commit | Date |
-| --- | --- | --- |
-| Update docker-compose.yml to prepare minio dependencies | e770c17 | 2026-03-02 |
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 001 | Create a docker compose to spin up Postgres quickly | 2026-02-23 | 7c3080d | [001-create-a-docker-compose-to-spin-up-postg](./quick/001-create-a-docker-compose-to-spin-up-postg/) |
+| 002 | Update docker-compose.yml to prepare minio dependencies | 2026-03-02 | e770c17 | [002-update-docker-compose-minio](./quick/002-update-docker-compose-minio/) |
 
 ## Decisions
 
