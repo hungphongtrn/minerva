@@ -714,6 +714,7 @@ class SandboxOrchestratorService:
                 pack_source_path=pack_source_path,
                 pack_digest=pack_digest,
                 runtime_bridge_config=runtime_bridge_config,
+                agent_pack_id=agent_pack_id,
             )
 
             provider_info = await self._provider.provision_sandbox(config)

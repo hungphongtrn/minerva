@@ -16,7 +16,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 from uuid import UUID
 
-from daytona import AsyncDaytona, DaytonaConfig, DaytonaError
+from daytona import (
+    AsyncDaytona,
+    DaytonaConfig,
+    DaytonaError,
+    CreateSandboxFromSnapshotParams,
+    VolumeMount,
+)
 
 from src.infrastructure.sandbox.providers.base import (
     SandboxConfig,
@@ -123,6 +129,7 @@ class DaytonaSandboxProvider:
         auto_stop_interval: Optional[int] = None,
         strict_mode: bool = False,
         digest_required: bool = False,
+        snapshot_name: Optional[str] = None,
     ):
         """Initialize the Daytona provider.
 
@@ -136,6 +143,7 @@ class DaytonaSandboxProvider:
             base_image: Docker image to use for sandbox (defaults to env or registry default).
             image_labels: Labels to apply to sandbox image.
             auto_stop_interval: Auto-stop interval in seconds (0 disables, None uses env default).
+            snapshot_name: Snapshot name for provisioning (defaults to DAYTONA_PICOCLAW_SNAPSHOT_NAME env var).
             strict_mode: If True, enforces deterministic image contract validation.
             digest_required: If True, requires digest-pinned image references (implied by strict_mode).
 
@@ -186,6 +194,13 @@ class DaytonaSandboxProvider:
             auto_stop_interval
             if auto_stop_interval is not None
             else int(os.environ.get("DAYTONA_AUTO_STOP_INTERVAL", "0"))
+        )
+
+        # Snapshot name for provisioning (defaults to environment variable)
+        self._snapshot_name = (
+            snapshot_name
+            if snapshot_name is not None
+            else os.environ.get("DAYTONA_PICOCLAW_SNAPSHOT_NAME", "picoclaw-snapshot")
         )
 
         # Image contract validation settings
@@ -768,34 +783,71 @@ class DaytonaSandboxProvider:
             # Fail-closed: any error results in None
             return None
 
-    def _build_create_params(self, config: SandboxConfig) -> Dict[str, Any]:
-        """Build Daytona create parameters from config.
+    def _compute_volume_name(self, pack_id: UUID, pack_digest: str) -> str:
+        """Compute deterministic volume name from pack ID and digest.
+
+        Args:
+            pack_id: Agent pack UUID
+            pack_digest: SHA-256 digest of pack content
+
+        Returns:
+            Volume name: agent-pack-{pack_id}-{pack_digest}
+        """
+        return f"agent-pack-{pack_id}-{pack_digest}"
+
+    def _build_create_params(
+        self, config: SandboxConfig
+    ) -> CreateSandboxFromSnapshotParams:
+        """Build Daytona CreateSandboxFromSnapshotParams from config.
 
         Args:
             config: Sandbox configuration.
 
         Returns:
-            Dict of parameters for Daytona SDK create() method.
+            CreateSandboxFromSnapshotParams for Daytona SDK create() method.
+
+        Raises:
+            SandboxConfigurationError: If pack binding is required but incomplete.
         """
-        params: Dict[str, Any] = {
-            "timeout": 60,
-        }
+        # Build volume mounts list
+        volume_mounts: List[VolumeMount] = []
 
-        # Image configuration
-        if self._base_image:
-            params["image"] = self._base_image
+        # Pack binding: mount volume if pack_source_path is provided
+        if config.pack_source_path:
+            # Fail-closed: both agent_pack_id and pack_digest required for binding
+            if not config.agent_pack_id:
+                raise SandboxConfigurationError(
+                    "agent_pack_id is required when pack_source_path is provided",
+                    provider_ref=str(config.workspace_id),
+                    workspace_id=config.workspace_id,
+                )
+            if not config.pack_digest:
+                raise SandboxConfigurationError(
+                    "pack_digest is required when pack_source_path is provided",
+                    provider_ref=str(config.workspace_id),
+                    workspace_id=config.workspace_id,
+                )
 
-        # Auto-stop interval: 0 disables auto-stop for runtime continuity
-        if self._auto_stop_interval is not None:
-            params["auto_stop_interval"] = self._auto_stop_interval
+            # Compute volume name and add mount
+            volume_name = self._compute_volume_name(
+                config.agent_pack_id, config.pack_digest
+            )
+            volume_mounts.append(
+                VolumeMount(
+                    volume_id=volume_name,
+                    mount_path="/workspace/pack",
+                )
+            )
 
-        # Labels for the workspace
+        # Build labels
         labels: Dict[str, str] = {}
         labels.update(self._image_labels)
         if config.pack_source_path:
             labels["pack_source_path"] = config.pack_source_path
         if config.pack_digest:
             labels["pack_digest"] = config.pack_digest
+        if config.agent_pack_id:
+            labels["agent_pack_id"] = str(config.agent_pack_id)
 
         # Image contract metadata labels
         labels["picoclaw.base_image"] = self._base_image
@@ -806,12 +858,14 @@ class DaytonaSandboxProvider:
             )
         )
 
-        if labels:
-            params["labels"] = labels
-
-        # Environment variables
-        if config.env_vars:
-            params["env_vars"] = config.env_vars
+        # Build CreateSandboxFromSnapshotParams
+        params = CreateSandboxFromSnapshotParams(
+            snapshot=self._snapshot_name,
+            timeout=60,
+            labels=labels if labels else None,
+            env_vars=config.env_vars if config.env_vars else None,
+            volumes=volume_mounts if volume_mounts else None,
+        )
 
         return params
 
@@ -844,11 +898,11 @@ class DaytonaSandboxProvider:
         try:
             daytona_config = self._create_config()
             async with AsyncDaytona(config=daytona_config) as daytona:
-                # Build create parameters with image-first configuration
+                # Build create parameters with snapshot-based provisioning
                 create_params = self._build_create_params(config)
 
-                # Create sandbox via SDK with explicit image/runtime params
-                sandbox = await daytona.create(**create_params)
+                # Create sandbox via SDK with explicit snapshot params
+                sandbox = await daytona.create(create_params)
 
                 # Get the actual sandbox ID from the response
                 sandbox_id = ref

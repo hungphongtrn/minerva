@@ -740,22 +740,45 @@ class TestSemanticParityLifecycle:
     @pytest.mark.asyncio
     async def test_pack_binding_metadata_parity_daytona(self, mock_daytona_sdk):
         """Daytona provider exposes pack binding in metadata with expected contract (SDK-backed)."""
+        from src.infrastructure.sandbox.providers.daytona import (
+            IdentityVerificationResult,
+        )
+
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
         provider = DaytonaSandboxProvider(api_key="test-token")
         workspace_id = uuid4()
         pack_path = "/test/agent/pack"
         expected_ref = provider._generate_ref(workspace_id)
 
+        pack_id = uuid4()
         config = SandboxConfig(
             workspace_id=workspace_id,
             pack_source_path=pack_path,
+            agent_pack_id=pack_id,
+            pack_digest="a" * 64,
         )
 
         # Mock SDK to return a sandbox
         mock_sandbox = create_mock_sandbox(sandbox_id=expected_ref, state="started")
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
 
-        info = await provider.provision_sandbox(config)
+        # Patch identity verification and gateway resolution
+        with (
+            patch.object(
+                provider, "verify_identity_files", new_callable=AsyncMock
+            ) as mock_verify,
+            patch.object(
+                provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+            ) as mock_gateway,
+        ):
+            mock_verify.return_value = IdentityVerificationResult(
+                ready=True, missing_files=[]
+            )
+            mock_gateway.return_value = (
+                f"https://gateway-{workspace_id}.daytona.run:18790"
+            )
+
+            info = await provider.provision_sandbox(config)
 
         # Pack binding semantics
         assert info.ref.metadata.get("pack_bound") is True, (
@@ -1040,9 +1063,12 @@ class TestDaytonaSdkBackedProvider:
         )
 
         workspace_id = uuid4()
+        pack_id = uuid4()
         config = SandboxConfig(
             workspace_id=workspace_id,
             pack_source_path="/test/pack",
+            agent_pack_id=pack_id,
+            pack_digest="a" * 64,
         )
 
         # Mock the SDK
@@ -1327,11 +1353,14 @@ class TestDaytonaSdkBackPackBinding:
         )
 
         workspace_id = uuid4()
+        pack_id = uuid4()
         pack_path = "/agents/my-pack"
 
         config = SandboxConfig(
             workspace_id=workspace_id,
             pack_source_path=pack_path,
+            agent_pack_id=pack_id,
+            pack_digest="a" * 64,
         )
 
         # Mock the SDK
@@ -1528,8 +1557,8 @@ class TestDaytonaBaseImageContract:
         config = SandboxConfig(workspace_id=uuid4())
         params = provider._build_create_params(config)
 
-        assert "labels" in params
-        labels = params["labels"]
+        assert params.labels is not None, "Labels should be set in params"
+        labels = params.labels
         assert labels["picoclaw.base_image"] == "test-image@sha256:" + "c" * 64
         assert labels["picoclaw.base_image_strict"] == "True"
 
@@ -1739,6 +1768,7 @@ class TestPackMaterialization:
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
 
         pack_path = "/test/agent/pack"
+        pack_id = uuid4()
         pack_digest = "abc123def456"
         workspace_id = uuid4()
         expected_ref = daytona_provider._generate_ref(workspace_id)
@@ -1746,6 +1776,7 @@ class TestPackMaterialization:
         config = SandboxConfig(
             workspace_id=workspace_id,
             pack_source_path=pack_path,
+            agent_pack_id=pack_id,
             pack_digest=pack_digest,
             runtime_bridge_config={
                 "bridge": {"enabled": True, "auth_token": "test-token"},
@@ -1973,8 +2004,8 @@ class TestDaytonaProductionReadiness:
 
         captured_create_params = {}
 
-        async def capture_create(**kwargs):
-            captured_create_params.update(kwargs)
+        async def capture_create(params):
+            captured_create_params["params"] = params
             return mock_sandbox
 
         mock_daytona.create = capture_create
@@ -2005,11 +2036,13 @@ class TestDaytonaProductionReadiness:
 
                 await provider.provision_sandbox(config)
 
-        # Verify image config was passed to create
-        assert "image" in captured_create_params
-        assert captured_create_params["image"] == "daytonaio/workspace-picoclaw:latest"
-        assert "auto_stop_interval" in captured_create_params
-        assert captured_create_params["auto_stop_interval"] == 0
+        # Verify snapshot-based provisioning params were passed to create
+        params = captured_create_params.get("params")
+        assert params is not None, "CreateSandboxFromSnapshotParams should be passed"
+        assert hasattr(params, "snapshot"), "Params should have snapshot attribute"
+        assert params.snapshot == "picoclaw-snapshot", (
+            "Should use configured snapshot name"
+        )
 
     @pytest.mark.asyncio
     async def test_daytona_identity_verification_required_files(self, provider):

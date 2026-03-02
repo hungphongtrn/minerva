@@ -123,6 +123,9 @@ class SandboxConfig:
     runtime_bridge_config: Optional[Dict[str, Any]] = None
     """Runtime bridge configuration for Picoclaw gateway (model, channels, etc.)."""
 
+    agent_pack_id: Optional[UUID] = None
+    """Agent pack ID for volume binding (optional, for pack-based provisioning)."""
+
 
 class SandboxProviderError(Exception):
     """Base exception for sandbox provider failures."""
