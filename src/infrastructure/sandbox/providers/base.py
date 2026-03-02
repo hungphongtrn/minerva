@@ -9,8 +9,26 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
+
+
+# Mount isolation constants for Picoclaw runtime
+# These codify the contract between pack volume (read-only, static) and workspace (writable, dynamic)
+PACK_MOUNT_PATH: str = "/workspace/pack"
+"""Static, read-only pack volume mount point. Contains identity files and skills."""
+
+WORKSPACE_PATH: str = "/home/daytona/workspace"
+"""Dynamic, writable per-sandbox workspace. Contains runtime data (memory/, sessions/, etc.)."""
+
+CONFIG_PATH: str = "/home/daytona/.picoclaw/config.json"
+"""Per-sandbox Picoclaw configuration file location (outside pack volume)."""
+
+IDENTITY_FILES: List[str] = ["AGENT.md", "SOUL.md", "IDENTITY.md"]
+"""Identity files to symlink from pack volume into workspace."""
+
+IDENTITY_DIRS: List[str] = ["skills"]
+"""Identity directories to symlink from pack volume into workspace."""
 
 
 class SandboxState(Enum):
@@ -104,6 +122,16 @@ class SandboxConfig:
 
     workspace_id: UUID
     """Workspace to attach to the sandbox."""
+
+    external_user_id: Optional[str] = None
+    """End-user identifier for per-user sandbox isolation.
+    
+    Each (workspace_id, external_user_id) pair gets its own sandbox.
+    Enables multi-user isolation within the same workspace context.
+    """
+
+    session_id: Optional[str] = None
+    """Session ID forwarded from X-Session-ID for Picoclaw thread scoping."""
 
     idle_ttl_seconds: int = 3600
     """Time-to-live in seconds before auto-stop on idle."""
