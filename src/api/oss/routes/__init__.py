@@ -1,5 +1,5 @@
 """OSS route modules for operator endpoints."""
 
-from src.api.oss.routes import health, metrics
+from src.api.oss.routes import health
 
-__all__ = ["health", "metrics"]
+__all__ = ["health"]
