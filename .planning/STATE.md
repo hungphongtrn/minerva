@@ -8,8 +8,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
-**Current plan:** 04
-**Status:** In Progress
+**Current plan:** 05
+**Status:** Complete
 
 ## Completed Plans
 
@@ -34,6 +34,11 @@ See: .planning/PROJECT.md
   - Commits: cc9526c, dab40a5
   - Duration: 2 min
   - Artifacts: Workspace preflight gate, regression tests, fail-closed behavior
+
+- [x] Plan 05: Enforce Pack Mount Read-Only Contract
+  - Commits: 13cece5, ac75e61
+  - Duration: 4 min
+  - Artifacts: Daytona read-only VolumeMount, provider parity tests, local_compose fail-fast guard
 
 ### Phase 03.2: OSS Agent Server MVP
 
@@ -75,6 +80,9 @@ See: .planning/PROJECT.md
 17. **03.3-03**: Full mount isolation parity: local_compose uses same WORKSPACE_PATH as Daytona
 18. **03.3-04**: Workspace check is Gate 2 (BLOCKING) after schema, before snapshot
 19. **03.3-04**: Public check_workspace_configured() wrapper exposes private _check_workspace_configured()
+20. **03.3-05**: Use VolumeMount.additional_properties for read_only flag (Daytona SDK pattern)
+21. **03.3-05**: Provider parity through identical metadata keys (pack_mount_path, pack_mount_read_only)
+22. **03.3-05**: Fail-closed guard in local_compose prevents dynamic paths under read-only pack mount
 
 ## Accumulated Context
 
@@ -89,8 +97,8 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-02: Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract) - Phase 03.3 COMPLETE
 - 2026-03-02: Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
-- 2026-03-02: Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity)
 - 2026-03-02: Completed plan 03.3-01 (External Identity Infrastructure - Identity Collision Fix)
 - 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
@@ -100,5 +108,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
+- **Stopped at:** Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract) - Phase 03.3 COMPLETE
 - **Resume file:** None
