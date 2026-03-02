@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Text,
     Integer,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -140,6 +141,31 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class ExternalIdentity(Base):
+    """External identity for OSS end-user requests.
+
+    Completely separate from the developer users table.
+    Scoped to the developer's workspace via composite key.
+    """
+
+    __tablename__ = "external_identities"
+
+    workspace_id = Column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id"), primary_key=True
+    )
+    external_user_id = Column(String(255), primary_key=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Composite unique constraint for workspace-scoped uniqueness
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "external_user_id",
+            name="uq_external_identity_workspace_user",
+        ),
     )
 
 
@@ -273,6 +299,9 @@ class SandboxInstance(Base):
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         nullable=False,
     )
+
+    # External user ID for per-user sandbox routing (OSS mode)
+    external_user_id = Column(String(255), nullable=True)
 
     # Deployment profile (local_compose | daytona)
     profile = Column(

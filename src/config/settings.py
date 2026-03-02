@@ -35,6 +35,19 @@ class Settings(BaseSettings):
     Default: 3600 seconds (1 hour).
     """
 
+    # OSS Mode Configuration
+    MINERVA_WORKSPACE_ID: str = ""
+    """Developer workspace UUID for OSS mode. Set after running `minerva register`.
+
+    Required for /runs endpoint. End-user requests are resolved to this workspace.
+    """
+
+    GUEST_ID: str = ""
+    """X-User-ID value treated as guest.
+
+    Guest gets ephemeral sandbox, no external_identities row, no session continuity.
+    """
+
     # Daytona Provider Configuration (used when SANDBOX_PROFILE=daytona)
     DAYTONA_API_KEY: str = ""
     """Daytona API key for Cloud or self-hosted authentication (SDK v2)."""
