@@ -152,6 +152,23 @@ Plans:
 **Details:**
 [To be added during planning]
 
+### Phase 3.2 - OSS Agent Server MVP (INSERTED)
+
+**Goal:** End-to-end OSS flow: template agent pack to deployed multi-tenant agent server with sandbox routing, ready for developers who bring their own infrastructure (Postgres, S3/Minio, Daytona, LLM key/endpoints).
+
+**Depends on:** Phase 3.1
+
+**Plans:** 4 plans
+
+Plans:
+- [ ] 03.2-01-PLAN.md — Package `minerva` CLI entrypoint with preflight + migrate/serve gates.
+- [ ] 03.2-02-PLAN.md — Implement `minerva snapshot build` (Daytona snapshot via declarative Image builder).
+- [ ] 03.2-03-PLAN.md — Sync agent pack to Daytona volume-per-digest and mount in sandboxes with real file-API identity checks.
+- [ ] 03.2-04-PLAN.md — Add OSS `/runs` SSE API with X-User-ID passthrough identity, per-user queue, and ops endpoints.
+
+**Details:**
+[To be added during planning]
+
 ### Phase 4 - Execution Orchestration and Fairness
 
 **Goal:** Runs execute reliably under retries/cancellation while preserving ordering per workspace and fairness across users.
@@ -225,6 +242,7 @@ flowchart TD
 | 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
 | 3 - Persistence and Checkpoint Recovery | Complete | 100% |
 | 3.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
+| 3.2 - OSS Agent Server MVP | Not Started | 0% |
 | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
