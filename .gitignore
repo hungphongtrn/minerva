@@ -17,5 +17,5 @@ opencode.json
 .env
 TEST_KEY.txt
 
-test-agent-pack/
+test-agent/
 reference_repos/
