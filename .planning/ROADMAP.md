@@ -185,7 +185,7 @@ Plans:
 Plans:
 - [x] 03.3-01-PLAN.md — Decouple end-user identity with external_identities table, MINERVA_WORKSPACE_ID resolution, and preflight validation.
 - [x] 03.3-02-PLAN.md — Implement mount isolation in Daytona provider with symlink-based workspace/pack separation.
-- [ ] 03.3-03-PLAN.md — Wire bridge sender_id/session_id forwarding and implement local_compose isolation parity.
+- [x] 03.3-03-PLAN.md — Wire bridge sender_id/session_id forwarding and implement local_compose isolation parity.
 
 ### Phase 4: Execution Orchestration and Fairness
 

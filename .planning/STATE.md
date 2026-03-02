@@ -8,8 +8,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
-**Current plan:** 02 (mount isolation and per-user routing implemented)
-**Status:** In Progress
+**Current plan:** 03 (all plans complete - Phase 03.3 finished)
+**Status:** Complete
 
 ## Completed Plans
 
@@ -24,6 +24,11 @@ See: .planning/PROJECT.md
   - Commits: be91323, 30ec425
   - Duration: 3 min
   - Artifacts: Isolation constants, per-user sandbox keying, workspace symlinks
+
+- [x] Plan 03: Wire Identity Forwarding and Local Compose Parity
+  - Commits: e6d1a38, 6fe971a
+  - Duration: 5 min
+  - Artifacts: Bridge sender_id/session_id forwarding, RunService identity wiring, local_compose mount isolation parity
 
 ### Phase 03.2: OSS Agent Server MVP
 
@@ -60,6 +65,9 @@ See: .planning/PROJECT.md
 12. **03.3-01**: All end-users resolve to the developer's workspace via MINERVA_WORKSPACE_ID
 13. **03.3-01**: Workspace-scoped uniqueness via composite key (workspace_id, external_user_id)
 14. **03.3-01**: Guest requests get no DB record and no session continuity
+15. **03.3-03**: Forward raw external_user_id (from X-User-ID) as sender_id to Picoclaw - no hashing or transformation
+16. **03.3-03**: Guest requests use generic 'guest' as sender_id - the agent knows it's a guest but has no unique identifier
+17. **03.3-03**: Full mount isolation parity: local_compose uses same WORKSPACE_PATH as Daytona
 
 ## Accumulated Context
 
@@ -74,6 +82,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-02: Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity) - Phase 03.3 COMPLETE
 - 2026-03-02: Completed plan 03.3-01 (External Identity Infrastructure - Identity Collision Fix)
 - 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
@@ -83,5 +92,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-01 (External Identity Infrastructure)
+- **Stopped at:** Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity) - Phase 03.3 COMPLETE
 - **Resume file:** None
