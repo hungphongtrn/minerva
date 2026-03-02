@@ -45,6 +45,7 @@ class LifecycleTarget:
     restore_state: Optional[str] = None  # "none", "in_progress", "completed", "failed"
     restore_checkpoint_id: Optional[str] = None  # ID of checkpoint being restored
     queued: bool = False  # True if run is queued due to restore in progress
+    agent_pack_id: Optional[str] = None  # Agent pack ID for pack binding
 
 
 @dataclass
@@ -169,6 +170,7 @@ class WorkspaceLifecycleService:
                     sandbox=None,
                     routing_result=None,
                     error="Workspace not found and auto_create is disabled",
+                    agent_pack_id=agent_pack_id,
                 )
 
             # Step 2: Acquire lease if requested
@@ -195,6 +197,7 @@ class WorkspaceLifecycleService:
                         error=lease_result.message
                         if lease_result
                         else "Lease acquisition failed",
+                        agent_pack_id=agent_pack_id,
                     )
 
             # Step 3: Resolve sandbox target (with optional agent pack binding)
@@ -214,6 +217,7 @@ class WorkspaceLifecycleService:
                 error=None
                 if (routing_result and routing_result.success)
                 else (routing_result.message if routing_result else "Routing failed"),
+                agent_pack_id=agent_pack_id,
             )
 
         except Exception as e:
@@ -224,6 +228,7 @@ class WorkspaceLifecycleService:
                 sandbox=None,
                 routing_result=None,
                 error=f"Lifecycle resolution failed: {str(e)}",
+                agent_pack_id=agent_pack_id,
             )
 
     def _resolve_workspace(
