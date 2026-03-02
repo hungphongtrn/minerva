@@ -569,6 +569,7 @@ class RunService:
         requested_tools: Optional[list[str]] = None,
         agent_pack_id: Optional[str] = None,
         input_message: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> RunResult:
         """Execute a run with full routing and policy enforcement.
 
@@ -591,6 +592,8 @@ class RunService:
             requested_tools: Tools the run will invoke
             agent_pack_id: Optional agent pack to bind to the run
             input_message: The input message for bridge execution
+            session_id: Optional session ID for session continuity
+                       (same user + same session = same Picoclaw session)
 
         Returns:
             RunResult with execution outcome
@@ -690,6 +693,7 @@ class RunService:
                 message=input_message,
                 is_guest=context.is_guest,
                 session=session,
+                session_id=session_id,
             )
 
             # Update result with bridge execution output
@@ -797,10 +801,12 @@ class RunService:
         agent_pack_id: Optional[str],
         run_id: str,
         is_guest: bool,
+        session_id: Optional[str] = None,
     ) -> str:
         """Generate deterministic session key scoped to workspace+pack.
 
         For authenticated runs: session is scoped to workspace + agent_pack
+                         If session_id provided, uses minerva:{workspace_id}:{pack_scope}:{session_id}
         For guest runs: each request gets ephemeral unique session (no continuity)
 
         Args:
@@ -808,6 +814,7 @@ class RunService:
             agent_pack_id: The agent pack ID (may be None)
             run_id: The run ID
             is_guest: Whether this is a guest request
+            session_id: Optional session ID for continuity
 
         Returns:
             Session key string
@@ -818,7 +825,9 @@ class RunService:
 
         # Authenticated sessions are scoped to workspace + pack
         pack_scope = agent_pack_id or "default"
-        return f"minerva:{workspace_id}:{pack_scope}:{run_id}"
+        # Use session_id if provided for continuity, otherwise use run_id
+        continuity_key = session_id if session_id else run_id
+        return f"minerva:{workspace_id}:{pack_scope}:{continuity_key}"
 
     async def _execute_via_bridge(
         self,
@@ -826,6 +835,7 @@ class RunService:
         message: str,
         is_guest: bool,
         session: Session,
+        session_id: Optional[str] = None,
     ) -> BridgeResult:
         """Execute request via Picoclaw bridge with bounded recovery.
 
@@ -840,11 +850,12 @@ class RunService:
             message: The input message for execution
             is_guest: Whether this is a guest request
             session: Database session for token resolution and recovery
+            session_id: Optional session ID for continuity
 
         Returns:
             BridgeResult with execution outcome
         """
-        # Generate session key scoped to workspace+pack
+        # Generate session key scoped to workspace+pack with optional session continuity
         session_key = self._generate_session_key(
             workspace_id=routing.workspace_id,
             agent_pack_id=routing.lifecycle_target.agent_pack_id
@@ -852,6 +863,7 @@ class RunService:
             else None,
             run_id=str(uuid4()),
             is_guest=is_guest,
+            session_id=session_id,
         )
 
         # Bounded recovery: max 3 attempts
