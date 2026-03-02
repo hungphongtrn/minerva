@@ -89,6 +89,7 @@ class PreflightService:
             # Required (BLOCKING)
             self._check_database(),
             self._check_daytona_auth(),
+            self._check_workspace_configured(),
             # Optional (WARNING)
             self._check_s3_config(),
             self._check_llm_config(),
@@ -290,6 +291,106 @@ class PreflightService:
             remediation="",
             details={"api_url": settings.DAYTONA_API_URL or "Daytona Cloud"},
         )
+
+    def _check_workspace_configured(self) -> PreflightCheck:
+        """Check MINERVA_WORKSPACE_ID is configured and workspace has registered packs.
+
+        This is required for OSS mode where end-user requests are resolved
+        to the developer's workspace.
+        """
+        if not settings.MINERVA_WORKSPACE_ID:
+            return PreflightCheck(
+                code="WORKSPACE_CONFIGURED",
+                service="oss",
+                severity=CheckSeverity.BLOCKING,
+                status=CheckStatus.FAIL,
+                message="MINERVA_WORKSPACE_ID not configured",
+                remediation="Set MINERVA_WORKSPACE_ID. Run `minerva register` to get your workspace ID.",
+                details={},
+            )
+
+        # Validate workspace exists and has packs
+        try:
+            engine = self._get_db_engine()
+            with engine.connect() as conn:
+                # Check workspace exists
+                result = conn.execute(
+                    text("SELECT id, name FROM workspaces WHERE id = :workspace_id"),
+                    {"workspace_id": settings.MINERVA_WORKSPACE_ID},
+                )
+                workspace_row = result.fetchone()
+
+                if not workspace_row:
+                    return PreflightCheck(
+                        code="WORKSPACE_CONFIGURED",
+                        service="oss",
+                        severity=CheckSeverity.BLOCKING,
+                        status=CheckStatus.FAIL,
+                        message=f"Workspace '{settings.MINERVA_WORKSPACE_ID}' not found in database",
+                        remediation="Run `minerva register` to create your workspace, then set MINERVA_WORKSPACE_ID.",
+                        details={"workspace_id": settings.MINERVA_WORKSPACE_ID},
+                    )
+
+                # Check workspace has registered agent packs
+                result = conn.execute(
+                    text(
+                        "SELECT COUNT(*) FROM agent_packs WHERE workspace_id = :workspace_id AND is_active = true"
+                    ),
+                    {"workspace_id": settings.MINERVA_WORKSPACE_ID},
+                )
+                pack_count = result.scalar()
+
+                if pack_count == 0:
+                    return PreflightCheck(
+                        code="WORKSPACE_CONFIGURED",
+                        service="oss",
+                        severity=CheckSeverity.BLOCKING,
+                        status=CheckStatus.FAIL,
+                        message="Workspace has no registered agent packs",
+                        remediation="Run `minerva register` first to register an agent pack.",
+                        details={"workspace_id": settings.MINERVA_WORKSPACE_ID},
+                    )
+
+                if pack_count > 1:
+                    return PreflightCheck(
+                        code="WORKSPACE_CONFIGURED",
+                        service="oss",
+                        severity=CheckSeverity.WARNING,
+                        status=CheckStatus.PASS,
+                        message=f"Workspace has {pack_count} agent packs. OSS mode supports one pack per workspace.",
+                        remediation="Using first registered pack. Remove extra packs for clean OSS deployment.",
+                        details={
+                            "workspace_id": settings.MINERVA_WORKSPACE_ID,
+                            "pack_count": pack_count,
+                        },
+                    )
+
+                return PreflightCheck(
+                    code="WORKSPACE_CONFIGURED",
+                    service="oss",
+                    severity=CheckSeverity.BLOCKING,
+                    status=CheckStatus.PASS,
+                    message=f"Workspace '{workspace_row[1]}' configured with {pack_count} agent pack(s)",
+                    remediation="",
+                    details={
+                        "workspace_id": settings.MINERVA_WORKSPACE_ID,
+                        "pack_count": pack_count,
+                    },
+                )
+
+        except Exception as e:
+            return PreflightCheck(
+                code="WORKSPACE_CONFIGURED",
+                service="oss",
+                severity=CheckSeverity.BLOCKING,
+                status=CheckStatus.FAIL,
+                message=f"Failed to validate workspace: {e}",
+                remediation="Ensure database is accessible and workspace exists",
+                details={
+                    "workspace_id": settings.MINERVA_WORKSPACE_ID,
+                    "error": str(e),
+                },
+            )
 
     def _check_s3_config(self) -> PreflightCheck:
         """Check S3 checkpoint storage configuration (optional)."""
