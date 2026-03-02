@@ -7,11 +7,23 @@ See: .planning/PROJECT.md
 ## Position
 
 **Milestone:** v1.0 milestone
-**Current phase:** 03.2-oss-agent-server-mvp
-**Current plan:** 07 (GAP-02 closure completed)
-**Status:** Milestone complete
+**Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
+**Current plan:** 02 (mount isolation and per-user routing implemented)
+**Status:** In Progress
 
 ## Completed Plans
+
+### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
+
+- [x] Plan 01: External Identity Infrastructure
+  - Commits: 8323c0a
+  - Duration: TBD
+  - Artifacts: ExternalIdentity model, settings, Alembic migration
+
+- [x] Plan 02: Mount Isolation and Per-User Routing
+  - Commits: be91323, 30ec425
+  - Duration: 3 min
+  - Artifacts: Isolation constants, per-user sandbox keying, workspace symlinks
 
 ### Phase 03.2: OSS Agent Server MVP
 
@@ -40,6 +52,10 @@ See: .planning/PROJECT.md
 4. **03.2-07**: Use daytona.snapshot.get() before daytona.snapshot.create() for idempotent behavior
 5. **03.2-07**: Add explicit `reused` boolean to SnapshotBuildResult for CLI/test observability
 6. **03.2-07**: Fail closed on auth errors (don't attempt create if get fails with permission error)
+7. **03.3-02**: Use module-level constants (PACK_MOUNT_PATH, WORKSPACE_PATH) to codify isolation contract
+8. **03.3-02**: Symlink identity files using `ln -sf` for re-provisioning support
+9. **03.3-02**: Hash external_user_id with SHA-256 for deterministic 10-char sandbox ref suffix
+10. **03.3-02**: Identity verification checks workspace path to confirm symlinks work end-to-end
 
 ## Accumulated Context
 
@@ -49,11 +65,12 @@ See: .planning/PROJECT.md
 
 ### Pending Todos
 
-- [ ] Resolve Identity Collision between Developer and End-User (auth)
-- [ ] Fix workspace/pack mount mixing static and dynamic data (infrastructure)
+- [x] Fix workspace/pack mount mixing static and dynamic data (infrastructure) - Completed in Plan 02
+- [ ] Resolve Identity Collision between Developer and End-User (auth) - Remaining
 
 ## Session Log
 
+- 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
 - 2026-03-02: Completed plan 03.2-07 (GAP-02 closure - Idempotent Snapshot Build)
 - 2026-03-02: Completed plan 03.2-06 (GAP-01 closure)
@@ -61,5 +78,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Phase 3.3 context gathered
-- **Resume file:** .planning/phases/03.3-close-pack-mount-isolation-and-identity-collision-gaps/03.3-CONTEXT.md
+- **Stopped at:** Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
+- **Resume file:** None
