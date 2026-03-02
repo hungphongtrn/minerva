@@ -41,7 +41,8 @@ def handle(args: argparse.Namespace) -> int:
 
     Gates (cannot be skipped unless --skip-preflight):
     1. DB schema must be at Alembic head (fail with "run `minerva migrate`")
-    2. Daytona snapshot must exist (fail with "run `minerva snapshot build`")
+    2. Workspace must be configured (fail with "run `minerva register`")
+    3. Daytona snapshot must exist (fail with "run `minerva snapshot build`")
 
     Does NOT auto-migrate.
     """
@@ -64,7 +65,16 @@ def handle(args: argparse.Namespace) -> int:
             return 1
         print(f"✅ {schema_check.message}")
 
-        # Gate 2: Picoclaw snapshot must exist (if configured)
+        # Gate 2: Workspace must be configured (OSS mode requirement)
+        print("Checking workspace configuration...")
+        workspace_check = service.check_workspace_configured()
+        if workspace_check.status == CheckStatus.FAIL:
+            print(f"\n❌ {workspace_check.message}")
+            print(f"   → {workspace_check.remediation}")
+            return 1
+        print(f"✅ {workspace_check.message}")
+
+        # Gate 3: Picoclaw snapshot must exist (if configured)
         snapshot_name = service._get_picoclaw_snapshot_name()
         if snapshot_name:
             print(f"Checking Picoclaw snapshot '{snapshot_name}'...")

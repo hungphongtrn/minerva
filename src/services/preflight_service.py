@@ -519,6 +519,15 @@ class PreflightService:
             self._db_engine = create_engine(settings.DATABASE_URL)
         return self._db_engine
 
+    def check_workspace_configured(self) -> PreflightCheck:
+        """Check workspace configuration (public API for CLI).
+
+        Returns the workspace-configured preflight check result.
+        This method is a thin wrapper around _check_workspace_configured()
+        to expose it as a public API for CLI commands.
+        """
+        return self._check_workspace_configured()
+
     def _get_picoclaw_snapshot_name(self) -> str | None:
         """Get Picoclaw snapshot name from environment."""
         return settings.DAYTONA_PICOCLAW_SNAPSHOT_NAME or None

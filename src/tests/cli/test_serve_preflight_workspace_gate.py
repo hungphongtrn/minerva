@@ -12,6 +12,16 @@ import pytest
 class TestServePreflightWorkspaceGate:
     """Tests for workspace-config preflight gate in serve command."""
 
+    def _create_check_mock(self, status, message, remediation=""):
+        """Helper to create a properly configured check mock."""
+        from src.services.preflight_service import CheckStatus
+
+        check = MagicMock()
+        check.status = CheckStatus.FAIL if status == "FAIL" else CheckStatus.PASS
+        check.message = message
+        check.remediation = remediation
+        return check
+
     def test_serve_preflight_fails_when_workspace_check_fails(self):
         """Serve should fail closed when workspace-config check fails.
 
@@ -19,6 +29,7 @@ class TestServePreflightWorkspaceGate:
         preventing OSS deployments from running without valid workspace configuration.
         """
         from src.cli.commands import serve
+        from src.services.preflight_service import CheckStatus
 
         # Arrange: Mock args with skip_preflight=False
         args = argparse.Namespace(
@@ -33,12 +44,12 @@ class TestServePreflightWorkspaceGate:
 
         # Schema check passes
         schema_check = MagicMock()
-        schema_check.status.value = "PASS"
+        schema_check.status = CheckStatus.PASS
         schema_check.message = "Database schema at head revision: abc123"
 
         # Workspace check fails
         workspace_check = MagicMock()
-        workspace_check.status.value = "FAIL"
+        workspace_check.status = CheckStatus.FAIL
         workspace_check.message = "MINERVA_WORKSPACE_ID not configured"
         workspace_check.remediation = (
             "Set MINERVA_WORKSPACE_ID. Run `minerva register` to get your workspace ID."
@@ -69,6 +80,7 @@ class TestServePreflightWorkspaceGate:
     def test_serve_preflight_calls_workspace_check_on_success_path(self):
         """Serve should call workspace check and start server when all gates pass."""
         from src.cli.commands import serve
+        from src.services.preflight_service import CheckStatus
 
         # Arrange: Mock args with skip_preflight=False
         args = argparse.Namespace(
@@ -83,11 +95,11 @@ class TestServePreflightWorkspaceGate:
 
         # All checks pass
         schema_check = MagicMock()
-        schema_check.status.value = "PASS"
+        schema_check.status = CheckStatus.PASS
         schema_check.message = "Database schema at head revision: abc123"
 
         workspace_check = MagicMock()
-        workspace_check.status.value = "PASS"
+        workspace_check.status = CheckStatus.PASS
         workspace_check.message = (
             "Workspace 'test-workspace' configured with 1 agent pack(s)"
         )
@@ -143,6 +155,7 @@ class TestServePreflightWorkspaceGate:
     def test_serve_fails_when_workspace_not_found(self):
         """Serve should fail when workspace_id points to non-existent workspace."""
         from src.cli.commands import serve
+        from src.services.preflight_service import CheckStatus
 
         args = argparse.Namespace(
             host="0.0.0.0",
@@ -154,12 +167,12 @@ class TestServePreflightWorkspaceGate:
         mock_service = MagicMock()
 
         schema_check = MagicMock()
-        schema_check.status.value = "PASS"
+        schema_check.status = CheckStatus.PASS
         schema_check.message = "Database schema at head revision: abc123"
 
         # Workspace doesn't exist
         workspace_check = MagicMock()
-        workspace_check.status.value = "FAIL"
+        workspace_check.status = CheckStatus.FAIL
         workspace_check.message = "Workspace 'invalid-id' not found in database"
         workspace_check.remediation = "Run `minerva register` to create your workspace"
 
@@ -179,6 +192,7 @@ class TestServePreflightWorkspaceGate:
     def test_serve_fails_when_workspace_has_no_packs(self):
         """Serve should fail when workspace has no registered agent packs."""
         from src.cli.commands import serve
+        from src.services.preflight_service import CheckStatus
 
         args = argparse.Namespace(
             host="0.0.0.0",
@@ -190,12 +204,12 @@ class TestServePreflightWorkspaceGate:
         mock_service = MagicMock()
 
         schema_check = MagicMock()
-        schema_check.status.value = "PASS"
+        schema_check.status = CheckStatus.PASS
         schema_check.message = "Database schema at head revision: abc123"
 
         # Workspace exists but has no packs
         workspace_check = MagicMock()
-        workspace_check.status.value = "FAIL"
+        workspace_check.status = CheckStatus.FAIL
         workspace_check.message = "Workspace has no registered agent packs"
         workspace_check.remediation = (
             "Run `minerva register` first to register an agent pack."
