@@ -123,7 +123,9 @@ class TestSnapshotBuildCLI:
 
     @patch("src.cli.commands.snapshot_build.asyncio.run")
     @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
-    def test_cli_uses_env_vars_when_args_not_provided(self, mock_service_class, mock_run):
+    def test_cli_uses_env_vars_when_args_not_provided(
+        self, mock_service_class, mock_run
+    ):
         """CLI uses env vars when CLI args are not provided."""
         import argparse
 
@@ -358,7 +360,7 @@ class TestDaytonaSnapshotBuildService:
     @pytest.mark.asyncio
     async def test_build_snapshot_success(self):
         """Full snapshot build succeeds."""
-        from daytona import Image
+        from daytona import DaytonaError, Image
 
         logs = []
 
@@ -386,6 +388,10 @@ class TestDaytonaSnapshotBuildService:
                     )
                     mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_daytona_instance.snapshot = AsyncMock()
+                    # Mock get to raise "not found" so it proceeds to create
+                    mock_daytona_instance.snapshot.get = AsyncMock(
+                        side_effect=DaytonaError("Snapshot not found")
+                    )
                     mock_daytona_instance.snapshot.create = AsyncMock()
                     mock_daytona.return_value = mock_daytona_instance
 
@@ -394,8 +400,11 @@ class TestDaytonaSnapshotBuildService:
         assert result.success is True
         assert result.snapshot_name == "test-snapshot"
         assert result.error_message is None
+        assert result.reused is False
         assert any("Cloning" in log for log in logs)
         assert any("created successfully" in log for log in logs)
+        # Verify create was called (new snapshot)
+        mock_daytona_instance.snapshot.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_build_snapshot_missing_config(self):
@@ -431,70 +440,60 @@ class TestDaytonaSnapshotBuildService:
 
     @pytest.mark.asyncio
     async def test_build_snapshot_daytona_permission_error(self):
-        """Build fails with permission error remediation."""
-        from daytona import DaytonaError, Image
+        """Build fails with permission error remediation when checking snapshot."""
+        from daytona import DaytonaError
 
         service = DaytonaSnapshotBuildService(
             repo_url="https://github.com/example/picoclaw",
             snapshot_name="test-snapshot",
         )
 
-        # Create a real Image instance for the mock
-        mock_image = Image.base("alpine:3.23")
+        with patch(
+            "src.services.daytona_snapshot_build_service.AsyncDaytona"
+        ) as mock_daytona:
+            # Mock AsyncDaytona to raise permission error on get
+            mock_daytona_instance = AsyncMock()
+            mock_daytona_instance.__aenter__ = AsyncMock(
+                return_value=mock_daytona_instance
+            )
+            mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_daytona_instance.snapshot = AsyncMock()
+            mock_daytona_instance.snapshot.get = AsyncMock(
+                side_effect=DaytonaError("write:snapshots permission denied")
+            )
+            mock_daytona.return_value = mock_daytona_instance
 
-        with patch.object(service, "_clone_repo"):
-            with patch.object(service, "_build_image", return_value=mock_image):
-                with patch(
-                    "src.services.daytona_snapshot_build_service.AsyncDaytona"
-                ) as mock_daytona:
-                    # Mock AsyncDaytona to raise permission error
-                    mock_daytona_instance = AsyncMock()
-                    mock_daytona_instance.__aenter__ = AsyncMock(
-                        return_value=mock_daytona_instance
-                    )
-                    mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
-                    mock_daytona_instance.snapshot = AsyncMock()
-                    mock_daytona_instance.snapshot.create = AsyncMock(
-                        side_effect=DaytonaError("write:snapshots permission denied")
-                    )
-                    mock_daytona.return_value = mock_daytona_instance
-
-                    result = await service.build_snapshot()
+            result = await service.build_snapshot()
 
         assert result.success is False
-        assert "write:snapshots" in result.remediation
+        assert "read:snapshots" in result.remediation
 
     @pytest.mark.asyncio
     async def test_build_snapshot_daytona_unauthorized(self):
-        """Build fails with unauthorized remediation."""
-        from daytona import DaytonaError, Image
+        """Build fails with unauthorized remediation when checking snapshot."""
+        from daytona import DaytonaError
 
         service = DaytonaSnapshotBuildService(
             repo_url="https://github.com/example/picoclaw",
             snapshot_name="test-snapshot",
         )
 
-        # Create a real Image instance for the mock
-        mock_image = Image.base("alpine:3.23")
+        with patch(
+            "src.services.daytona_snapshot_build_service.AsyncDaytona"
+        ) as mock_daytona:
+            # Mock AsyncDaytona to raise unauthorized error on get
+            mock_daytona_instance = AsyncMock()
+            mock_daytona_instance.__aenter__ = AsyncMock(
+                return_value=mock_daytona_instance
+            )
+            mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_daytona_instance.snapshot = AsyncMock()
+            mock_daytona_instance.snapshot.get = AsyncMock(
+                side_effect=DaytonaError("401 Unauthorized")
+            )
+            mock_daytona.return_value = mock_daytona_instance
 
-        with patch.object(service, "_clone_repo"):
-            with patch.object(service, "_build_image", return_value=mock_image):
-                with patch(
-                    "src.services.daytona_snapshot_build_service.AsyncDaytona"
-                ) as mock_daytona:
-                    # Mock AsyncDaytona to raise unauthorized error
-                    mock_daytona_instance = AsyncMock()
-                    mock_daytona_instance.__aenter__ = AsyncMock(
-                        return_value=mock_daytona_instance
-                    )
-                    mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
-                    mock_daytona_instance.snapshot = AsyncMock()
-                    mock_daytona_instance.snapshot.create = AsyncMock(
-                        side_effect=DaytonaError("401 Unauthorized")
-                    )
-                    mock_daytona.return_value = mock_daytona_instance
-
-                    result = await service.build_snapshot()
+            result = await service.build_snapshot()
 
         assert result.success is False
         assert "DAYTONA_API_KEY" in result.remediation
@@ -502,7 +501,7 @@ class TestDaytonaSnapshotBuildService:
     @pytest.mark.asyncio
     async def test_build_snapshot_no_logs_callback(self):
         """Build succeeds without logs callback."""
-        from daytona import Image
+        from daytona import DaytonaError, Image
 
         service = DaytonaSnapshotBuildService(
             repo_url="https://github.com/example/picoclaw",
@@ -524,6 +523,10 @@ class TestDaytonaSnapshotBuildService:
                     )
                     mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
                     mock_daytona_instance.snapshot = AsyncMock()
+                    # Mock get to raise "not found" so it proceeds to create
+                    mock_daytona_instance.snapshot.get = AsyncMock(
+                        side_effect=DaytonaError("Snapshot not found")
+                    )
                     mock_daytona_instance.snapshot.create = AsyncMock()
                     mock_daytona.return_value = mock_daytona_instance
 
@@ -531,6 +534,7 @@ class TestDaytonaSnapshotBuildService:
 
         assert result.success is True
         assert result.snapshot_name == "test-snapshot"
+        assert result.reused is False
 
     @pytest.mark.asyncio
     async def test_build_snapshot_unexpected_error(self):
@@ -549,3 +553,97 @@ class TestDaytonaSnapshotBuildService:
 
         assert result.success is False
         assert "Unexpected error" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_build_snapshot_reuses_when_exists(self):
+        """Snapshot build reuses existing snapshot when it already exists."""
+        from daytona import Image
+
+        service = DaytonaSnapshotBuildService(
+            repo_url="https://github.com/example/picoclaw",
+            repo_ref="main",
+            snapshot_name="existing-snapshot",
+        )
+
+        with patch(
+            "src.services.daytona_snapshot_build_service.AsyncDaytona"
+        ) as mock_daytona:
+            # Mock AsyncDaytona - snapshot exists
+            mock_daytona_instance = AsyncMock()
+            mock_daytona_instance.__aenter__ = AsyncMock(
+                return_value=mock_daytona_instance
+            )
+            mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
+            mock_daytona_instance.snapshot = AsyncMock()
+            # Mock get to succeed (snapshot exists)
+            mock_snapshot = MagicMock()
+            mock_snapshot.name = "existing-snapshot"
+            mock_daytona_instance.snapshot.get = AsyncMock(return_value=mock_snapshot)
+            mock_daytona_instance.snapshot.create = AsyncMock()
+            mock_daytona.return_value = mock_daytona_instance
+
+            result = await service.build_snapshot()
+
+        # Verify result indicates success and reuse
+        assert result.success is True
+        assert result.snapshot_name == "existing-snapshot"
+        assert result.reused is True
+        assert result.error_message is None
+
+        # Verify snapshot.create was NOT called (idempotent behavior)
+        mock_daytona_instance.snapshot.create.assert_not_called()
+        # Verify snapshot.get was called with correct name
+        mock_daytona_instance.snapshot.get.assert_called_once_with("existing-snapshot")
+
+    @pytest.mark.asyncio
+    async def test_build_snapshot_creates_when_missing(self):
+        """Snapshot build creates new snapshot when it doesn't exist."""
+        from daytona import DaytonaError, Image
+
+        logs = []
+
+        def log_handler(chunk: str) -> None:
+            logs.append(chunk)
+
+        service = DaytonaSnapshotBuildService(
+            repo_url="https://github.com/example/picoclaw",
+            repo_ref="main",
+            snapshot_name="new-snapshot",
+        )
+
+        # Create a real Image instance for the mock
+        mock_image = Image.base("alpine:3.23")
+
+        with patch.object(service, "_clone_repo"):
+            with patch.object(service, "_build_image", return_value=mock_image):
+                with patch(
+                    "src.services.daytona_snapshot_build_service.AsyncDaytona"
+                ) as mock_daytona:
+                    # Mock AsyncDaytona - snapshot does not exist
+                    mock_daytona_instance = AsyncMock()
+                    mock_daytona_instance.__aenter__ = AsyncMock(
+                        return_value=mock_daytona_instance
+                    )
+                    mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
+                    mock_daytona_instance.snapshot = AsyncMock()
+                    # Mock get to raise "not found" error
+                    mock_daytona_instance.snapshot.get = AsyncMock(
+                        side_effect=DaytonaError("Snapshot not found: new-snapshot")
+                    )
+                    mock_daytona_instance.snapshot.create = AsyncMock()
+                    mock_daytona.return_value = mock_daytona_instance
+
+                    result = await service.build_snapshot(on_logs=log_handler)
+
+        # Verify result indicates success and NOT reused
+        assert result.success is True
+        assert result.snapshot_name == "new-snapshot"
+        assert result.reused is False
+        assert result.error_message is None
+
+        # Verify snapshot.create was called (new snapshot created)
+        mock_daytona_instance.snapshot.create.assert_called_once()
+        # Verify snapshot.get was called with correct name
+        mock_daytona_instance.snapshot.get.assert_called_once_with("new-snapshot")
+        # Verify appropriate log message
+        assert any("not found" in log.lower() for log in logs)
