@@ -109,6 +109,25 @@ class Settings(BaseSettings):
     DAYTONA_PICOCLAW_SNAPSHOT_NAME: str = ""
     """Name of the Daytona snapshot to use for sandbox provisioning."""
 
+    # LLM Configuration
+    LLM_API_KEY: str = ""
+    """API key for LLM provider (generic)."""
+
+    OPENAI_API_KEY: str = ""
+    """API key for OpenAI (backward compatibility)."""
+
+    LLM_API_BASE: str = ""
+    """Base URL for LLM API (generic)."""
+
+    OPENAI_API_BASE: str = ""
+    """Base URL for OpenAI API (backward compatibility)."""
+
+    LLM_MODEL: str = ""
+    """Model name for LLM (generic)."""
+
+    OPENAI_MODEL: str = ""
+    """Model name for OpenAI (backward compatibility)."""
+
     # Bridge Configuration (accessed as PICOCLAW_BRIDGE dict)
     PICOCLAW_BRIDGE: dict = {}
     """Bridge timeout/retry/auth configuration.

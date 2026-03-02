@@ -17,5 +17,8 @@ opencode.json
 .env
 TEST_KEY.txt
 
-test-agent/
+my-agent/
 reference_repos/
+.agents/
+skills-lock.json
+*.log

@@ -16,6 +16,7 @@ from src.config.settings import settings
 
 class CheckSeverity(str, Enum):
     """Severity level for preflight checks."""
+
     BLOCKING = "BLOCKING"
     WARNING = "WARNING"
     INFO = "INFO"
@@ -23,6 +24,7 @@ class CheckSeverity(str, Enum):
 
 class CheckStatus(str, Enum):
     """Status of a preflight check."""
+
     PASS = "PASS"
     FAIL = "FAIL"
     SKIP = "SKIP"
@@ -31,6 +33,7 @@ class CheckStatus(str, Enum):
 @dataclass
 class PreflightCheck:
     """Single preflight check result."""
+
     code: str
     """Machine-readable code for programmatic handling."""
     service: str
@@ -50,6 +53,7 @@ class PreflightCheck:
 @dataclass
 class PreflightResult:
     """Complete preflight validation result."""
+
     checks: list[PreflightCheck]
     """All checks performed."""
     blocking_failures: int
@@ -94,11 +98,13 @@ class PreflightService:
         ]
 
         blocking_failures = sum(
-            1 for c in checks
+            1
+            for c in checks
             if c.severity == CheckSeverity.BLOCKING and c.status == CheckStatus.FAIL
         )
         warnings = sum(
-            1 for c in checks
+            1
+            for c in checks
             if c.severity == CheckSeverity.WARNING and c.status == CheckStatus.FAIL
         )
 
@@ -328,11 +334,10 @@ class PreflightService:
 
     def _check_llm_config(self) -> PreflightCheck:
         """Check LLM configuration (optional)."""
-        # Check for common LLM env vars
-        import os
-        llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
-        llm_api_base = os.getenv("LLM_API_BASE") or os.getenv("OPENAI_API_BASE")
-        llm_model = os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL")
+        # Check for common LLM env vars via settings (reads from .env file)
+        llm_api_key = settings.LLM_API_KEY or settings.OPENAI_API_KEY
+        llm_api_base = settings.LLM_API_BASE or settings.OPENAI_API_BASE
+        llm_model = settings.LLM_MODEL or settings.OPENAI_MODEL
 
         if not llm_api_key:
             return PreflightCheck(
@@ -352,7 +357,10 @@ class PreflightService:
             status=CheckStatus.PASS,
             message="LLM API key configured",
             remediation="",
-            details={"api_base": llm_api_base or "default", "model": llm_model or "default"},
+            details={
+                "api_base": llm_api_base or "default",
+                "model": llm_model or "default",
+            },
         )
 
     def _check_picoclaw_snapshot(self) -> PreflightCheck:
@@ -383,6 +391,7 @@ class PreflightService:
         """Check observability configuration."""
         # Check for common observability env vars
         import os
+
         prometheus_enabled = os.getenv("PROMETHEUS_ENABLED", "false").lower() == "true"
         log_level = os.getenv("LOG_LEVEL", "INFO")
 
@@ -405,18 +414,19 @@ class PreflightService:
         """Get or create database engine."""
         if self._db_engine is None:
             from sqlalchemy import create_engine
+
             self._db_engine = create_engine(settings.DATABASE_URL)
         return self._db_engine
 
     def _get_picoclaw_snapshot_name(self) -> str | None:
         """Get Picoclaw snapshot name from environment."""
-        import os
-        return os.getenv("DAYTONA_PICOCLAW_SNAPSHOT_NAME")
+        return settings.DAYTONA_PICOCLAW_SNAPSHOT_NAME or None
 
     def _mask_url(self, url: str) -> str:
         """Mask credentials in URL for safe logging."""
         import re
-        return re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+
+        return re.sub(r"://([^:]+):([^@]+)@", r"://\1:****@", url)
 
 
 def format_checklist(result: PreflightResult, verbose: bool = False) -> str:
@@ -447,7 +457,9 @@ def format_checklist(result: PreflightResult, verbose: bool = False) -> str:
         severity_str = f"[{check.severity.value}]"
         status_str = f"[{check.status.value}]"
 
-        lines.append(f"\n{status_icon} {check.code:<25} {severity_str:<12} {status_str}")
+        lines.append(
+            f"\n{status_icon} {check.code:<25} {severity_str:<12} {status_str}"
+        )
         lines.append(f"  {check.message}")
 
         if check.status == CheckStatus.FAIL and check.remediation:
@@ -458,7 +470,9 @@ def format_checklist(result: PreflightResult, verbose: bool = False) -> str:
                 lines.append(f"    {key}: {value}")
 
     lines.append("\n" + "=" * 60)
-    lines.append(f"SUMMARY: {result.blocking_failures} blocking, {result.warnings} warnings")
+    lines.append(
+        f"SUMMARY: {result.blocking_failures} blocking, {result.warnings} warnings"
+    )
     lines.append("=" * 60)
 
     return "\n".join(lines)
