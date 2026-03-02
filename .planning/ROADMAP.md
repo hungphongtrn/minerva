@@ -158,16 +158,22 @@ Plans:
 
 **Depends on:** Phase 3.1
 
-**Plans:** 4 plans
+**Plans:** 8 plans (4 foundation + 4 gap closure)
 
 Plans:
-- [ ] 03.2-01-PLAN.md — Package `minerva` CLI entrypoint with preflight + migrate/serve gates.
-- [ ] 03.2-02-PLAN.md — Implement `minerva snapshot build` (Daytona snapshot via declarative Image builder).
-- [ ] 03.2-03-PLAN.md — Sync agent pack to Daytona volume-per-digest and mount in sandboxes with real file-API identity checks.
-- [ ] 03.2-04-PLAN.md — Add OSS `/runs` SSE API with X-User-ID passthrough identity, per-user queue, and ops endpoints.
+- [x] 03.2-01-PLAN.md — Package `minerva` CLI entrypoint with preflight + migrate/serve gates.
+- [x] 03.2-02-PLAN.md — Implement `minerva snapshot build` (Daytona snapshot via declarative Image builder).
+- [x] 03.2-03-PLAN.md — Sync agent pack to Daytona volume-per-digest and mount in sandboxes with real file-API identity checks.
+- [x] 03.2-04-PLAN.md — Add OSS `/runs` SSE API with X-User-ID passthrough identity, per-user queue, and ops endpoints.
+- [x] 03.2-05-PLAN.md — Verification and gap analysis for OSS Agent Server MVP.
+- [x] 03.2-06-PLAN.md — Close GAP-01: Environment Contract Alignment (.env.example sync).
+- [x] 03.2-07-PLAN.md — Close GAP-02: Idempotent Snapshot Build (get-before-create pattern).
+- [ ] 03.2-08-PLAN.md — Close GAP-03 and GAP-04: Volume mount wiring and config file API.
 
 **Details:**
-[To be added during planning]
+- Foundation plans (01-04) delivered CLI entrypoint, snapshot build, pack volume sync, and OSS runs API
+- Gap closure plans (05-08) address verification findings: env contract, idempotent snapshots, volume wiring
+- GAP-02 closed: Snapshot build now idempotent with explicit reuse semantics
 
 ### Phase 4: Execution Orchestration and Fairness
 
@@ -242,7 +248,8 @@ flowchart TD
 | 02.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
 | 03 - Persistence and Checkpoint Recovery | Complete | 100% |
 | 03.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
-| 03.2 - OSS Agent Server MVP | 6/8 | In Progress|  | 4 - Execution Orchestration and Fairness | Not Started | 0% |
+| 03.2 - OSS Agent Server MVP | 7/8 | In Progress |
+| 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
 **Overall Progress:** 71%
