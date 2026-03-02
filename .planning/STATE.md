@@ -29,7 +29,7 @@ See: .planning/PROJECT.md
 
 | Task | Commit | Date |
 | --- | --- | --- |
-| Update docker-compose.yml to prepare minio dependencies | [commit_hash] | 2026-03-02 |
+| Update docker-compose.yml to prepare minio dependencies | e770c17 | 2026-03-02 |
 
 ## Decisions
 
