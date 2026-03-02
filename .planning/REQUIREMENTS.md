@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **AUTH-01**: User can authenticate API requests with a personal API key.
 - [x] **AUTH-02**: User or operator can rotate and revoke an API key.
 - [x] **AUTH-03**: User can access only their own workspace resources.
-- [ ] **AUTH-04**: User can send an idempotency key so retries do not create duplicate runs.
+- [x] **AUTH-04**: User can send an idempotency key so retries do not create duplicate runs.
 - [x] **AUTH-05**: Operator can assign a basic role (owner/member) to control access behavior.
 - [x] **AUTH-06**: System assigns a random guest identity for requests without explicit user identity and marks that run as guest mode.
 
@@ -103,7 +103,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-02 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-03 | Phase 1 - Identity and Policy Baseline | Complete |
-| AUTH-04 | Phase 4 - Execution Orchestration and Fairness | Pending |
+| AUTH-04 | Phase 4 - Execution Orchestration and Fairness | Complete |
 | AUTH-05 | Phase 1 - Identity and Policy Baseline | Complete |
 | AUTH-06 | Phase 1 - Identity and Policy Baseline | Complete |
 | WORK-01 | Phase 2 - Workspace Lifecycle and Agent Pack Portability | Complete |

@@ -11,11 +11,11 @@
 ## Current Position
 
 - **Phase:** 03.2 (OSS Agent Server MVP) - IN PROGRESS
-- **Current Plan:** 02 of 05 (Snapshot Build)
-- **Plan status:** Plan 03.2-02 complete
-- **Execution status:** Daytona snapshot build service with CLI command
-- **Progress bar:** [████████████████████] 96%
-- **Last completed:** Plan 03.2-02 - Snapshot Build Summary
+- **Current Plan:** 05 of 05 (Runtime Endpoints)
+- **Plan status:** Plan 03.2-05 complete
+- **Execution status:** OSS /runs SSE endpoint with per-user queue and idempotency
+- **Progress bar:** [████████████████████] 100%
+- **Last completed:** Plan 03.2-05 - OSS Runtime Endpoints Summary
 
 ```mermaid
 flowchart LR
@@ -61,6 +61,8 @@ flowchart LR
   S40 --> S41[03.1-03: Bridge Token Integration ✓]
   S41 --> S42[03.1-04: Base Image Guardrails ✓]
   S42 --> S43[03.2-01: CLI Skeleton + Preflight ✓]
+  S43 --> S44[03.2-02: Snapshot Build ✓]
+  S44 --> S45[03.2-05: Runtime Endpoints ✓]
 ```
 
 ## Performance Metrics
@@ -248,6 +250,7 @@ flowchart LR
 | Phase 03.2-04 P04 | 13min | 2 tasks | 6 files |
 - [Phase 03.2-04]: /health always 200 for monitoring, /ready 503 on failures for k8s readiness — Separation of concerns: health is observability, ready is traffic routing
 - [Phase 03.2-04]: Fail-closed readiness with snapshot gate and remediation — K8s readiness requires explicit failure signal with actionable guidance
+| Phase 03.2 P05 | 21min | 3 tasks | 10 files |
 
 ### Roadmap Evolution
 
@@ -300,12 +303,12 @@ flowchart LR
 - [x] Execute Plan 03.1-04: Base image guardrails with strict mode and preflight CLI
 - [x] Execute Plan 03.2-01: CLI skeleton with preflight validation and scaffold generation
 - [x] Execute Plan 03.2-02: Snapshot build service with CLI command
+- [x] Execute Plan 03.2-05: Runtime endpoints (/runs SSE with queue + idempotency)
 
 ### Next Plans
 
 - [ ] Phase 03.2 Plan 03: Observability integration
 - [ ] Phase 03.2 Plan 04: API routes for agent packs
-- [ ] Phase 03.2 Plan 05: Runtime endpoints
 - [ ] Phase 03.2 Plan 06: Acceptance tests
 - [ ] Phase 04: Execution Orchestration and Fairness
 
@@ -321,14 +324,14 @@ flowchart LR
 
 ## Session Continuity
 
-- **Last completed artifact:** `03.2-02-SUMMARY.md` (Snapshot Build)
-- **Last activity:** 2026-03-02 - Plan 03.2-02 complete with snapshot build service and CLI command
+- **Last completed artifact:** `03.2-05-SUMMARY.md` (Runtime Endpoints)
+- **Last activity:** 2026-03-02 - Plan 03.2-05 complete with OSS /runs SSE endpoint, per-user queue, and idempotency
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 03.2 Plan 03 - Observability integration
-- **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-02-SUMMARY.md`
-- **Last session:** 2026-03-02T05:42:34.020Z
-- **Commits:** 1812421, 6b70fb8
+- **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-05-SUMMARY.md`
+- **Last session:** 2026-03-02T07:38:51Z
+- **Commits:** 3c7ef80, 2e4f189, d835936
 
 ---
 *Initialized: 2026-02-23*
-*Updated: 2026-03-02 (Phase 03.2 Plan 02 complete - Snapshot build service with CLI)*
+*Updated: 2026-03-02 (Phase 03.2 Plan 05 complete - OSS Runtime Endpoints)*
