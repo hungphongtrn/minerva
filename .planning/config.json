@@ -3,9 +3,23 @@
   "depth": "standard",
   "parallelization": true,
   "commit_docs": true,
+  "model_profile": "genius",
   "workflow": {
     "research": true,
     "plan_check": true,
-    "verifier": true
+    "verifier": true,
+    "auto_advance": false,
+    "nyquist_validation": true
+  },
+  "git": {
+    "branching_strategy": "none"
+  },
+  "profiles": {
+    "profile_type": "genius",
+    "models": {
+      "planning": "openai/gpt-5.2",
+      "execution": "opencode-go/glm-5",
+      "verification": "openai/gpt-5.3-codex"
+    }
   }
 }
