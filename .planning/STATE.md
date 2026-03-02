@@ -239,6 +239,12 @@ flowchart LR
 | D-03.2-02-005 | 2026-03-02 | 03.2-02 | Structured error remediation for Daytona errors | Permission/auth errors include specific guidance |
 | Phase 03.2 P01 | 38 | 3 tasks | 10 files |
 | Phase 03.2 P02 | 8 | 2 tasks | 4 files |
+| Phase 03.2-03 P3 | 45min | 3 tasks | 4 files |
+- [Phase 03.2-03]: Volume naming contract: agent-pack-{pack_id}-{digest} for deterministic immutable volumes — Same pack+digest always maps to same volume, digest changes create new volume, old volumes remain for running sandboxes
+- [Phase 03.2-03]: Disposable sandbox pattern for pack file upload with guaranteed cleanup in finally blocks — Ensures no resource leaks even on upload errors, clean separation between sync and production sandboxes
+- [Phase 03.2-03]: Real file API for identity verification (AGENT.md, SOUL.md, IDENTITY.md, skills/) — Fail-closed security: must verify actual file existence via Daytona sandbox.fs API
+- [Phase 03.2-03]: Per-sandbox config.json written outside shared pack volume at ~/.picoclaw/config.json — Prevents config pollution across sandboxes, each gets unique bridge auth token and LLM settings
+- [Phase 03.2-03]: Register command blocks on critical failures: validation (exit 1), database (exit 2), sync (exit 3) — Clear error messages guide operator remediation, non-zero exit enables CI/CD integration
 
 ### Roadmap Evolution
 
@@ -317,7 +323,7 @@ flowchart LR
 - **Traceability source of truth:** `.planning/REQUIREMENTS.md` section `Traceability`
 - **Next plans:** Phase 03.2 Plan 03 - Observability integration
 - **Recovery note:** If context is lost, resume from `.planning/phases/03.2-oss-agent-server-mvp/03.2-02-SUMMARY.md`
-- **Last session:** 2026-03-02T05:35:56Z
+- **Last session:** 2026-03-02T05:41:53.043Z
 - **Commits:** 1812421, 6b70fb8
 
 ---
