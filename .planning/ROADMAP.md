@@ -29,7 +29,7 @@ flowchart LR
 
 ## Phase Details
 
-### Phase 1 - Identity and Policy Baseline
+### Phase 1: Identity and Policy Baseline
 
 **Goal:** Users can authenticate requests safely and execute only within authorized, policy-constrained boundaries.
 
@@ -58,7 +58,7 @@ Plans:
 - [x] 01-08-PLAN.md — Close runtime policy enforcement and structured denial gap.
 - [x] 01-09-PLAN.md — Close member workspace resource mutation authorization gap.
 
-### Phase 2 - Workspace Lifecycle and Agent Pack Portability
+### Phase 2: Workspace Lifecycle and Agent Pack Portability
 
 **Goal:** Each user gets a durable workspace and can move from template scaffold to registered agent pack that runs in local Docker Compose and BYOC profiles without manual infra wiring.
 
@@ -94,7 +94,7 @@ Plans:
 - [x] 02-16-PLAN.md — Close UAT Test 9 gap with idle TTL enforcement and observability.
 - [x] 02-17-PLAN.md — Close Truth 11 gap with profile parity verification (valid pack never returns 400 in daytona).
 
-### Phase 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime (INSERTED)
+### Phase 2.1: Bridge Agent Pack Sandbox to Picoclaw Runtime (INSERTED)
 
 **Goal:** Urgent bridge work from sandbox-mounted agent packs to in-sandbox Picoclaw runtime invocation and request execution.
 
@@ -110,7 +110,7 @@ Plans:
 **Details:**
 To be added during planning.
 
-### Phase 3 - Persistence and Checkpoint Recovery
+### Phase 3: Persistence and Checkpoint Recovery
 
 **Goal:** Runtime state is durably stored and recoverable through milestone checkpoints with immutable audit history.
 
@@ -135,7 +135,7 @@ Plans:
 - [x] 03-05-PLAN.md — Expose persistence/query APIs and operator pointer-control security checks.
 - [x] 03-UAT-GAPS-PLAN.md — Close UAT blocker: add gateway_url column to sandbox_instances.
 
-### Phase 3.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
+### Phase 3.1: Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
 
 **Goal:** Daytona-backed `/runs` execution is production-hardened with authoritative gateway resolution, per-sandbox bridge token rotation, identity-first readiness, and bounded reprovision/hydration recovery while preserving orchestrator control-plane authority.
 
@@ -152,7 +152,7 @@ Plans:
 **Details:**
 [To be added during planning]
 
-### Phase 3.2 - OSS Agent Server MVP (INSERTED)
+### Phase 3.2: OSS Agent Server MVP (INSERTED)
 
 **Goal:** End-to-end OSS flow: template agent pack to deployed multi-tenant agent server with sandbox routing, ready for developers who bring their own infrastructure (Postgres, S3/Minio, Daytona, LLM key/endpoints).
 
@@ -169,7 +169,7 @@ Plans:
 **Details:**
 [To be added during planning]
 
-### Phase 4 - Execution Orchestration and Fairness
+### Phase 4: Execution Orchestration and Fairness
 
 **Goal:** Runs execute reliably under retries/cancellation while preserving ordering per workspace and fairness across users.
 
@@ -184,7 +184,7 @@ Plans:
 4. Transient failures retry with bounded backoff, and exhausted retries move jobs to dead-letter state.
 5. A user or operator can cancel an active run, and per-user queue/concurrency caps prevent noisy-neighbor starvation.
 
-### Phase 5 - Typed Event Streaming API
+### Phase 5: Typed Event Streaming API
 
 **Goal:** Clients can consume real-time typed runtime events and fetch final run outputs in Picoclaw-aligned contracts.
 
@@ -237,13 +237,12 @@ flowchart TD
 
 | Phase | Status | Completion |
 |------|--------|------------|
-| 1 - Identity and Policy Baseline | Complete | 100% |
-| 2 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
-| 2.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
-| 3 - Persistence and Checkpoint Recovery | Complete | 100% |
-| 3.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
-| 3.2 - OSS Agent Server MVP | Not Started | 0% |
-| 4 - Execution Orchestration and Fairness | Not Started | 0% |
+| 01 - Identity and Policy Baseline | Complete | 100% |
+| 02 - Workspace Lifecycle and Agent Pack Portability | Complete | 100% |
+| 02.1 - Bridge Agent Pack Sandbox to Picoclaw Runtime | Complete | 100% |
+| 03 - Persistence and Checkpoint Recovery | Complete | 100% |
+| 03.1 - Make Daytona Production-Ready for Picoclaw Gateway Execution | Complete | 100% |
+| 03.2 - OSS Agent Server MVP | 6/8 | In Progress|  | 4 - Execution Orchestration and Fairness | Not Started | 0% |
 | 5 - Typed Event Streaming API | Not Started | 0% |
 
 **Overall Progress:** 71%
