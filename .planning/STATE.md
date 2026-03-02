@@ -8,8 +8,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
-**Current plan:** 03 (all plans complete - Phase 03.3 finished)
-**Status:** Complete
+**Current plan:** 04
+**Status:** In Progress
 
 ## Completed Plans
 
@@ -29,6 +29,11 @@ See: .planning/PROJECT.md
   - Commits: e6d1a38, 6fe971a
   - Duration: 5 min
   - Artifacts: Bridge sender_id/session_id forwarding, RunService identity wiring, local_compose mount isolation parity
+
+- [x] Plan 04: Wire Workspace-Config Preflight into Serve Startup
+  - Commits: cc9526c, dab40a5
+  - Duration: 2 min
+  - Artifacts: Workspace preflight gate, regression tests, fail-closed behavior
 
 ### Phase 03.2: OSS Agent Server MVP
 
@@ -68,6 +73,8 @@ See: .planning/PROJECT.md
 15. **03.3-03**: Forward raw external_user_id (from X-User-ID) as sender_id to Picoclaw - no hashing or transformation
 16. **03.3-03**: Guest requests use generic 'guest' as sender_id - the agent knows it's a guest but has no unique identifier
 17. **03.3-03**: Full mount isolation parity: local_compose uses same WORKSPACE_PATH as Daytona
+18. **03.3-04**: Workspace check is Gate 2 (BLOCKING) after schema, before snapshot
+19. **03.3-04**: Public check_workspace_configured() wrapper exposes private _check_workspace_configured()
 
 ## Accumulated Context
 
@@ -82,7 +89,8 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
-- 2026-03-02: Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity) - Phase 03.3 COMPLETE
+- 2026-03-02: Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
+- 2026-03-02: Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity)
 - 2026-03-02: Completed plan 03.3-01 (External Identity Infrastructure - Identity Collision Fix)
 - 2026-03-02: Completed plan 03.3-02 (Mount Isolation and Per-User Routing)
 - 2026-03-02: [Quick] Update docker-compose.yml to prepare minio dependencies
@@ -92,5 +100,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-03 (Wire Identity Forwarding and Local Compose Parity) - Phase 03.3 COMPLETE
+- **Stopped at:** Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
 - **Resume file:** None
