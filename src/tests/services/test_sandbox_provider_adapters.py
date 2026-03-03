@@ -43,7 +43,10 @@ from src.infrastructure.sandbox.providers.base import (
     SandboxState as ProviderSandboxState,
 )
 from src.infrastructure.sandbox.providers.base import SandboxInfo
-from src.infrastructure.sandbox.providers.daytona import DaytonaSandboxProvider
+from src.infrastructure.sandbox.providers.daytona import (
+    DaytonaSandboxProvider,
+    SandboxGatewayError,
+)
 from src.infrastructure.sandbox.providers.factory import (
     get_current_profile,
     get_provider,
@@ -2247,7 +2250,7 @@ class TestDaytonaProductionReadiness:
 
     @pytest.mark.asyncio
     async def test_daytona_gateway_resolution_uses_preview_url(self, provider):
-        """Gateway endpoint resolution extracts from preview URLs."""
+        """Gateway endpoint resolution uses Daytona preview URL as-is."""
         # Mock the SDK with preview URL - no metadata so it falls through to preview
         mock_sandbox = MagicMock()
         mock_sandbox.id = "test-sandbox"
@@ -2269,13 +2272,11 @@ class TestDaytonaProductionReadiness:
 
             gateway_url = await provider.resolve_gateway_endpoint("test-sandbox")
 
-        # Should derive gateway URL from preview
-        assert "gateway-" in gateway_url
-        assert ":18790" in gateway_url
+        assert gateway_url == "https://abc123.daytona.run"
 
     @pytest.mark.asyncio
     async def test_daytona_gateway_resolution_fallback_to_constructed(self, provider):
-        """Gateway endpoint falls back to constructed URL from ID."""
+        """Gateway endpoint raises when cloud URL cannot be resolved."""
         # Mock the SDK without preview URL and with empty metadata
         mock_sandbox = MagicMock()
         mock_sandbox.id = "test-sandbox-123"
@@ -2294,11 +2295,8 @@ class TestDaytonaProductionReadiness:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            gateway_url = await provider.resolve_gateway_endpoint("test-sandbox-123")
-
-        # Should construct from sandbox ID - check that it's a string URL
-        assert isinstance(gateway_url, str)
-        assert "gateway-test-sandbox-123" in gateway_url
+            with pytest.raises(SandboxGatewayError):
+                await provider.resolve_gateway_endpoint("test-sandbox-123")
 
 
 class TestOrchestratorBoundedReprovision:

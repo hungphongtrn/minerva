@@ -125,6 +125,10 @@ class DaytonaSandboxProvider:
     REQUIRED_IDENTITY_DIRS: Set[str] = {"skills"}
     PROVISION_CREATE_TIMEOUT_SECONDS = 20.0
     IDENTITY_VERIFY_TIMEOUT_SECONDS = 20.0
+    BRIDGE_PORT = 18790
+    BRIDGE_START_MAX_ATTEMPTS = 3
+    BRIDGE_START_BACKOFF_SECONDS = 1.0
+    BRIDGE_LISTEN_TIMEOUT_SECONDS = 20.0
 
     def _normalize_daytona_value(self, value: Any) -> str:
         """Normalize Daytona SDK enum/string values into lowercase tokens."""
@@ -303,6 +307,31 @@ class DaytonaSandboxProvider:
 
         return DaytonaConfig(**config_kwargs)
 
+    async def _maybe_await(self, value: Any) -> Any:
+        """Await a value if needed."""
+        if inspect.isawaitable(value):
+            return await value
+        return value
+
+    async def _exec_checked(self, sandbox: Any, command: str) -> Dict[str, Any]:
+        """Execute a command in sandbox and fail on non-zero exit."""
+        result = await self._maybe_await(sandbox.process.exec(command))
+
+        exit_code = getattr(result, "exit_code", 0)
+        stdout = getattr(result, "result", None) or getattr(result, "stdout", "")
+        stderr = getattr(result, "stderr", "")
+
+        if exit_code != 0:
+            raise SandboxProvisionError(
+                f"Sandbox command failed (exit={exit_code}): {command}; stderr={stderr or stdout}"
+            )
+
+        return {
+            "exit_code": exit_code,
+            "stdout": stdout,
+            "stderr": stderr,
+        }
+
     async def verify_identity_files(
         self,
         sandbox_id: str,
@@ -454,28 +483,48 @@ class DaytonaSandboxProvider:
                     if gateway_url:
                         return gateway_url
 
-                # Strategy 2: Construct from preview URLs or instance info
-                # Daytona provides preview URLs that we can use to derive gateway
-                preview_url = None
+                # Strategy 2: Use Daytona preview-link APIs for bridge port.
+                preview_methods = [
+                    "get_preview_link",
+                    "create_preview_link",
+                    "create_signed_preview_url",
+                ]
 
+                for method_name in preview_methods:
+                    method = getattr(sandbox, method_name, None)
+                    if not callable(method):
+                        continue
+
+                    try:
+                        preview = await self._maybe_await(method(self.BRIDGE_PORT))
+                    except Exception:
+                        continue
+
+                    if isinstance(preview, str) and preview.startswith("http"):
+                        return preview.rstrip("/")
+
+                    if hasattr(preview, "url"):
+                        preview_url = getattr(preview, "url")
+                        if isinstance(preview_url, str) and preview_url.startswith(
+                            "http"
+                        ):
+                            return preview_url.rstrip("/")
+
+                # Strategy 3: Fallback to explicit preview_url fields.
+                preview_url = None
                 if hasattr(sandbox, "preview_url") and sandbox.preview_url:
                     preview_url = sandbox.preview_url
                 elif hasattr(sandbox, "url") and sandbox.url:
                     preview_url = sandbox.url
 
-                if preview_url:
-                    # Transform preview URL to gateway URL
-                    # preview: https://{id}.daytona.run -> gateway: https://gateway-{id}.daytona.run:18790
-                    gateway_url = self._derive_gateway_url_from_preview(
-                        preview_url, sandbox_id
-                    )
+                if isinstance(preview_url, str) and preview_url.startswith("http"):
+                    return preview_url.rstrip("/")
+
+                # Strategy 4: Self-hosted fallback from base URL.
+                if not self._is_cloud:
+                    gateway_url = self._construct_gateway_url(sandbox_id)
                     if gateway_url:
                         return gateway_url
-
-                # Strategy 3: Construct from sandbox ID and base URL
-                gateway_url = self._construct_gateway_url(sandbox_id)
-                if gateway_url:
-                    return gateway_url
 
                 raise SandboxGatewayError(
                     "Could not resolve gateway endpoint from sandbox metadata",
@@ -495,44 +544,6 @@ class DaytonaSandboxProvider:
                 provider_ref=sandbox_id,
             )
 
-    def _derive_gateway_url_from_preview(
-        self,
-        preview_url: str,
-        sandbox_id: str,
-    ) -> Optional[str]:
-        """Derive gateway URL from Daytona preview URL.
-
-        Args:
-            preview_url: The Daytona preview URL.
-            sandbox_id: The sandbox ID.
-
-        Returns:
-            Gateway URL or None if derivation fails.
-        """
-        from urllib.parse import urlparse, urlunparse
-
-        try:
-            parsed = urlparse(preview_url)
-
-            # Extract domain and construct gateway subdomain
-            # e.g., https://abc123.daytona.run -> https://gateway-abc123.daytona.run:18790
-            if parsed.hostname:
-                gateway_host = f"gateway-{parsed.hostname}"
-                gateway_url = urlunparse(
-                    parsed._replace(
-                        netloc=f"{gateway_host}:18790",
-                        path="",
-                        query="",
-                        fragment="",
-                    )
-                )
-                return gateway_url
-
-        except Exception:
-            pass
-
-        return None
-
     def _construct_gateway_url(self, sandbox_id: str) -> Optional[str]:
         """Construct gateway URL from sandbox ID.
 
@@ -544,7 +555,7 @@ class DaytonaSandboxProvider:
         """
         if self._is_cloud:
             # Daytona Cloud: use regional gateway endpoint
-            return f"https://gateway-{sandbox_id}.{self._target}.daytona.run:18790"
+            return f"https://gateway-{sandbox_id}.{self._target}.daytona.run:{self.BRIDGE_PORT}"
         else:
             # Self-hosted: construct from base URL
             # Strip any trailing path and add gateway subdomain
@@ -554,7 +565,7 @@ class DaytonaSandboxProvider:
                 parsed = urlparse(self._base_url)
                 if parsed.hostname:
                     # Use the same scheme and domain, add gateway port
-                    gateway_netloc = f"{parsed.hostname}:18790"
+                    gateway_netloc = f"{parsed.hostname}:{self.BRIDGE_PORT}"
                     gateway_url = urlunparse(
                         parsed._replace(
                             netloc=gateway_netloc,
@@ -722,7 +733,7 @@ class DaytonaSandboxProvider:
         # Extract bridge settings
         bridge_config = runtime_config.get("bridge", {})
         bridge_auth_token = bridge_config.get("auth_token", "temp-token")
-        gateway_port = bridge_config.get("gateway_port", 18790)
+        gateway_port = bridge_config.get("gateway_port", self.BRIDGE_PORT)
 
         # Build Picoclaw config.json structure
         picoclaw_config = {
@@ -786,21 +797,84 @@ class DaytonaSandboxProvider:
         Identity files are symlinked to make them accessible from the workspace.
         """
 
-        async def _exec(command: str) -> None:
-            result = sandbox.process.exec(command)
-            if inspect.isawaitable(result):
-                await result
-
         # Create workspace directory
-        await _exec(f"mkdir -p {WORKSPACE_PATH}")
+        await self._exec_checked(sandbox, f"mkdir -p {WORKSPACE_PATH}")
 
         # Symlink identity files
         for f in IDENTITY_FILES:
-            await _exec(f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}")
+            await self._exec_checked(
+                sandbox, f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}"
+            )
 
         # Symlink identity directories
         for d in IDENTITY_DIRS:
-            await _exec(f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}")
+            await self._exec_checked(
+                sandbox, f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}"
+            )
+
+    async def _is_bridge_listening(self, sandbox: Any) -> bool:
+        """Check whether Picoclaw bridge is listening on configured port."""
+        probe_cmd = (
+            'python -c "import socket,sys;'
+            "s=socket.socket();"
+            "s.settimeout(1);"
+            f"rc=s.connect_ex(('127.0.0.1',{self.BRIDGE_PORT}));"
+            "s.close();"
+            'sys.exit(0 if rc==0 else 1)"'
+        )
+        result = await self._maybe_await(sandbox.process.exec(probe_cmd))
+        return getattr(result, "exit_code", 1) == 0
+
+    async def _start_bridge_runtime(self, sandbox: Any, strict: bool = True) -> bool:
+        """Start the bridge runtime process and verify port listener.
+
+        Returns:
+            True when listener is confirmed. In non-strict mode returns False
+            instead of raising on startup/readiness failures.
+        """
+        if await self._is_bridge_listening(sandbox):
+            return True
+
+        start_cmd = (
+            "sh -lc '"
+            "if command -v daytona >/dev/null 2>&1; then "
+            'pkill -f "daytona picoclaw" >/dev/null 2>&1 || true; '
+            "nohup daytona picoclaw >/tmp/picoclaw.log 2>&1 & "
+            "else "
+            'echo "daytona CLI not found" >&2; exit 1; '
+            "fi'"
+        )
+
+        max_attempts = self.BRIDGE_START_MAX_ATTEMPTS if strict else 1
+        listen_timeout = self.BRIDGE_LISTEN_TIMEOUT_SECONDS if strict else 1.0
+
+        last_error: Optional[str] = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await self._exec_checked(sandbox, start_cmd)
+
+                deadline = asyncio.get_event_loop().time() + listen_timeout
+                while asyncio.get_event_loop().time() < deadline:
+                    if await self._is_bridge_listening(sandbox):
+                        return True
+                    await asyncio.sleep(0.5)
+
+                last_error = (
+                    f"Bridge listener not ready on port {self.BRIDGE_PORT} "
+                    f"after {listen_timeout:.0f}s"
+                )
+            except SandboxProvisionError as exc:
+                last_error = str(exc)
+
+            if attempt < max_attempts:
+                await asyncio.sleep(self.BRIDGE_START_BACKOFF_SECONDS * attempt)
+
+        if strict:
+            raise SandboxProvisionError(
+                f"Failed to start Picoclaw bridge runtime: {last_error}"
+            )
+
+        return False
 
     async def _materialize_pack(
         self,
@@ -905,6 +979,37 @@ class DaytonaSandboxProvider:
         except Exception:
             # Fail-closed: any error results in None
             return None
+
+    async def list_sandbox_refs_by_workspace(self, workspace_id: UUID) -> List[str]:
+        """List Daytona sandbox IDs that belong to a workspace.
+
+        Uses workspace_id label emitted during provisioning. Returns empty list
+        on provider/listing errors to preserve fail-closed behavior.
+        """
+        refs: List[str] = []
+        try:
+            config = self._create_config()
+            async with AsyncDaytona(config=config) as daytona:
+                list_method = getattr(daytona, "list", None)
+                if not callable(list_method):
+                    return refs
+
+                sandboxes = await self._maybe_await(list_method())
+                if not sandboxes:
+                    return refs
+
+                for sandbox in sandboxes:
+                    labels = getattr(sandbox, "labels", None) or {}
+                    if labels.get("workspace_id") != str(workspace_id):
+                        continue
+
+                    sandbox_id = getattr(sandbox, "id", None)
+                    if sandbox_id:
+                        refs.append(str(sandbox_id))
+        except Exception:
+            return []
+
+        return refs
 
     def _compute_volume_name(self, pack_id: UUID, pack_digest: str) -> str:
         """Compute deterministic volume name from pack ID and digest.
@@ -1016,6 +1121,9 @@ class DaytonaSandboxProvider:
         # Build labels
         labels: Dict[str, str] = {}
         labels.update(self._image_labels)
+        labels["workspace_id"] = str(config.workspace_id)
+        if config.external_user_id:
+            labels["external_user_id"] = config.external_user_id
         if config.pack_source_path:
             labels["pack_source_path"] = config.pack_source_path
         if config.pack_digest:
@@ -1181,11 +1289,21 @@ class DaytonaSandboxProvider:
                         workspace_id=config.workspace_id,
                     )
 
+                bridge_cfg = (config.runtime_bridge_config or {}).get("bridge", {})
+                strict_runtime_ready = bool(bridge_cfg.get("enabled"))
+
+                # Start bridge runtime and verify listener on configured port.
+                runtime_ready = await self._start_bridge_runtime(
+                    sandbox,
+                    strict=strict_runtime_ready,
+                )
+
                 # Store pack binding metadata on the sandbox if possible
                 # This is best-effort - not all Daytona versions support metadata
                 metadata: Dict[str, Any] = {
                     "gateway_url": gateway_url,
                     "identity_ready": True,
+                    "runtime_ready": runtime_ready,
                     "materialized_config_path": config_path,
                 }
                 if pack_bound:

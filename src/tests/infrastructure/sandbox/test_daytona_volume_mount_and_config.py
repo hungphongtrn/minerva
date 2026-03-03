@@ -413,6 +413,9 @@ class TestPerSandboxConfigWrite:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_runtime,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -420,6 +423,7 @@ class TestPerSandboxConfigWrite:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_runtime.return_value = True
 
                 result = await provider.provision_sandbox(config)
 
@@ -495,6 +499,9 @@ class TestPerSandboxConfigWrite:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_runtime,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -502,6 +509,7 @@ class TestPerSandboxConfigWrite:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_runtime.return_value = True
 
                 await provider.provision_sandbox(config)
 

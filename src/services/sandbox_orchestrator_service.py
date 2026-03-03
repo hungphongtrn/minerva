@@ -227,6 +227,14 @@ class SandboxOrchestratorService:
         )
 
         try:
+            # Opportunistic reconciliation for orphaned provider sandboxes.
+            if effective_profile == SandboxProfile.DAYTONA:
+                await self._reconcile_daytona_orphans(
+                    workspace_id=workspace_id,
+                    profile=effective_profile,
+                    external_user_id=external_user_id,
+                )
+
             # Step 1: Stop idle sandboxes that exceeded TTL
             stopped_idle = await self._stop_idle_sandboxes_before_routing(workspace_id)
             if stopped_idle:
@@ -467,6 +475,53 @@ class SandboxOrchestratorService:
             sandbox.id, SandboxHydrationStatus.COMPLETED
         )
 
+    async def _reconcile_daytona_orphans(
+        self,
+        workspace_id: UUID,
+        profile: SandboxProfile,
+        external_user_id: Optional[str],
+    ) -> None:
+        """Reconcile Daytona workspaces that exist without DB rows.
+
+        This is a best-effort safety net for request rollback scenarios where
+        Daytona provisioning succeeded but the request transaction rolled back.
+        """
+        list_refs = getattr(self._provider, "list_sandbox_refs_by_workspace", None)
+        if not callable(list_refs):
+            return
+
+        try:
+            provider_refs = await list_refs(workspace_id)
+        except Exception:
+            return
+
+        for provider_ref in provider_refs:
+            if self._repository.get_by_provider_ref(provider_ref):
+                continue
+
+            sandbox = self._repository.create(
+                workspace_id=workspace_id,
+                profile=profile,
+                idle_ttl_seconds=self._idle_ttl_seconds,
+                external_user_id=external_user_id,
+            )
+            self._repository.set_provider_ref(sandbox.id, provider_ref)
+            self._repository.update_state(sandbox.id, SandboxState.CREATING)
+            self._repository.update_health(sandbox.id, SandboxHealthStatus.UNKNOWN)
+
+            resolve_gateway = getattr(self._provider, "resolve_gateway_endpoint", None)
+            if callable(resolve_gateway):
+                try:
+                    gateway_url = await resolve_gateway(provider_ref)
+                    if gateway_url:
+                        self._repository.set_gateway_url_authoritative(
+                            sandbox.id, gateway_url
+                        )
+                except Exception:
+                    pass
+
+            self._session.commit()
+
     def _find_in_progress_sandbox(
         self,
         workspace_id: UUID,
@@ -655,6 +710,7 @@ class SandboxOrchestratorService:
         """
         retryable_results = {
             RoutingResult.GATEWAY_RESOLUTION_FAILED,
+            RoutingResult.PROVISION_FAILED,
         }
         return result in retryable_results
 
@@ -800,6 +856,7 @@ class SandboxOrchestratorService:
         )
 
         sandbox: Optional[SandboxInstance] = None
+        gateway_url: Optional[str] = None
 
         try:
             # Check for existing PENDING/CREATING sandbox to avoid duplicates on retry
@@ -867,6 +924,24 @@ class SandboxOrchestratorService:
 
                     # Update state to CREATING
                     self._repository.update_state(sandbox.id, SandboxState.CREATING)
+
+                    # Persist row before provider-side provisioning to prevent
+                    # Daytona/DB drift if later request logic raises and rolls back.
+                    sandbox_id = sandbox.id
+                    self._session.commit()
+                    sandbox = self._repository.get_by_id(sandbox_id)
+                    if sandbox is None:
+                        return SandboxRoutingResult(
+                            success=False,
+                            result=RoutingResult.PROVISION_FAILED,
+                            sandbox=None,
+                            provider_info=None,
+                            message="Sandbox DB row was not persisted before provider provisioning",
+                            excluded_unhealthy=excluded_unhealthy,
+                            ttl_cleanup_applied=ttl_cleanup_applied,
+                            stopped_sandbox_ids=stopped_sandbox_ids,
+                            ttl_cleanup_reason=ttl_cleanup_reason,
+                        )
                 except IntegrityError:
                     # Another request won the race to create user lifecycle record.
                     self._session.rollback()
@@ -952,14 +1027,20 @@ class SandboxOrchestratorService:
                 # Mark identity ready (sandbox is now request-ready)
                 self._repository.set_identity_ready(sandbox.id, ready=True)
 
-                # Set hydration to pending (will be triggered async)
-                self._repository.set_hydration_status(
-                    sandbox.id, SandboxHydrationStatus.PENDING
+                runtime_ready = bool(provider_info.ref.metadata.get("runtime_ready"))
+                hydration_status = (
+                    SandboxHydrationStatus.COMPLETED
+                    if runtime_ready
+                    else SandboxHydrationStatus.PENDING
                 )
+                self._repository.set_hydration_status(sandbox.id, hydration_status)
 
                 self._repository.update_state(sandbox.id, SandboxState.ACTIVE)
                 self._repository.update_health(sandbox.id, SandboxHealthStatus.HEALTHY)
                 self._repository.update_activity(sandbox.id)
+
+                # Persist authoritative provider state before returning.
+                self._session.commit()
 
             return SandboxRoutingResult(
                 success=True,
@@ -976,13 +1057,17 @@ class SandboxOrchestratorService:
 
         except SandboxIdentityError as e:
             if sandbox is not None:
+                self._repository.increment_hydration_retry(sandbox.id, error=str(e))
                 self._repository.set_hydration_status(
-                    sandbox.id, SandboxHydrationStatus.FAILED
+                    sandbox.id,
+                    SandboxHydrationStatus.FAILED,
+                    last_error=str(e),
                 )
                 self._repository.update_health(
                     sandbox.id, SandboxHealthStatus.UNHEALTHY
                 )
                 self._repository.update_state(sandbox.id, SandboxState.FAILED)
+                self._session.commit()
             return SandboxRoutingResult(
                 success=False,
                 result=RoutingResult.IDENTITY_CHECK_FAILED,
@@ -996,13 +1081,17 @@ class SandboxOrchestratorService:
             )
         except Exception as e:
             if sandbox is not None:
+                self._repository.increment_hydration_retry(sandbox.id, error=str(e))
                 self._repository.set_hydration_status(
-                    sandbox.id, SandboxHydrationStatus.FAILED
+                    sandbox.id,
+                    SandboxHydrationStatus.FAILED,
+                    last_error=str(e),
                 )
                 self._repository.update_health(
                     sandbox.id, SandboxHealthStatus.UNHEALTHY
                 )
                 self._repository.update_state(sandbox.id, SandboxState.FAILED)
+                self._session.commit()
             return SandboxRoutingResult(
                 success=False,
                 result=RoutingResult.PROVISION_FAILED,
