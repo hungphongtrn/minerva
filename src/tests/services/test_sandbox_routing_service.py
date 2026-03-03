@@ -1009,3 +1009,51 @@ class TestPerUserSandboxRouting:
 
         assert persisted is not None
         assert persisted.external_user_id == "test-user-123"
+
+    @pytest.mark.asyncio
+    async def test_reuses_creating_user_sandbox_without_reprovisioning(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+        orchestrator_service: SandboxOrchestratorService,
+        mock_provider,
+    ):
+        """If a user sandbox is already creating, wait/reuse instead of provisioning again."""
+        from src.db.repositories.sandbox_instance_repository import (
+            SandboxInstanceRepository,
+        )
+
+        repo = SandboxInstanceRepository(db_session)
+        creating = repo.create(
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.LOCAL_COMPOSE,
+            external_user_id="test-user-123",
+            idle_ttl_seconds=3600,
+        )
+        creating.state = SandboxState.CREATING
+        db_session.commit()
+
+        activated = SandboxInstance(
+            id=creating.id,
+            workspace_id=test_workspace.id,
+            profile=SandboxProfile.LOCAL_COMPOSE,
+            provider_ref="sandbox-ready",
+            state=SandboxState.ACTIVE,
+            health_status=SandboxHealthStatus.HEALTHY,
+            identity_ready=True,
+        )
+
+        orchestrator_service._wait_for_existing_sandbox_activation = AsyncMock(
+            return_value=activated
+        )
+
+        result = await orchestrator_service.resolve_sandbox(
+            workspace_id=test_workspace.id,
+            external_user_id="test-user-123",
+        )
+
+        assert result.success is True
+        assert result.result == RoutingResult.ROUTED_EXISTING
+        assert result.sandbox is not None
+        assert result.sandbox.id == activated.id
+        mock_provider.provision_sandbox.assert_not_called()
