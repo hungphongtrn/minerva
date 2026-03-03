@@ -110,6 +110,7 @@ class RunRoutingResult:
     restore_in_progress: bool = False
     restore_checkpoint_id: Optional[str] = None
     queued: bool = False  # True if run is queued due to restore
+    run_id: Optional[str] = None  # Run ID used for lease acquisition
 
 
 class RunService:
@@ -149,6 +150,7 @@ class RunService:
         tool_policy: ToolPolicy,
         secret_policy: SecretScope,
         secrets: Dict[str, Any],
+        run_id: Optional[str] = None,
     ) -> RunContext:
         """Start a new run with policy context.
 
@@ -158,12 +160,14 @@ class RunService:
             tool_policy: Tool policy for this run
             secret_policy: Secret scope policy for this run
             secrets: Available secrets (will be filtered by policy)
+            run_id: Optional run ID to use (for lease tracking consistency)
 
         Returns:
             RunContext with run ID and metadata
         """
-        # Generate run ID
-        run_id = str(uuid4())
+        # Generate run ID if not provided
+        if run_id is None:
+            run_id = str(uuid4())
 
         # Check if guest
         guest = is_guest_principal(principal)
@@ -387,6 +391,7 @@ class RunService:
                 sandbox_health="healthy",
                 lease_acquired=False,
                 error=None,
+                run_id=run_id,
             )
 
         try:
@@ -404,6 +409,7 @@ class RunService:
                         success=False,
                         error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
                         error=f"Invalid workspace_id format: {principal_workspace_id}",
+                        run_id=run_id,
                     )
 
                 # Initialize lifecycle service
@@ -418,6 +424,7 @@ class RunService:
                         success=False,
                         error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
                         error=f"Workspace not found: {principal_workspace_id}",
+                        run_id=run_id,
                     )
 
                 # Resolve target with explicit workspace and external_user_id
@@ -437,6 +444,7 @@ class RunService:
                         success=False,
                         error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
                         error=target.error or "Workspace resolution failed",
+                        run_id=run_id,
                     )
 
                 # Continue to routing result processing (skip the standard path)
@@ -489,6 +497,7 @@ class RunService:
                 success=False,
                 error_type=RoutingErrorType.ROUTING_FAILED,
                 error=f"Routing resolution failed: {str(e)}",
+                run_id=run_id,
             )
 
     def _process_routing_target(
@@ -539,6 +548,7 @@ class RunService:
                         restore_checkpoint_id=restore_checkpoint_id,
                         queued=True,
                         lifecycle_target=target,
+                        run_id=run_id,
                     )
             except Exception:
                 pass
@@ -549,6 +559,7 @@ class RunService:
                 success=False,
                 error_type=RoutingErrorType.WORKSPACE_RESOLUTION_FAILED,
                 error=target.error or "Workspace resolution failed",
+                run_id=run_id,
             )
 
         # Fail-fast: routing result must be successful
@@ -566,6 +577,7 @@ class RunService:
                 error=error_msg,
                 lease_acquired=target.lease_acquired,
                 lifecycle_target=target,
+                run_id=run_id,
             )
 
         # Fail-fast: sandbox must exist
@@ -580,6 +592,7 @@ class RunService:
                 or "Routing failed: no sandbox provisioned",
                 lease_acquired=target.lease_acquired,
                 lifecycle_target=target,
+                run_id=run_id,
             )
 
         # Extract sandbox info
@@ -614,6 +627,7 @@ class RunService:
                 restore_in_progress=True,
                 queued=True,
                 lifecycle_target=target,
+                run_id=run_id,
             )
 
         # Get sandbox URL and agent_pack_id
@@ -640,6 +654,7 @@ class RunService:
             error=None,
             error_type=None,
             lifecycle_target=target,
+            run_id=run_id,
         )
 
     async def execute_with_routing(
@@ -692,8 +707,22 @@ class RunService:
         )
 
         if not routing.success:
+            if routing.lease_acquired and routing.workspace_id:
+                try:
+                    from src.db.repositories.workspace_lease_repository import (
+                        WorkspaceLeaseRepository,
+                    )
+
+                    lease_repo = WorkspaceLeaseRepository(session)
+                    lease_repo.release_lease(
+                        workspace_id=UUID(routing.workspace_id),
+                        holder_run_id=routing.run_id,
+                    )
+                except Exception:
+                    pass
+
             result = RunResult(
-                run_id=str(uuid4()),
+                run_id=routing.run_id or str(uuid4()),
                 status="error",
                 error=routing.error or "Failed to resolve routing target",
             )
@@ -701,13 +730,14 @@ class RunService:
             result.outputs = {"routing_error_type": routing.error_type}
             return result
 
-        # Start the run
+        # Start the run, using the same run_id that acquired the lease
         context = self.start_run(
             principal=principal,
             egress_policy=egress_policy,
             tool_policy=tool_policy,
             secret_policy=secret_policy,
             secrets=secrets,
+            run_id=routing.run_id,
         )
 
         # Update context with workspace from routing
@@ -772,23 +802,39 @@ class RunService:
 
         # If we have a sandbox and input message, execute via Picoclaw bridge
         bridge_error = None
+        bridge_result: Optional[BridgeResult] = None
         if routing.sandbox_id and input_message:
-            # Determine sender_id: guest uses "guest", otherwise use external_user_id
-            sender_id = (
-                "guest"
-                if context.is_guest
-                else getattr(principal, "external_user_id", None)
-            )
-            bridge_result = await self._execute_via_bridge(
-                routing=routing,
-                message=input_message,
-                is_guest=context.is_guest,
-                session=session,
-                session_id=session_id,
-                sender_id=sender_id,
-            )
+            # Check if this is a local compose sandbox (simulated, no real gateway)
+            sandbox_url = self._get_authoritative_sandbox_url(routing)
+            if sandbox_url and self._is_local_compose_url(sandbox_url):
+                # Local compose provider doesn't run a real Picoclaw gateway
+                bridge_error = "Bridge execution not available: local compose sandbox has no Picoclaw gateway. Use Daytona infrastructure for full execution."
+                bridge_result = BridgeResult(
+                    success=False,
+                    error=BridgeError(
+                        error_type=BridgeErrorType.TRANSPORT_ERROR,
+                        message=bridge_error,
+                        remediation="For local development testing, use Daytona sandbox provider or mock bridge responses.",
+                    ),
+                )
+            else:
+                # Determine sender_id: guest uses "guest", otherwise use external_user_id
+                sender_id = (
+                    "guest"
+                    if context.is_guest
+                    else getattr(principal, "external_user_id", None)
+                )
+                bridge_result = await self._execute_via_bridge(
+                    routing=routing,
+                    message=input_message,
+                    is_guest=context.is_guest,
+                    session=session,
+                    session_id=session_id,
+                    sender_id=sender_id,
+                )
 
-            # Update result with bridge execution output
+        # Update result with bridge execution output if bridge was invoked
+        if bridge_result:
             if bridge_result.success:
                 result.outputs["bridge"] = {
                     "success": True,
@@ -1081,6 +1127,25 @@ class RunService:
         # No synthetic URL construction allowed - return None for fail-closed
         return None
 
+    def _is_local_compose_url(self, sandbox_url: str) -> bool:
+        """Check if the sandbox URL is from local compose provider (simulated).
+
+        Local compose sandboxes don't run real Picoclaw gateways, so bridge
+        execution is not possible. This method detects such URLs to provide
+        a clear error message instead of a transport failure.
+
+        Args:
+            sandbox_url: The sandbox gateway URL
+
+        Returns:
+            True if this is a local compose simulated URL
+        """
+        if not sandbox_url:
+            return False
+        return sandbox_url.startswith(
+            "http://local-sandbox-"
+        ) or sandbox_url.startswith("https://local-sandbox-")
+
     def _resolve_bridge_tokens(
         self, routing: RunRoutingResult, session: Session
     ) -> Optional[BridgeTokenBundle]:
@@ -1166,6 +1231,7 @@ class RunService:
             return RunRoutingResult(
                 success=False,
                 error="Cannot recover: no workspace ID available",
+                run_id=current_routing.run_id,
             )
 
         # Force fresh lifecycle resolution
@@ -1183,14 +1249,16 @@ class RunService:
             return RunRoutingResult(
                 success=False,
                 error="Cannot recover: principal context lost",
+                run_id=current_routing.run_id,
             )
 
-        # Re-resolve with forced fresh target
+        # Re-resolve with forced fresh target, using new run_id for new lease
+        recovery_run_id = str(uuid4())
         target = await lifecycle.resolve_target(
             principal=principal,
             auto_create=False,  # Don't create new workspace
             acquire_lease=True,
-            run_id=str(uuid4()),
+            run_id=recovery_run_id,
             agent_pack_id=current_routing.agent_pack_id,
         )
 
@@ -1200,6 +1268,7 @@ class RunService:
                 success=False,
                 error=target.error or "Recovery routing failed",
                 workspace_id=current_routing.workspace_id,
+                run_id=recovery_run_id,
             )
 
         # Extract sandbox info
@@ -1209,6 +1278,7 @@ class RunService:
                 success=False,
                 error="Recovery failed: no sandbox provisioned",
                 workspace_id=current_routing.workspace_id,
+                run_id=recovery_run_id,
             )
 
         # Build fresh routing result
@@ -1241,6 +1311,7 @@ class RunService:
             agent_pack_id=current_routing.agent_pack_id,
             lease_acquired=target.lease_acquired,
             lifecycle_target=target,
+            run_id=recovery_run_id,
         )
 
     def _map_bridge_error_type(self, error: Optional[BridgeError]) -> str:

@@ -11,6 +11,8 @@ The provider translates between Daytona-specific states and the
 semantic SandboxState/SandboxHealth enums used by core services.
 """
 
+import asyncio
+import inspect
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -121,6 +123,16 @@ class DaytonaSandboxProvider:
     # Required identity files for Picoclaw runtime
     REQUIRED_IDENTITY_FILES: Set[str] = {"AGENT.md", "SOUL.md", "IDENTITY.md"}
     REQUIRED_IDENTITY_DIRS: Set[str] = {"skills"}
+    PROVISION_CREATE_TIMEOUT_SECONDS = 20.0
+    IDENTITY_VERIFY_TIMEOUT_SECONDS = 20.0
+
+    def _normalize_daytona_value(self, value: Any) -> str:
+        """Normalize Daytona SDK enum/string values into lowercase tokens."""
+        if value is None:
+            return "unknown"
+
+        raw_value = getattr(value, "value", value)
+        return str(raw_value).lower()
 
     def __init__(
         self,
@@ -322,43 +334,51 @@ class DaytonaSandboxProvider:
         try:
             config = self._create_config()
             async with AsyncDaytona(config=config) as daytona:
-                try:
-                    sandbox = await daytona.get(sandbox_id)
-                except DaytonaError as e:
-                    raise SandboxIdentityError(
-                        f"Failed to get sandbox for identity check: {e}",
-                        provider_ref=sandbox_id,
-                    )
-
                 # Poll until files are ready or timeout
+                last_state = "unknown"
                 while True:
                     elapsed = asyncio.get_event_loop().time() - start_time
                     if elapsed > timeout:
                         return IdentityVerificationResult(
                             ready=False,
                             missing_files=list(self.REQUIRED_IDENTITY_FILES),
-                            error_message=f"Timeout waiting for identity files ({elapsed:.1f}s)",
+                            error_message=(
+                                f"Timeout waiting for identity files ({elapsed:.1f}s); "
+                                f"last_state={last_state}"
+                            ),
+                        )
+
+                    try:
+                        sandbox = await daytona.get(sandbox_id)
+                    except DaytonaError as e:
+                        raise SandboxIdentityError(
+                            f"Failed to refresh sandbox for identity check: {e}",
+                            provider_ref=sandbox_id,
                         )
 
                     # Check sandbox is in a state where files can be checked
                     state = "unknown"
                     if hasattr(sandbox, "state"):
-                        state = str(sandbox.state).lower()
+                        state = self._normalize_daytona_value(sandbox.state)
                     elif hasattr(sandbox, "status"):
-                        state = str(sandbox.status).lower()
+                        state = self._normalize_daytona_value(sandbox.status)
+                    last_state = state
 
                     if state not in ("running", "started"):
-                        return IdentityVerificationResult(
-                            ready=False,
-                            missing_files=list(self.REQUIRED_IDENTITY_FILES),
-                            error_message=f"Sandbox not running (state: {state})",
-                        )
+                        await asyncio.sleep(0.5)
+                        continue
+
+                    async def _get_file_info(path: str):
+                        result = sandbox.fs.get_file_info(path)
+                        if inspect.isawaitable(result):
+                            return await result
+                        return result
 
                     # Check files exist using file API
                     missing_files = []
                     for file_path in required_files:
                         try:
-                            file_info = await sandbox.fs.get_file_info(file_path)
+                            file_info = await _get_file_info(file_path)
                             if not file_info or getattr(file_info, "is_dir", False):
                                 missing_files.append(file_path)
                         except DaytonaError:
@@ -368,7 +388,7 @@ class DaytonaSandboxProvider:
                     missing_dirs = []
                     for dir_path in required_dirs:
                         try:
-                            dir_info = await sandbox.fs.get_file_info(dir_path)
+                            dir_info = await _get_file_info(dir_path)
                             if not dir_info or not getattr(dir_info, "is_dir", False):
                                 missing_dirs.append(dir_path)
                         except DaytonaError:
@@ -579,7 +599,8 @@ class DaytonaSandboxProvider:
 
         Fail-closed: unknown states map to UNKNOWN.
         """
-        return self.DAYTONA_STATE_MAP.get(daytona_state.lower(), SandboxState.UNKNOWN)
+        normalized = self._normalize_daytona_value(daytona_state)
+        return self.DAYTONA_STATE_MAP.get(normalized, SandboxState.UNKNOWN)
 
     def _from_daytona_health(self, daytona_sandbox) -> SandboxHealth:
         """Extract health status from Daytona sandbox object.
@@ -591,10 +612,10 @@ class DaytonaSandboxProvider:
 
         # Check various possible health indicators
         if hasattr(daytona_sandbox, "status"):
-            health_str = str(daytona_sandbox.status).lower()
+            health_str = self._normalize_daytona_value(daytona_sandbox.status)
         elif hasattr(daytona_sandbox, "state"):
             # Map state to health heuristic
-            state = str(daytona_sandbox.state).lower()
+            state = self._normalize_daytona_value(daytona_sandbox.state)
             if state in ("error", "failed"):
                 return SandboxHealth.UNHEALTHY
             elif state in ("running", "started"):
@@ -624,9 +645,9 @@ class DaytonaSandboxProvider:
         # Extract state from Daytona sandbox
         daytona_state = "unknown"
         if hasattr(daytona_sandbox, "state"):
-            daytona_state = str(daytona_sandbox.state).lower()
+            daytona_state = self._normalize_daytona_value(daytona_sandbox.state)
         elif hasattr(daytona_sandbox, "status"):
-            daytona_state = str(daytona_sandbox.status).lower()
+            daytona_state = self._normalize_daytona_value(daytona_sandbox.status)
 
         state = self._from_daytona_state(daytona_state)
         health = self._from_daytona_health(daytona_sandbox)
@@ -764,20 +785,22 @@ class DaytonaSandboxProvider:
         at /workspace/pack, while dynamic runtime data lives at /home/daytona/workspace.
         Identity files are symlinked to make them accessible from the workspace.
         """
+
+        async def _exec(command: str) -> None:
+            result = sandbox.process.exec(command)
+            if inspect.isawaitable(result):
+                await result
+
         # Create workspace directory
-        await sandbox.process.exec(f"mkdir -p {WORKSPACE_PATH}")
+        await _exec(f"mkdir -p {WORKSPACE_PATH}")
 
         # Symlink identity files
         for f in IDENTITY_FILES:
-            await sandbox.process.exec(
-                f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}"
-            )
+            await _exec(f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}")
 
         # Symlink identity directories
         for d in IDENTITY_DIRS:
-            await sandbox.process.exec(
-                f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}"
-            )
+            await _exec(f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}")
 
     async def _materialize_pack(
         self,
@@ -855,7 +878,7 @@ class DaytonaSandboxProvider:
                 # Check if stopped - stopped sandboxes are not "active"
                 daytona_state = "unknown"
                 if hasattr(sandbox, "state"):
-                    daytona_state = str(sandbox.state).lower()
+                    daytona_state = self._normalize_daytona_value(sandbox.state)
 
                 state = self._from_daytona_state(daytona_state)
                 if state == SandboxState.STOPPED:
@@ -895,8 +918,57 @@ class DaytonaSandboxProvider:
         """
         return f"agent-pack-{pack_id}-{pack_digest}"
 
+    async def _ensure_pack_volume_id(
+        self,
+        daytona: AsyncDaytona,
+        pack_id: UUID,
+        pack_digest: str,
+    ) -> str:
+        """Ensure pack volume exists and return its Daytona volume ID."""
+        volume_name = self._compute_volume_name(pack_id, pack_digest)
+
+        try:
+            volume = await daytona.volume.get(volume_name, create=True)
+        except DaytonaError as e:
+            raise SandboxProvisionError(
+                f"Failed to create/get pack volume {volume_name}: {e}",
+                provider_ref=volume_name,
+            )
+
+        max_polls = 10
+        poll_interval = 1.0
+        for _ in range(max_polls):
+            state = self._normalize_daytona_value(getattr(volume, "state", None))
+            if state not in {"pending", "pending_create", "creating", "initializing"}:
+                break
+
+            await asyncio.sleep(poll_interval)
+            try:
+                volume = await daytona.volume.get(volume_name)
+            except DaytonaError as e:
+                raise SandboxProvisionError(
+                    f"Failed to refresh pack volume {volume_name}: {e}",
+                    provider_ref=volume_name,
+                )
+        else:
+            raise SandboxProvisionError(
+                f"Pack volume {volume_name} did not become ready in {max_polls * poll_interval:.0f}s",
+                provider_ref=volume_name,
+            )
+
+        volume_id = getattr(volume, "id", None)
+        if not volume_id:
+            raise SandboxProvisionError(
+                f"Pack volume {volume_name} has no ID",
+                provider_ref=volume_name,
+            )
+
+        return str(volume_id)
+
     def _build_create_params(
-        self, config: SandboxConfig
+        self,
+        config: SandboxConfig,
+        pack_volume_id: Optional[str] = None,
     ) -> CreateSandboxFromSnapshotParams:
         """Build Daytona CreateSandboxFromSnapshotParams from config.
 
@@ -932,9 +1004,10 @@ class DaytonaSandboxProvider:
             volume_name = self._compute_volume_name(
                 config.agent_pack_id, config.pack_digest
             )
+            resolved_volume_id = pack_volume_id or volume_name
             volume_mounts.append(
                 VolumeMount(
-                    volume_id=volume_name,
+                    volume_id=resolved_volume_id,
                     mount_path="/workspace/pack",
                     additional_properties={"read_only": True},
                 )
@@ -1003,11 +1076,37 @@ class DaytonaSandboxProvider:
         try:
             daytona_config = self._create_config()
             async with AsyncDaytona(config=daytona_config) as daytona:
-                # Build create parameters with snapshot-based provisioning
-                create_params = self._build_create_params(config)
+                pack_volume_id = None
+                if pack_bound and config.agent_pack_id and config.pack_digest:
+                    pack_volume_id = await self._ensure_pack_volume_id(
+                        daytona=daytona,
+                        pack_id=config.agent_pack_id,
+                        pack_digest=config.pack_digest,
+                    )
 
-                # Create sandbox via SDK with explicit snapshot params
-                sandbox = await daytona.create(create_params)
+                # Build create parameters with snapshot-based provisioning
+                create_params = self._build_create_params(
+                    config,
+                    pack_volume_id=pack_volume_id,
+                )
+
+                # Create sandbox via SDK with bounded timeout to avoid hanging requests
+                create_timeout = min(
+                    float(getattr(create_params, "timeout", 60) or 60),
+                    self.PROVISION_CREATE_TIMEOUT_SECONDS,
+                )
+
+                try:
+                    sandbox = await asyncio.wait_for(
+                        daytona.create(create_params, timeout=create_timeout),
+                        timeout=create_timeout + 5,
+                    )
+                except asyncio.TimeoutError as e:
+                    raise SandboxProvisionError(
+                        f"Timed out creating Daytona sandbox after {create_timeout:.0f}s",
+                        provider_ref=ref,
+                        workspace_id=config.workspace_id,
+                    ) from e
 
                 # Get the actual sandbox ID from the response
                 sandbox_id = ref
@@ -1020,7 +1119,10 @@ class DaytonaSandboxProvider:
 
                 # Verify identity files are mounted at workspace path (hard gate)
                 # This confirms symlinks work: files accessible at /home/daytona/workspace/...
-                identity_result = await self.verify_identity_files(sandbox_id)
+                identity_result = await self.verify_identity_files(
+                    sandbox_id,
+                    timeout=self.IDENTITY_VERIFY_TIMEOUT_SECONDS,
+                )
                 if not identity_result.ready:
                     raise SandboxIdentityError(
                         f"Identity verification failed: {identity_result.error_message}",
@@ -1041,6 +1143,13 @@ class DaytonaSandboxProvider:
                 # Write per-sandbox Picoclaw config via file API (outside shared pack volume)
                 config_path = CONFIG_PATH
                 try:
+
+                    async def _fs_call(method, *args):
+                        result = method(*args)
+                        if inspect.isawaitable(result):
+                            return await result
+                        return result
+
                     # Fail-fast: ensure config path is outside shared pack volume
                     assert not config_path.startswith(PACK_MOUNT_PATH), (
                         f"Config path must be outside {PACK_MOUNT_PATH}: {config_path}"
@@ -1052,14 +1161,18 @@ class DaytonaSandboxProvider:
 
                     # Create config directory via file API
                     try:
-                        await sandbox.fs.create_folder("/home/daytona/.picoclaw", "700")
+                        await _fs_call(
+                            sandbox.fs.create_folder,
+                            "/home/daytona/.picoclaw",
+                            "700",
+                        )
                     except DaytonaError as e:
                         # Ignore "already exists" errors
                         if "already exists" not in str(e).lower():
                             raise
 
                     # Write config file via file API
-                    await sandbox.fs.upload_file(config_bytes, config_path)
+                    await _fs_call(sandbox.fs.upload_file, config_bytes, config_path)
 
                 except DaytonaError as e:
                     raise SandboxProvisionError(
@@ -1091,9 +1204,17 @@ class DaytonaSandboxProvider:
                     materialized_config_path=config_path,
                 )
 
-                # Return the gateway URL separately in metadata for orchestrator
+                # Return merged metadata for orchestrator persistence.
+                # Orchestrator reads `provider_info.ref.metadata["gateway_url"]`.
+                merged_metadata = dict(result.ref.metadata or {})
+                merged_metadata.update(metadata)
+
                 return SandboxInfo(
-                    ref=result.ref,
+                    ref=SandboxRef(
+                        provider_ref=result.ref.provider_ref,
+                        profile=result.ref.profile,
+                        metadata=merged_metadata,
+                    ),
                     state=result.state,
                     health=result.health,
                     workspace_id=result.workspace_id,

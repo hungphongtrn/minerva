@@ -93,6 +93,11 @@ class TestVolumeMountWiring:
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+            mock_daytona.volume = MagicMock()
+            mock_volume = MagicMock()
+            mock_volume.id = "volume-id-123"
+            mock_volume.state = "ready"
+            mock_daytona.volume.get = AsyncMock(return_value=mock_volume)
 
             # Patch identity verification and gateway resolution
             with (
@@ -125,9 +130,8 @@ class TestVolumeMountWiring:
             volume_mount = params.volumes[0]
             assert volume_mount.mount_path == "/workspace/pack"
 
-            # Volume name should be deterministic: agent-pack-{pack_id}-{digest}
-            expected_volume_name = f"agent-pack-{pack_id}-{pack_digest}"
-            assert volume_mount.volume_id == expected_volume_name
+            # Volume mount should use Daytona volume ID
+            assert volume_mount.volume_id == "volume-id-123"
 
             # Pack volume must be read-only (isolation contract enforcement)
             read_only = getattr(volume_mount, "read_only", None)
@@ -163,6 +167,8 @@ class TestVolumeMountWiring:
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+            mock_daytona.volume = MagicMock()
+            mock_daytona.volume.get = AsyncMock()
 
             # Patch identity verification and gateway resolution
             with (
@@ -189,6 +195,7 @@ class TestVolumeMountWiring:
 
             # No volumes should be mounted
             assert params.volumes is None or len(params.volumes) == 0
+            mock_daytona.volume.get.assert_not_called()
 
 
 class TestIdentityFileVerification:
@@ -233,10 +240,10 @@ class TestIdentityFileVerification:
 
             # Verify get_file_info was called for each required file
             expected_calls = [
-                "/workspace/pack/AGENT.md",
-                "/workspace/pack/SOUL.md",
-                "/workspace/pack/IDENTITY.md",
-                "/workspace/pack/skills",
+                "/home/daytona/workspace/AGENT.md",
+                "/home/daytona/workspace/SOUL.md",
+                "/home/daytona/workspace/IDENTITY.md",
+                "/home/daytona/workspace/skills",
             ]
             actual_calls = [
                 call[0][0] for call in mock_sandbox.fs.get_file_info.call_args_list
@@ -318,6 +325,48 @@ class TestIdentityFileVerification:
 
             # Should not be ready since skills is not a directory
             assert result.ready is False
+
+    @pytest.mark.asyncio
+    async def test_verify_identity_files_waits_until_sandbox_running(self, provider):
+        """Verification polls through creating state and succeeds when running."""
+        sandbox_id = "test-sandbox-id"
+
+        creating_sandbox = MagicMock()
+        creating_sandbox.state = "creating"
+        creating_sandbox.fs = MagicMock()
+        creating_sandbox.fs.get_file_info = AsyncMock()
+
+        running_sandbox = MagicMock()
+        running_sandbox.state = "started"
+
+        file_info = MagicMock()
+        file_info.is_dir = False
+        dir_info = MagicMock()
+        dir_info.is_dir = True
+
+        running_sandbox.fs = MagicMock()
+        running_sandbox.fs.get_file_info = AsyncMock(
+            side_effect=lambda path: (dir_info if "skills" in path else file_info)
+        )
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # First poll sees creating, second poll sees started
+            mock_daytona.get = AsyncMock(
+                side_effect=[creating_sandbox, running_sandbox]
+            )
+
+            result = await provider.verify_identity_files(sandbox_id, timeout=1.5)
+
+            assert result.ready is True
+            assert mock_daytona.get.await_count >= 2
 
 
 class TestPerSandboxConfigWrite:
@@ -524,3 +573,46 @@ class TestPerSandboxConfigWrite:
                 from src.infrastructure.sandbox.providers.base import SandboxState
 
                 assert result.state == SandboxState.READY
+
+    @pytest.mark.asyncio
+    async def test_provision_returns_gateway_url_in_metadata(
+        self, provider, create_mock_sandbox
+    ):
+        """Provision result exposes gateway_url metadata for orchestrator persistence."""
+        workspace_id = uuid4()
+        gateway_url = "https://gateway-test-sandbox-id.us.daytona.run:18790"
+
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            pack_source_path=None,
+        )
+
+        mock_sandbox = create_mock_sandbox(sandbox_id="test-sandbox-id")
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+            with (
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = gateway_url
+
+                result = await provider.provision_sandbox(config)
+
+            assert result.ref.metadata.get("gateway_url") == gateway_url

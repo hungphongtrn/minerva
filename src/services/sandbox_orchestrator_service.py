@@ -11,6 +11,8 @@ from enum import Enum, auto
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 
+from sqlalchemy import select, and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.config.settings import settings
@@ -120,6 +122,12 @@ class SandboxOrchestratorService:
     HYDRATION_TIMEOUT_SECONDS = 300
     """Timeout for async checkpoint hydration (5 minutes)."""
 
+    EXISTING_SANDBOX_WAIT_SECONDS = 30
+    """Max wait for another request to finish provisioning."""
+
+    EXISTING_SANDBOX_POLL_SECONDS = 0.25
+    """Polling interval while waiting for existing sandbox activation."""
+
     def __init__(
         self,
         session: Session,
@@ -211,6 +219,12 @@ class SandboxOrchestratorService:
         ttl_cleanup_applied = False
         stopped_sandbox_ids: List[str] = []
         ttl_cleanup_reason: Optional[str] = None
+        effective_profile = (
+            profile
+            or getattr(self._provider, "profile", None)
+            or settings.SANDBOX_PROFILE
+            or SandboxProfile.LOCAL_COMPOSE
+        )
 
         try:
             # Step 1: Stop idle sandboxes that exceeded TTL
@@ -226,7 +240,7 @@ class SandboxOrchestratorService:
             # Step 2: Get active sandboxes for workspace (filtered by external_user_id if provided)
             active_sandboxes = self._repository.list_active_healthy_by_workspace(
                 workspace_id=workspace_id,
-                profile=profile,
+                profile=effective_profile,
                 external_user_id=external_user_id,
             )
 
@@ -262,7 +276,7 @@ class SandboxOrchestratorService:
             # Step 4: No request-ready candidates - provision with bounded retries
             return await self._provision_with_bounded_retry(
                 workspace_id=workspace_id,
-                profile=profile,
+                profile=effective_profile,
                 agent_pack_id=agent_pack_id,
                 env_vars=env_vars,
                 external_user_id=external_user_id,
@@ -453,6 +467,84 @@ class SandboxOrchestratorService:
             sandbox.id, SandboxHydrationStatus.COMPLETED
         )
 
+    def _find_in_progress_sandbox(
+        self,
+        workspace_id: UUID,
+        profile: SandboxProfile,
+        agent_pack_id: Optional[UUID],
+        external_user_id: Optional[str],
+    ) -> Optional[SandboxInstance]:
+        """Find an existing PENDING/CREATING sandbox to avoid duplicates on retry.
+
+        When _provision_sandbox is retried after a transient failure, we don't
+        want to create a new database record - we want to reuse the existing one.
+        This method looks for sandboxes in PENDING or CREATING state that match
+        the workspace/profile/pack criteria.
+
+        Args:
+            workspace_id: Workspace to search in.
+            profile: Deployment profile.
+            agent_pack_id: Optional agent pack ID.
+            external_user_id: Optional external user ID.
+
+        Returns:
+            Existing SandboxInstance if found, None otherwise.
+        """
+        conditions = [
+            SandboxInstance.workspace_id == workspace_id,
+            SandboxInstance.profile == profile,
+            SandboxInstance.state.in_([SandboxState.PENDING, SandboxState.CREATING]),
+        ]
+
+        if agent_pack_id is not None:
+            conditions.append(SandboxInstance.agent_pack_id == agent_pack_id)
+
+        if external_user_id is not None:
+            conditions.append(SandboxInstance.external_user_id == external_user_id)
+
+        stmt = (
+            select(SandboxInstance)
+            .where(and_(*conditions))
+            .order_by(SandboxInstance.created_at.desc())
+        )
+
+        result = self._session.execute(stmt).scalars().first()
+        return result
+
+    async def _wait_for_existing_sandbox_activation(
+        self,
+        sandbox_id: UUID,
+    ) -> Optional[SandboxInstance]:
+        """Wait for an in-progress sandbox to become active.
+
+        Args:
+            sandbox_id: Sandbox record currently being provisioned by another request.
+
+        Returns:
+            Active sandbox when provisioning completes, or None on timeout/terminal state.
+        """
+        deadline = asyncio.get_event_loop().time() + self.EXISTING_SANDBOX_WAIT_SECONDS
+
+        while asyncio.get_event_loop().time() < deadline:
+            sandbox = self._repository.get_by_id(sandbox_id)
+            if not sandbox:
+                return None
+
+            if sandbox.state == SandboxState.ACTIVE and sandbox.provider_ref:
+                return sandbox
+
+            if sandbox.state in (
+                SandboxState.UNHEALTHY,
+                SandboxState.STOPPING,
+                SandboxState.STOPPED,
+                SandboxState.FAILED,
+            ):
+                return None
+
+            await asyncio.sleep(self.EXISTING_SANDBOX_POLL_SECONDS)
+
+        return None
+
     async def _provision_with_bounded_retry(
         self,
         workspace_id: UUID,
@@ -562,8 +654,6 @@ class SandboxOrchestratorService:
             True if the error is retryable, False otherwise.
         """
         retryable_results = {
-            RoutingResult.PROVISION_FAILED,
-            RoutingResult.IDENTITY_CHECK_FAILED,
             RoutingResult.GATEWAY_RESOLUTION_FAILED,
         }
         return result in retryable_results
@@ -627,6 +717,12 @@ class SandboxOrchestratorService:
         """
         if stopped_sandbox_ids is None:
             stopped_sandbox_ids = []
+
+        effective_profile = (
+            profile
+            or getattr(self._provider, "profile", None)
+            or SandboxProfile.LOCAL_COMPOSE
+        )
 
         pack_source_path: Optional[str] = None
         pack_digest: Optional[str] = None
@@ -703,18 +799,112 @@ class SandboxOrchestratorService:
             env_vars=env_vars or {},
         )
 
+        sandbox: Optional[SandboxInstance] = None
+
         try:
-            # Create database record first
-            sandbox = self._repository.create(
+            # Check for existing PENDING/CREATING sandbox to avoid duplicates on retry
+            # This prevents the "multiple sandboxes from single request" bug
+            existing_sandbox = self._find_in_progress_sandbox(
                 workspace_id=workspace_id,
-                profile=profile or SandboxProfile.LOCAL_COMPOSE,
+                profile=effective_profile,
                 agent_pack_id=agent_pack_id,
-                idle_ttl_seconds=self._idle_ttl_seconds,
                 external_user_id=external_user_id,
             )
 
-            # Update state to CREATING
-            self._repository.update_state(sandbox.id, SandboxState.CREATING)
+            if existing_sandbox:
+                # If another request is already provisioning, wait for it to finish
+                # instead of provisioning another provider sandbox concurrently.
+                if existing_sandbox.state in (
+                    SandboxState.PENDING,
+                    SandboxState.CREATING,
+                ):
+                    activated = await self._wait_for_existing_sandbox_activation(
+                        existing_sandbox.id
+                    )
+                    if activated:
+                        return SandboxRoutingResult(
+                            success=True,
+                            result=RoutingResult.ROUTED_EXISTING,
+                            sandbox=activated,
+                            provider_info=None,
+                            message=f"Reused concurrently provisioned sandbox {activated.id}",
+                            excluded_unhealthy=excluded_unhealthy,
+                            ttl_cleanup_applied=ttl_cleanup_applied,
+                            stopped_sandbox_ids=stopped_sandbox_ids,
+                            ttl_cleanup_reason=ttl_cleanup_reason,
+                            gateway_url=activated.gateway_url,
+                        )
+
+                # Reuse existing active sandbox record if available
+                if (
+                    existing_sandbox.state == SandboxState.ACTIVE
+                    and existing_sandbox.provider_ref
+                ):
+                    return SandboxRoutingResult(
+                        success=True,
+                        result=RoutingResult.ROUTED_EXISTING,
+                        sandbox=existing_sandbox,
+                        provider_info=None,
+                        message=f"Reused active sandbox {existing_sandbox.id}",
+                        excluded_unhealthy=excluded_unhealthy,
+                        ttl_cleanup_applied=ttl_cleanup_applied,
+                        stopped_sandbox_ids=stopped_sandbox_ids,
+                        ttl_cleanup_reason=ttl_cleanup_reason,
+                        gateway_url=existing_sandbox.gateway_url,
+                    )
+
+                sandbox = existing_sandbox
+            else:
+                # Create database record first
+                try:
+                    sandbox = self._repository.create(
+                        workspace_id=workspace_id,
+                        profile=effective_profile,
+                        agent_pack_id=agent_pack_id,
+                        idle_ttl_seconds=self._idle_ttl_seconds,
+                        external_user_id=external_user_id,
+                    )
+
+                    # Update state to CREATING
+                    self._repository.update_state(sandbox.id, SandboxState.CREATING)
+                except IntegrityError:
+                    # Another request won the race to create user lifecycle record.
+                    self._session.rollback()
+                    raced_sandbox = self._find_in_progress_sandbox(
+                        workspace_id=workspace_id,
+                        profile=effective_profile,
+                        agent_pack_id=agent_pack_id,
+                        external_user_id=external_user_id,
+                    )
+                    if raced_sandbox:
+                        activated = await self._wait_for_existing_sandbox_activation(
+                            raced_sandbox.id
+                        )
+                        if activated:
+                            return SandboxRoutingResult(
+                                success=True,
+                                result=RoutingResult.ROUTED_EXISTING,
+                                sandbox=activated,
+                                provider_info=None,
+                                message=f"Reused raced sandbox {activated.id}",
+                                excluded_unhealthy=excluded_unhealthy,
+                                ttl_cleanup_applied=ttl_cleanup_applied,
+                                stopped_sandbox_ids=stopped_sandbox_ids,
+                                ttl_cleanup_reason=ttl_cleanup_reason,
+                                gateway_url=activated.gateway_url,
+                            )
+
+                    return SandboxRoutingResult(
+                        success=False,
+                        result=RoutingResult.PROVISION_FAILED,
+                        sandbox=None,
+                        provider_info=None,
+                        message="Concurrent sandbox creation detected but activation did not complete in time",
+                        excluded_unhealthy=excluded_unhealthy,
+                        ttl_cleanup_applied=ttl_cleanup_applied,
+                        stopped_sandbox_ids=stopped_sandbox_ids,
+                        ttl_cleanup_reason=ttl_cleanup_reason,
+                    )
 
             # Provision via provider with pack source path and runtime config
             config = SandboxConfig(
@@ -742,7 +932,7 @@ class SandboxOrchestratorService:
                 if not gateway_url:
                     # Fallback to generation for local_compose
                     gateway_url = self._generate_gateway_url(
-                        profile=profile or SandboxProfile.LOCAL_COMPOSE,
+                        profile=effective_profile,
                         provider_ref=provider_info.ref.provider_ref,
                     )
 
@@ -784,11 +974,39 @@ class SandboxOrchestratorService:
                 gateway_url=gateway_url,
             )
 
+        except SandboxIdentityError as e:
+            if sandbox is not None:
+                self._repository.set_hydration_status(
+                    sandbox.id, SandboxHydrationStatus.FAILED
+                )
+                self._repository.update_health(
+                    sandbox.id, SandboxHealthStatus.UNHEALTHY
+                )
+                self._repository.update_state(sandbox.id, SandboxState.FAILED)
+            return SandboxRoutingResult(
+                success=False,
+                result=RoutingResult.IDENTITY_CHECK_FAILED,
+                sandbox=sandbox,
+                provider_info=None,
+                message=f"Identity verification failed: {str(e)}",
+                excluded_unhealthy=excluded_unhealthy,
+                ttl_cleanup_applied=ttl_cleanup_applied,
+                stopped_sandbox_ids=stopped_sandbox_ids,
+                ttl_cleanup_reason=ttl_cleanup_reason,
+            )
         except Exception as e:
+            if sandbox is not None:
+                self._repository.set_hydration_status(
+                    sandbox.id, SandboxHydrationStatus.FAILED
+                )
+                self._repository.update_health(
+                    sandbox.id, SandboxHealthStatus.UNHEALTHY
+                )
+                self._repository.update_state(sandbox.id, SandboxState.FAILED)
             return SandboxRoutingResult(
                 success=False,
                 result=RoutingResult.PROVISION_FAILED,
-                sandbox=None,
+                sandbox=sandbox,
                 provider_info=None,
                 message=f"Failed to provision sandbox: {str(e)}",
                 excluded_unhealthy=excluded_unhealthy,

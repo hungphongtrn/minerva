@@ -119,6 +119,29 @@ class TestProviderFactory:
         assert isinstance(provider, DaytonaSandboxProvider)
         assert provider.profile == "daytona"
 
+    def test_get_provider_daytona_uses_settings_snapshot_name(self):
+        """Factory passes settings snapshot name into Daytona provider."""
+        with patch(
+            "src.infrastructure.sandbox.providers.factory.settings"
+        ) as mock_settings:
+            mock_settings.SANDBOX_PROFILE = "daytona"
+            mock_settings.DAYTONA_API_KEY = "test-key"
+            mock_settings.DAYTONA_API_TOKEN = ""
+            mock_settings.DAYTONA_API_URL = ""
+            mock_settings.DAYTONA_BASE_URL = ""
+            mock_settings.DAYTONA_TARGET = "us"
+            mock_settings.DAYTONA_TARGET_REGION = "us"
+            mock_settings.DAYTONA_BASE_IMAGE = "daytonaio/workspace-picoclaw:latest"
+            mock_settings.DAYTONA_AUTO_STOP_INTERVAL = 0
+            mock_settings.DAYTONA_BASE_IMAGE_STRICT_MODE = False
+            mock_settings.DAYTONA_BASE_IMAGE_DIGEST_REQUIRED = False
+            mock_settings.DAYTONA_PICOCLAW_SNAPSHOT_NAME = "picoclaw-base"
+
+            provider = get_provider("daytona")
+
+            assert isinstance(provider, DaytonaSandboxProvider)
+            assert provider._snapshot_name == "picoclaw-base"
+
     def test_get_provider_daytona_requires_api_key_for_self_hosted(self):
         """Factory fails closed for self-hosted Daytona without API key."""
         with patch(
@@ -1780,7 +1803,7 @@ class TestPackMaterialization:
         assert info.ref.metadata.get("pack_digest") == pack_digest
         assert (
             info.ref.metadata.get("materialized_config_path")
-            == "/workspace/pack/config.json"
+            == "/home/daytona/.picoclaw/config.json"
         )
 
     @pytest.mark.asyncio
@@ -1994,6 +2017,47 @@ class TestPackStaleDetection:
         assert token1 != token2, "Each sandbox should have unique bridge token"
 
 
+class TestOrchestratorProfileResolution:
+    """Tests default profile resolution from active provider."""
+
+    @pytest.mark.asyncio
+    async def test_resolve_defaults_to_provider_profile_when_not_supplied(
+        self,
+        db_session: Session,
+        test_workspace: Workspace,
+    ):
+        """Provisioned sandbox profile matches provider profile by default."""
+        mock_provider = MagicMock()
+        mock_provider.profile = "daytona"
+        mock_provider.get_health = AsyncMock(return_value=None)
+        mock_provider.provision_sandbox = AsyncMock(
+            return_value=SandboxInfo(
+                ref=SandboxRef(
+                    provider_ref="daytona-sandbox-1",
+                    profile="daytona",
+                    metadata={
+                        "gateway_url": "https://gateway-daytona-sandbox-1.daytona.run:18790"
+                    },
+                ),
+                state=ProviderSandboxState.READY,
+                health=ProviderSandboxHealth.HEALTHY,
+                workspace_id=test_workspace.id,
+            )
+        )
+
+        orchestrator = SandboxOrchestratorService(
+            session=db_session,
+            provider=mock_provider,
+            idle_ttl_seconds=3600,
+        )
+
+        result = await orchestrator.resolve_sandbox(workspace_id=test_workspace.id)
+
+        assert result.success is True
+        assert result.sandbox is not None
+        assert result.sandbox.profile == SandboxProfile.DAYTONA
+
+
 class TestDaytonaProductionReadiness:
     """Regression tests for Daytona production readiness (03.1-02)."""
 
@@ -2082,6 +2146,17 @@ class TestDaytonaProductionReadiness:
         mock_sandbox = MagicMock()
         mock_sandbox.id = "test-sandbox"
         mock_sandbox.state = "started"
+        mock_sandbox.fs = MagicMock()
+
+        file_info = MagicMock()
+        file_info.is_dir = False
+
+        dir_info = MagicMock()
+        dir_info.is_dir = True
+
+        mock_sandbox.fs.get_file_info = MagicMock(
+            side_effect=lambda path: (dir_info if "skills" in path else file_info)
+        )
 
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
@@ -2125,6 +2200,50 @@ class TestDaytonaProductionReadiness:
 
         assert result.ready is False
         assert "stopped" in result.error_message.lower()
+
+    def test_daytona_state_mapping_accepts_enum_like_values(self, provider):
+        """State mapping handles SDK enum values (not only raw strings)."""
+
+        class _StartedState:
+            value = "started"
+
+        mapped = provider._from_daytona_state(_StartedState())
+        assert mapped == ProviderSandboxState.READY
+
+    @pytest.mark.asyncio
+    async def test_daytona_identity_verification_accepts_enum_state(self, provider):
+        """Identity verification accepts Daytona enum-like started state."""
+
+        class _StartedState:
+            value = "started"
+
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "test-sandbox"
+        mock_sandbox.state = _StartedState()
+        mock_sandbox.fs = MagicMock()
+
+        async def _get_file_info(path):
+            info = MagicMock()
+            info.is_dir = path.endswith("skills")
+            return info
+
+        mock_sandbox.fs.get_file_info = AsyncMock(side_effect=_get_file_info)
+
+        mock_daytona = AsyncMock()
+        mock_daytona.get = AsyncMock(return_value=mock_sandbox)
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await provider.verify_identity_files("test-sandbox")
+
+        assert result.ready is True
+        assert result.missing_files == []
 
     @pytest.mark.asyncio
     async def test_daytona_gateway_resolution_uses_preview_url(self, provider):

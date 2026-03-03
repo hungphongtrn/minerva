@@ -128,6 +128,12 @@ def _create_daytona_provider() -> DaytonaSandboxProvider:
     if auto_stop_interval is not None and not isinstance(auto_stop_interval, int):
         auto_stop_interval = 0
 
+    snapshot_name = getattr(settings, "DAYTONA_PICOCLAW_SNAPSHOT_NAME", None)
+    if snapshot_name is not None and not isinstance(snapshot_name, str):
+        snapshot_name = None
+    if isinstance(snapshot_name, str) and not snapshot_name.strip():
+        snapshot_name = None
+
     # Resolve base image - filter out MagicMock from test mocks
     base_image = getattr(settings, "DAYTONA_BASE_IMAGE", None)
     if base_image is not None and not isinstance(base_image, str):
@@ -141,6 +147,7 @@ def _create_daytona_provider() -> DaytonaSandboxProvider:
         target_region=settings.DAYTONA_TARGET_REGION or None,
         base_image=base_image,
         auto_stop_interval=auto_stop_interval,
+        snapshot_name=snapshot_name,
         strict_mode=strict_mode,
         digest_required=digest_required,
     )

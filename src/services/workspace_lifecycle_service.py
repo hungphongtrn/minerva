@@ -14,7 +14,8 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from src.db.models import Workspace
+from src.db.models import Workspace, AgentPackValidationStatus
+from src.db.repositories.agent_pack_repository import AgentPackRepository
 from src.services.workspace_lease_service import (
     WorkspaceLeaseService,
     LeaseAcquisitionResult,
@@ -207,12 +208,17 @@ class WorkspaceLifecycleService:
                         agent_pack_id=agent_pack_id,
                     )
 
+            # Step 2.5: Resolve effective agent pack binding
+            effective_agent_pack_id = (
+                agent_pack_id or self._resolve_default_agent_pack_id(workspace.id)
+            )
+
             # Step 3: Resolve sandbox target (with optional agent pack binding)
             routing_result = await self._resolve_sandbox(
                 workspace=workspace,
                 run_id=generated_run_id,
                 env_vars=env_vars,
-                agent_pack_id=agent_pack_id,
+                agent_pack_id=effective_agent_pack_id,
                 external_user_id=external_user_id,
             )
 
@@ -225,7 +231,7 @@ class WorkspaceLifecycleService:
                 error=None
                 if (routing_result and routing_result.success)
                 else (routing_result.message if routing_result else "Routing failed"),
-                agent_pack_id=agent_pack_id,
+                agent_pack_id=effective_agent_pack_id,
             )
 
         except Exception as e:
@@ -238,6 +244,19 @@ class WorkspaceLifecycleService:
                 error=f"Lifecycle resolution failed: {str(e)}",
                 agent_pack_id=agent_pack_id,
             )
+
+    def _resolve_default_agent_pack_id(self, workspace_id: UUID) -> Optional[str]:
+        """Resolve the default active+valid agent pack for a workspace."""
+        pack_repo = AgentPackRepository(self._session)
+        packs = pack_repo.list_by_workspace(
+            workspace_id=workspace_id, include_inactive=False
+        )
+
+        for pack in packs:
+            if pack.validation_status == AgentPackValidationStatus.VALID:
+                return str(pack.id)
+
+        return None
 
     def _resolve_workspace(
         self,

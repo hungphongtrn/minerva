@@ -271,7 +271,10 @@ class TestLeaseIntegration:
 
         assert target.lease_acquired is False
         assert target.lease_result is not None
-        assert target.lease_result.result == LeaseResult.CONFLICT
+        assert target.lease_result.result in (
+            LeaseResult.CONFLICT,
+            LeaseResult.CONFLICT_RETRYABLE,
+        )
         # Should not have attempted sandbox resolution
         assert target.routing_result is None
 
@@ -339,6 +342,82 @@ class TestSandboxRoutingIntegration:
         mock_orchestrator.resolve_sandbox.assert_called_once()
         call_kwargs = mock_orchestrator.resolve_sandbox.call_args.kwargs
         assert call_kwargs.get("agent_pack_id") == UUID(pack_id)
+
+    @pytest.mark.asyncio
+    async def test_resolve_target_auto_selects_default_valid_pack(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_workspace: Workspace,
+        lifecycle_service: WorkspaceLifecycleService,
+        mock_orchestrator,
+    ):
+        """When no pack is specified, lifecycle selects active+valid default pack."""
+        from src.db.models import AgentPackValidationStatus
+        from src.db.repositories.agent_pack_repository import AgentPackRepository
+
+        pack_repo = AgentPackRepository(db_session)
+        pack = pack_repo.create(
+            workspace_id=test_workspace.id,
+            name="Default Pack",
+            source_path="/tmp/default-pack",
+            source_digest="sha256-default",
+        )
+        pack.validation_status = AgentPackValidationStatus.VALID
+        pack.is_active = True
+        db_session.commit()
+
+        mock_orchestrator.resolve_sandbox.return_value = SandboxRoutingResult(
+            success=True,
+            result=RoutingResult.ROUTED_EXISTING,
+            sandbox=None,
+            provider_info=None,
+            message="Routed successfully",
+            excluded_unhealthy=[],
+        )
+
+        target = await lifecycle_service.resolve_target(
+            principal=test_user,
+            auto_create=True,
+            acquire_lease=False,
+        )
+
+        assert target.error is None
+        assert target.agent_pack_id == str(pack.id)
+        mock_orchestrator.resolve_sandbox.assert_called_once()
+        call_kwargs = mock_orchestrator.resolve_sandbox.call_args.kwargs
+        assert call_kwargs.get("agent_pack_id") == pack.id
+
+    @pytest.mark.asyncio
+    async def test_resolve_target_allows_missing_default_pack_binding(
+        self,
+        db_session: Session,
+        test_user: User,
+        test_workspace: Workspace,
+        lifecycle_service: WorkspaceLifecycleService,
+        mock_orchestrator,
+    ):
+        """Lifecycle continues when no default pack exists (backward compatibility)."""
+        mock_orchestrator.resolve_sandbox.return_value = SandboxRoutingResult(
+            success=True,
+            result=RoutingResult.ROUTED_EXISTING,
+            sandbox=None,
+            provider_info=None,
+            message="Routed successfully",
+            excluded_unhealthy=[],
+        )
+
+        target = await lifecycle_service.resolve_target(
+            principal=test_user,
+            auto_create=True,
+            acquire_lease=False,
+        )
+
+        assert target.error is None
+        assert target.agent_pack_id is None
+        mock_orchestrator.resolve_sandbox.assert_called_once()
+        call_kwargs = mock_orchestrator.resolve_sandbox.call_args.kwargs
+        assert call_kwargs.get("agent_pack_id") is None
 
     @pytest.mark.asyncio
     async def test_resolve_with_sandbox_routing(
