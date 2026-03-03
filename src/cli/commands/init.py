@@ -36,10 +36,12 @@ def handle(args: argparse.Namespace) -> int:
     _generate_env_example(args.force)
 
     # Run preflight checks
+    # For init command: only validate env vars are set, don't check DB existence
+    # DB validation happens at `minerva serve` time after register creates workspace
     from src.services.preflight_service import PreflightService, format_checklist
 
     service = PreflightService()
-    result = service.run_all_checks()
+    result = service.run_all_checks(include_workspace_db_validation=False)
 
     # Print checklist
     print(format_checklist(result, verbose=args.verbose))
@@ -77,6 +79,11 @@ DATABASE_URL=postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhos
 # =============================================================================
 # DAYTONA - Sandbox Provider Configuration
 # =============================================================================
+
+# Sandbox provider profile.
+# Use 'daytona' for full /runs execution against real Daytona sandboxes.
+# Use 'local_compose' only for local lifecycle simulation (no live gateway execution).
+SANDBOX_PROFILE=daytona
 
 # Daytona API key for Cloud or self-hosted authentication (SDK v2)
 # Required: Set this to your Daytona API key

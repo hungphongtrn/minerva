@@ -83,13 +83,24 @@ class PreflightService:
         """
         self._db_engine = db_engine
 
-    def run_all_checks(self) -> PreflightResult:
-        """Run all preflight checks and return aggregated result."""
+    def run_all_checks(
+        self, include_workspace_db_validation: bool = True
+    ) -> PreflightResult:
+        """Run all preflight checks and return aggregated result.
+
+        Args:
+            include_workspace_db_validation: If False, only checks that
+                MINERVA_WORKSPACE_ID env var is set (for `minerva init`).
+                If True, also validates workspace exists in DB and has packs
+                (for `minerva serve`). Default is True.
+        """
         checks = [
             # Required (BLOCKING)
             self._check_database(),
             self._check_daytona_auth(),
-            self._check_workspace_configured(),
+            self._check_workspace_configured(
+                include_db_validation=include_workspace_db_validation
+            ),
             # Optional (WARNING)
             self._check_s3_config(),
             self._check_llm_config(),
@@ -206,7 +217,7 @@ class PreflightService:
                 )
                 async with AsyncDaytona(config) as client:
                     snapshots = await client.snapshot.list()
-                    return any(s.name == snapshot_name for s in snapshots)
+                    return any(s.name == snapshot_name for s in snapshots.items)
 
             exists = asyncio.run(_check())
 
@@ -292,11 +303,17 @@ class PreflightService:
             details={"api_url": settings.DAYTONA_API_URL or "Daytona Cloud"},
         )
 
-    def _check_workspace_configured(self) -> PreflightCheck:
+    def _check_workspace_configured(
+        self, include_db_validation: bool = True
+    ) -> PreflightCheck:
         """Check MINERVA_WORKSPACE_ID is configured and workspace has registered packs.
 
         This is required for OSS mode where end-user requests are resolved
         to the developer's workspace.
+
+        Args:
+            include_db_validation: If False, only validates env var is set.
+                If True, also validates workspace exists in DB and has packs.
         """
         if not settings.MINERVA_WORKSPACE_ID:
             return PreflightCheck(
@@ -319,6 +336,19 @@ class PreflightService:
                 message="MINERVA_WORKSPACE_ID is set to 'auto' - workspace not yet created",
                 remediation="Run `minerva register <path-to-pack>` to create workspace and update .env",
                 details={"mode": "auto"},
+            )
+
+        # For `minerva init`, only validate env var is set (done above)
+        # Skip DB validation - register command will create workspace if needed
+        if not include_db_validation:
+            return PreflightCheck(
+                code="WORKSPACE_CONFIGURED",
+                service="oss",
+                severity=CheckSeverity.BLOCKING,
+                status=CheckStatus.PASS,
+                message=f"MINERVA_WORKSPACE_ID configured: {settings.MINERVA_WORKSPACE_ID}",
+                remediation="",
+                details={"workspace_id": settings.MINERVA_WORKSPACE_ID},
             )
 
         # Validate workspace exists and has packs
