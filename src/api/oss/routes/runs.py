@@ -80,8 +80,8 @@ async def _execute_run_with_events(
     """
     event_builder = OssSseEventBuilder(run_id)
 
-    # Track if this is a first-time user (for provisioning events)
-    is_cold_start = False
+    # Track cold start state - will be set inside the user queue lock
+    cold_start_detected = False
 
     try:
         # Yield queued event
@@ -91,21 +91,24 @@ async def _execute_run_with_events(
         run_service = RunService()
         user_queue = get_oss_user_queue()
 
-        # Check for cold start (no existing sandboxes)
-        sandbox_repo = SandboxInstanceRepository(db)
-        workspace_sandboxes = sandbox_repo.list_by_workspace(
-            workspace_id=__import__("uuid").UUID(principal.workspace_id)
-        )
-
-        if not workspace_sandboxes:
-            is_cold_start = True
-            # Yield provisioning events for cold start
-            yield event_builder.provisioning(
-                step="workspace_ready", message="Workspace ready"
-            ).to_sse_lines()
-
         # Define the actual execution operation
+        # CRITICAL: Cold start check is done INSIDE execute_operation to ensure
+        # it's protected by the per-user queue lock. This prevents race conditions
+        # where multiple concurrent requests all see empty sandbox list and
+        # trigger multiple provisioning events / sandboxes.
         async def execute_operation():
+            nonlocal cold_start_detected
+
+            # Check for cold start (no existing sandboxes) - INSIDE the lock
+            # This ensures only one request per user can see the cold start state
+            sandbox_repo = SandboxInstanceRepository(db)
+            workspace_sandboxes = sandbox_repo.list_by_workspace(
+                workspace_id=__import__("uuid").UUID(principal.workspace_id)
+            )
+
+            if not workspace_sandboxes:
+                cold_start_detected = True
+
             # Route through RunService
             return await run_service.execute_with_routing(
                 principal=principal,
@@ -125,6 +128,13 @@ async def _execute_run_with_events(
             operation=execute_operation,
         )
 
+        # Emit provisioning event AFTER user queue lock is acquired and released
+        # This ensures only the first request for a cold workspace emits this event
+        if cold_start_detected:
+            yield event_builder.provisioning(
+                step="workspace_ready", message="Workspace ready"
+            ).to_sse_lines()
+
         if queue_result.was_cached:
             # Result was from cache - emit cached indicator
             yield event_builder.running(step="cached_result").to_sse_lines()
@@ -143,6 +153,16 @@ async def _execute_run_with_events(
 
         # Emit running event
         yield event_builder.running(step="bridge_execute").to_sse_lines()
+
+        # Check if the run actually succeeded (not just queue-level success)
+        if result and hasattr(result, "status") and result.status == "error":
+            # Run execution failed - report failure
+            error_msg = result.error or "Run execution failed"
+            error_info = sanitize_error_for_user(error_msg, category="agent_error")
+            yield event_builder.failed(
+                error=error_info["message"], error_category=error_info["category"]
+            ).to_sse_lines()
+            return
 
         # Check for bridge output
         if result and hasattr(result, "outputs") and result.outputs:
