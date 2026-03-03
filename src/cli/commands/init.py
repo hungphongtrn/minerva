@@ -193,8 +193,9 @@ API_V1_PREFIX=/api/v1
 
 # Developer workspace UUID for OSS mode.
 # Required for /runs endpoint. End-user requests are resolved to this workspace.
-# Run `minerva register` to get your workspace ID, then set it here.
-MINERVA_WORKSPACE_ID=
+# Set to "auto" to automatically create/use a workspace on first register.
+# Or run `minerva register` first to see the workspace ID, then set it here.
+MINERVA_WORKSPACE_ID=auto
 
 # X-User-ID value treated as guest.
 # Guest gets ephemeral sandbox, no external_identities row, no session continuity.

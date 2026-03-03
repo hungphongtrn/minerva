@@ -309,6 +309,18 @@ class PreflightService:
                 details={},
             )
 
+        # Handle "auto" mode - user needs to run register first
+        if settings.MINERVA_WORKSPACE_ID == "auto":
+            return PreflightCheck(
+                code="WORKSPACE_CONFIGURED",
+                service="oss",
+                severity=CheckSeverity.BLOCKING,
+                status=CheckStatus.FAIL,
+                message="MINERVA_WORKSPACE_ID is set to 'auto' - workspace not yet created",
+                remediation="Run `minerva register <path-to-pack>` to create workspace and update .env",
+                details={"mode": "auto"},
+            )
+
         # Validate workspace exists and has packs
         try:
             engine = self._get_db_engine()
