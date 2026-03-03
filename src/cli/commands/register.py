@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.config.settings import get_database_url, settings
-from src.db.models import Workspace
+from src.db.models import Workspace, User
 from src.services.agent_pack_service import AgentPackService
 from src.services.agent_pack_validation import AgentPackValidationService
 from src.services.daytona_pack_volume_service import (
@@ -77,17 +77,51 @@ def _resolve_workspace_id(session, workspace_id_arg: Optional[str]) -> UUID:
         except ValueError as e:
             raise ValueError(f"Invalid workspace ID: {workspace_id_arg}") from e
 
-    # If MINERVA_WORKSPACE_ID is set and not "auto", validate and use it
+    # If MINERVA_WORKSPACE_ID is set and not "auto", validate and use/create it
     if env_workspace_id and env_workspace_id != "auto":
         try:
             workspace_id = UUID(env_workspace_id)
-            # Verify workspace exists
+            # Check if workspace exists
             workspace = (
                 session.query(Workspace).filter(Workspace.id == workspace_id).first()
             )
-            if not workspace:
-                raise ValueError(f"Workspace not found: {workspace_id}")
-            return workspace_id
+            if workspace:
+                # Workspace exists - use it
+                return workspace_id
+            else:
+                # Workspace doesn't exist - create it with the specified ID (OSS workflow)
+                print(f"Creating workspace with ID: {workspace_id}...")
+                from uuid import uuid4
+
+                # Check for existing users
+                existing_user = session.query(User).first()
+                if existing_user:
+                    owner_id = existing_user.id
+                    print(f"Using existing user as workspace owner: {owner_id}")
+                else:
+                    # Create a system user for OSS mode
+                    owner_id = uuid4()
+                    system_user = User(
+                        id=owner_id,
+                        email="system@minerva.local",
+                        hashed_password="not-used-oss-system-user",
+                        is_active=True,
+                    )
+                    session.add(system_user)
+                    session.flush()
+                    print(f"Created system user for OSS mode: {owner_id}")
+
+                workspace = Workspace(
+                    id=workspace_id,
+                    name="OSS Workspace",
+                    slug=f"oss-workspace-{str(workspace_id)[:8]}",
+                    owner_id=owner_id,
+                    is_active=True,
+                )
+                session.add(workspace)
+                session.commit()
+                print(f"Created workspace: {workspace_id}")
+                return workspace_id
         except ValueError as e:
             raise ValueError(f"Invalid MINERVA_WORKSPACE_ID: {env_workspace_id}") from e
 
@@ -114,11 +148,29 @@ def _resolve_workspace_id(session, workspace_id_arg: Optional[str]) -> UUID:
         print("Creating default OSS workspace...")
         from uuid import uuid4
 
+        # Check for existing users
+        existing_user = session.query(User).first()
+        if existing_user:
+            owner_id = existing_user.id
+            print(f"Using existing user as workspace owner: {owner_id}")
+        else:
+            # Create a system user for OSS mode
+            owner_id = uuid4()
+            system_user = User(
+                id=owner_id,
+                email="system@minerva.local",
+                hashed_password="not-used-oss-system-user",
+                is_active=True,
+            )
+            session.add(system_user)
+            session.flush()
+            print(f"Created system user for OSS mode: {owner_id}")
+
         workspace = Workspace(
             id=uuid4(),
             name="Default OSS Workspace",
             slug="default-oss-workspace",
-            owner_id=uuid4(),  # System user
+            owner_id=owner_id,
             is_active=True,
         )
         session.add(workspace)
@@ -270,6 +322,10 @@ def handle(args: argparse.Namespace) -> int:
 
             pack = result.pack
             print(f"✓ Pack registered with ID: {pack.id}")
+
+            # Commit the transaction to persist the pack
+            session.commit()
+            print(f"✓ Committed pack to database")
 
             # Step 3: Sync pack files to Daytona Volume
             print(f"\nSyncing pack files to Daytona Volume...")
