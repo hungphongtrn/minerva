@@ -142,7 +142,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 03.4-01-picoclaw-gateway-audit-harness-PLAN.md — Build an automated Picoclaw gateway audit harness (Daytona + direct URL modes).
+- [x] 03.4-01-picoclaw-gateway-audit-harness-PLAN.md — Build an automated Picoclaw gateway audit harness (Daytona + direct URL modes).
 - [ ] 03.4-02-daytona-picoclaw-audit-evidence-report-PLAN.md — Run the audit in Daytona (when configured) and produce a written evidence report with verdict.
 - [ ] 03.4-03-zeroclaw-spec-intake-and-decision-gate-PLAN.md — Gate migration on audit verdict and capture Zeroclaw contract in a validated in-repo spec.
 - [ ] 03.4-04-implement-zeroclaw-integration-and-cutover-PLAN.md — Implement Zeroclaw integration and big-bang cutover (conditional on audit/spec).

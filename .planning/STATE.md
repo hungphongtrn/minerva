@@ -7,11 +7,18 @@ See: .planning/PROJECT.md
 ## Position
 
 **Milestone:** v1.0 milestone
-**Current phase:** 03.3-close-pack-mount-isolation-and-identity-collision-gaps
-**Current plan:** 06
-**Status:** Ready to plan
+**Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
+**Current plan:** 01
+**Status:** In Progress
 
 ## Completed Plans
+
+### Phase 03.4: Picoclaw Bridge Gateway Audit and ZeroClaw Migration
+
+- [x] Plan 01: Picoclaw Gateway Audit Harness
+  - Commits: 9a1334a, 9e1c453
+  - Duration: 12 min
+  - Artifacts: PicoclawGatewayAuditor class, audit CLI, 34 comprehensive tests
 
 ### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
 
@@ -92,6 +99,9 @@ See: .planning/PROJECT.md
 24. **03.3-06**: OSS principal detected by workspace_id + external_user_id attributes on principal
 25. **03.3-06**: RunService uses _process_routing_target() helper for common routing result processing
 26. **03.3-06**: Fixed list_identity_not_ready() SQLAlchemy query syntax (use .is_(False) not 'not' operator)
+27. **03.4-01**: Audit harness supports both Daytona provisioning and direct gateway URL modes for flexibility
+28. **03.4-01**: Four evidence categories (health, execute, streaming_probe, continuity_wiring) provide complete capability assessment
+29. **03.4-01**: Mock-based tests patch at source module level (src.infrastructure.*) rather than in-script imports
 
 ## Accumulated Context
 
@@ -107,6 +117,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-05: Completed plan 03.4-01 (Picoclaw Gateway Audit Harness) - Audit runner with Daytona + direct modes, 34 tests
 - 2026-03-02: Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
 - 2026-03-02: Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract)
 - 2026-03-02: Completed plan 03.3-04 (Wire Workspace-Config Preflight into Serve Startup)
@@ -119,5 +130,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Phase 03.4 context gathered
-- **Resume file:** .planning/phases/03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration/03.4-CONTEXT.md
+- **Stopped at:** Completed 03.4-01-Picoclaw-Gateway-Audit-Harness
+- **Resume file:** None
