@@ -97,6 +97,7 @@ See: .planning/PROJECT.md
 
 ### Roadmap Evolution
 
+- Phase 03.4 inserted after Phase 3: Picoclaw bridge gateway audit and Zeroclaw migration (URGENT)
 - Phase 03.3 inserted after Phase 3.2: Close pack-mount isolation and identity-collision gaps (URGENT)
 
 ### Pending Todos
@@ -118,5 +119,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
-- **Resume file:** None
+- **Stopped at:** Phase 03.4 context gathered
+- **Resume file:** .planning/phases/03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration/03.4-CONTEXT.md
