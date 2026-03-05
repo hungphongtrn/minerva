@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ZeroclawSpec",
+  "description": "Zeroclaw gateway integration specification",
+  "type": "object",
+  "required": [
+    "version",
+    "gateway",
+    "auth",
+    "runtime",
+    "examples"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Spec version (semver)"
+    },
+    "gateway": {
+      "type": "object",
+      "required": ["port", "health_path", "execute_path", "stream_mode"],
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Gateway port (1-65535)"
+        },
+        "health_path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Health check endpoint path (must start with /)"
+        },
+        "execute_path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Execute endpoint path (must start with /)"
+        },
+        "stream_mode": {
+          "type": "string",
+          "enum": ["none", "sse", "ws"],
+          "description": "Streaming mode: none, sse (Server-Sent Events), or ws (WebSocket)"
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["bearer", "none"],
+          "description": "Authentication mode"
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["config_path", "start_command"],
+      "properties": {
+        "config_path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Absolute path to runtime config in sandbox (must start with /)"
+        },
+        "start_command": {
+          "type": "string",
+          "description": "Shell command to start the gateway runtime"
+        }
+      }
+    },
+    "examples": {
+      "type": "object",
+      "required": ["execute_request", "execute_response"],
+      "properties": {
+        "execute_request": {
+          "type": "object",
+          "description": "Example execute request payload"
+        },
+        "execute_response": {
+          "type": "object",
+          "description": "Example execute response payload"
+        }
+      }
+    }
+  }
+}
