@@ -8,7 +8,7 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
-**Current plan:** 01
+**Current plan:** 02
 **Status:** In Progress
 
 ## Completed Plans
@@ -19,6 +19,11 @@ See: .planning/PROJECT.md
   - Commits: 9a1334a, 9e1c453
   - Duration: 12 min
   - Artifacts: PicoclawGatewayAuditor class, audit CLI, 34 comprehensive tests
+
+- [x] Plan 02: Daytona Picoclaw Audit Evidence Report
+  - Commits: f0ec799, e311279
+  - Duration: 3 min
+  - Artifacts: Live Daytona audit integration test, audit report with verdict framework
 
 ### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
 
@@ -102,6 +107,9 @@ See: .planning/PROJECT.md
 27. **03.4-01**: Audit harness supports both Daytona provisioning and direct gateway URL modes for flexibility
 28. **03.4-01**: Four evidence categories (health, execute, streaming_probe, continuity_wiring) provide complete capability assessment
 29. **03.4-01**: Mock-based tests patch at source module level (src.infrastructure.*) rather than in-script imports
+30. **03.4-02**: Audit test asserts structural invariants, not PASS/FAIL - verdict is recorded in report
+31. **03.4-02**: Integration tests that provision real infrastructure should skip when unconfigured
+32. **03.4-02**: Soak criteria defined before migration decision: 24h minimum, >=100 runs, <1% error rate, zero auth failures
 
 ## Accumulated Context
 
@@ -117,6 +125,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-05: Completed plan 03.4-02 (Daytona Picoclaw Audit Evidence Report) - Live audit test with graceful skip, audit report with verdict framework
 - 2026-03-05: Completed plan 03.4-01 (Picoclaw Gateway Audit Harness) - Audit runner with Daytona + direct modes, 34 tests
 - 2026-03-02: Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
 - 2026-03-02: Completed plan 03.3-05 (Enforce Pack Mount Read-Only Contract)
@@ -130,5 +139,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed 03.4-01-Picoclaw-Gateway-Audit-Harness
+- **Stopped at:** Completed 03.4-02-Daytona-Picoclaw-Audit-Evidence-Report
 - **Resume file:** None

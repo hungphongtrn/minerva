@@ -139,7 +139,7 @@ Plans:
 
 **Goal:** Audit the current Picoclaw bridge gateway path in real Daytona sandboxes to determine whether it meets the minimum bar for Minerva's full run experience; if it does not, migrate the runtime gateway integration to Zeroclaw with big-bang cutover and same-phase Picoclaw removal.
 **Depends on:** Phase 3
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 
 Plans:
 - [x] 03.4-01-picoclaw-gateway-audit-harness-PLAN.md — Build an automated Picoclaw gateway audit harness (Daytona + direct URL modes).
