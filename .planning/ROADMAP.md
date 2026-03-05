@@ -135,6 +135,19 @@ Plans:
 - [x] 03-05-PLAN.md — Expose persistence/query APIs and operator pointer-control security checks.
 - [x] 03-UAT-GAPS-PLAN.md — Close UAT blocker: add gateway_url column to sandbox_instances.
 
+### Phase 03.4: Picoclaw bridge gateway audit and Zeroclaw migration (INSERTED)
+
+**Goal:** Audit the current Picoclaw bridge gateway path in real Daytona sandboxes to determine whether it meets the minimum bar for Minerva's full run experience; if it does not, migrate the runtime gateway integration to Zeroclaw with big-bang cutover and same-phase Picoclaw removal.
+**Depends on:** Phase 3
+**Plans:** 5 plans
+
+Plans:
+- [ ] 03.4-01-picoclaw-gateway-audit-harness-PLAN.md — Build an automated Picoclaw gateway audit harness (Daytona + direct URL modes).
+- [ ] 03.4-02-daytona-picoclaw-audit-evidence-report-PLAN.md — Run the audit in Daytona (when configured) and produce a written evidence report with verdict.
+- [ ] 03.4-03-zeroclaw-spec-intake-and-decision-gate-PLAN.md — Gate migration on audit verdict and capture Zeroclaw contract in a validated in-repo spec.
+- [ ] 03.4-04-implement-zeroclaw-integration-and-cutover-PLAN.md — Implement Zeroclaw integration and big-bang cutover (conditional on audit/spec).
+- [ ] 03.4-05-remove-picoclaw-integration-and-rename-config-PLAN.md — Delete Picoclaw artifacts and rename config/env/docs to Zeroclaw (conditional on migration).
+
 ### Phase 3.1: Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
 
 **Goal:** Daytona-backed `/runs` execution is production-hardened with authoritative gateway resolution, per-sandbox bridge token rotation, identity-first readiness, and bounded reprovision/hydration recovery while preserving orchestrator control-plane authority.
