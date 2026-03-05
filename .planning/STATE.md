@@ -8,7 +8,7 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
-**Current plan:** 02
+**Current plan:** 03
 **Status:** In Progress
 
 ## Completed Plans
@@ -24,6 +24,11 @@ See: .planning/PROJECT.md
   - Commits: f0ec799, e311279
   - Duration: 3 min
   - Artifacts: Live Daytona audit integration test, audit report with verdict framework
+
+- [x] Plan 03: Live Audit Execution and Migration Decision
+  - Commits: 42b3e82
+  - Duration: 8 min
+  - Artifacts: Updated audit report with FAIL verdict, Zeroclaw spec.json, migration decision documented
 
 ### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
 
@@ -110,6 +115,10 @@ See: .planning/PROJECT.md
 30. **03.4-02**: Audit test asserts structural invariants, not PASS/FAIL - verdict is recorded in report
 31. **03.4-02**: Integration tests that provision real infrastructure should skip when unconfigured
 32. **03.4-02**: Soak criteria defined before migration decision: 24h minimum, >=100 runs, <1% error rate, zero auth failures
+33. **03.4-03**: Picoclaw FAILED audit: /home/daytona/ permission error prevents sandbox provisioning
+34. **03.4-03**: Decision: Proceed with Zeroclaw migration (Plans 04-05) - infrastructure incompatible
+35. **03.4-03**: Audit-first decision: Run evidence collection before committing to migration path
+36. **03.4-03**: Template-to-instance: spec.template.json -> spec.json with env-specific values
 
 ## Accumulated Context
 
@@ -125,6 +134,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-05: Completed plan 03.4-03 (Live Audit Execution and Migration Decision) - Live audit FAILED, Zeroclaw migration approved, spec.json created
 - 2026-03-05: Completed plan 03.4-02 (Daytona Picoclaw Audit Evidence Report) - Live audit test with graceful skip, audit report with verdict framework
 - 2026-03-05: Completed plan 03.4-01 (Picoclaw Gateway Audit Harness) - Audit runner with Daytona + direct modes, 34 tests
 - 2026-03-02: Completed plan 03.3-06 (Plumb external_user_id end-to-end) - Phase 03.3 COMPLETE
@@ -139,5 +149,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed 03.4-02-Daytona-Picoclaw-Audit-Evidence-Report
+- **Stopped at:** Completed 03.4-03-Live-Audit-Execution-and-Migration-Decision
 - **Resume file:** None
