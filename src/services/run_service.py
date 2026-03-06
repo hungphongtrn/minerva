@@ -1310,17 +1310,8 @@ class RunService:
         Returns:
             True if error may be resolved by reprovisioning
         """
-        if not error:
-            return False
-
-        # These errors may be resolved by fresh reprovisioning
-        recoverable_types = {
-            BridgeErrorType.HEALTH_CHECK_FAILED,
-            BridgeErrorType.TIMEOUT,
-            BridgeErrorType.TRANSPORT_ERROR,
-        }
-
-        return error.error_type in recoverable_types
+        # Delegate to new method for single source of truth
+        return self._is_recoverable_gateway_error(error)
 
     async def _recover_routing_target(
         self, current_routing: RunRoutingResult, session: Session
