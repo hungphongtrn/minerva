@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
 **Current plan:** 07
-**Status:** Complete
+**Status:** Ready to plan
 
 ## Completed Plans
 
