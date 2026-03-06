@@ -21,12 +21,12 @@ from src.services.workspace_lifecycle_service import (
     WorkspaceLifecycleService,
     LifecycleTarget,
 )
-from src.services.picoclaw_bridge_service import (
-    PicoclawBridgeService,
-    BridgeResult,
-    BridgeError,
-    BridgeErrorType,
-    BridgeTokenBundle,
+from src.services.zeroclaw_gateway_service import (
+    ZeroclawGatewayService,
+    GatewayResult,
+    GatewayError,
+    GatewayErrorType,
+    GatewayTokenBundle,
 )
 from src.services.runtime_persistence_service import (
     RuntimePersistenceService,
@@ -79,13 +79,13 @@ class RoutingErrorType:
     WORKSPACE_RESOLUTION_FAILED = "workspace_resolution_failed"
     ROUTING_FAILED = "routing_failed"
 
-    # Bridge execution errors (5xx range)
-    BRIDGE_HEALTH_CHECK_FAILED = "bridge_health_check_failed"
-    BRIDGE_AUTH_FAILED = "bridge_auth_failed"
-    BRIDGE_TIMEOUT = "bridge_timeout"
-    BRIDGE_TRANSPORT_ERROR = "bridge_transport_error"
-    BRIDGE_UPSTREAM_ERROR = "bridge_upstream_error"
-    BRIDGE_MALFORMED_RESPONSE = "bridge_malformed_response"
+    # Gateway execution errors (5xx range)
+    GATEWAY_HEALTH_CHECK_FAILED = "gateway_health_check_failed"
+    GATEWAY_AUTH_FAILED = "gateway_auth_failed"
+    GATEWAY_TIMEOUT = "gateway_timeout"
+    GATEWAY_TRANSPORT_ERROR = "gateway_transport_error"
+    GATEWAY_UPSTREAM_ERROR = "gateway_upstream_error"
+    GATEWAY_MALFORMED_RESPONSE = "gateway_malformed_response"
 
 
 @dataclass
@@ -800,21 +800,21 @@ class RunService:
             "lease_acquired": routing.lease_acquired,
         }
 
-        # If we have a sandbox and input message, execute via Picoclaw bridge
-        bridge_error = None
-        bridge_result: Optional[BridgeResult] = None
+        # If we have a sandbox and input message, execute via Zeroclaw gateway
+        gateway_error = None
+        gateway_result: Optional[GatewayResult] = None
         if routing.sandbox_id and input_message:
             # Check if this is a local compose sandbox (simulated, no real gateway)
             sandbox_url = self._get_authoritative_sandbox_url(routing)
             if sandbox_url and self._is_local_compose_url(sandbox_url):
-                # Local compose provider doesn't run a real Picoclaw gateway
-                bridge_error = "Bridge execution not available: local compose sandbox has no Picoclaw gateway. Use Daytona infrastructure for full execution."
-                bridge_result = BridgeResult(
+                # Local compose provider doesn't run a real Zeroclaw gateway
+                gateway_error = "Gateway execution not available: local compose sandbox has no Zeroclaw gateway. Use Daytona infrastructure for full execution."
+                gateway_result = GatewayResult(
                     success=False,
-                    error=BridgeError(
-                        error_type=BridgeErrorType.TRANSPORT_ERROR,
-                        message=bridge_error,
-                        remediation="For local development testing, use Daytona sandbox provider or mock bridge responses.",
+                    error=GatewayError(
+                        error_type=GatewayErrorType.TRANSPORT_ERROR,
+                        message=gateway_error,
+                        remediation="For local development testing, use Daytona sandbox provider or mock gateway responses.",
                     ),
                 )
             else:
@@ -824,7 +824,7 @@ class RunService:
                     if context.is_guest
                     else getattr(principal, "external_user_id", None)
                 )
-                bridge_result = await self._execute_via_bridge(
+                gateway_result = await self._execute_via_gateway(
                     routing=routing,
                     message=input_message,
                     is_guest=context.is_guest,
@@ -833,34 +833,34 @@ class RunService:
                     sender_id=sender_id,
                 )
 
-        # Update result with bridge execution output if bridge was invoked
-        if bridge_result:
-            if bridge_result.success:
-                result.outputs["bridge"] = {
+        # Update result with gateway execution output if gateway was invoked
+        if gateway_result:
+            if gateway_result.success:
+                result.outputs["gateway"] = {
                     "success": True,
-                    "output": bridge_result.output,
+                    "output": gateway_result.output,
                 }
                 # Include final assistant output for API response
-                if bridge_result.output:
-                    result.outputs["final_output"] = bridge_result.output.get(
+                if gateway_result.output:
+                    result.outputs["final_output"] = gateway_result.output.get(
                         "message"
-                    ) or bridge_result.output.get("content")
+                    ) or gateway_result.output.get("content")
             else:
-                # Bridge execution failed - update status and include error
+                # Gateway execution failed - update status and include error
                 result.status = "error"
-                bridge_error = (
-                    bridge_result.error.message
-                    if bridge_result.error
-                    else "Bridge execution failed"
+                gateway_error = (
+                    gateway_result.error.message
+                    if gateway_result.error
+                    else "Gateway execution failed"
                 )
-                result.error = bridge_error
-                result.outputs["routing_error_type"] = self._map_bridge_error_type(
-                    bridge_result.error
+                result.error = gateway_error
+                result.outputs["routing_error_type"] = self._map_gateway_error_type(
+                    gateway_result.error
                 )
-                result.outputs["bridge"] = {
+                result.outputs["gateway"] = {
                     "success": False,
-                    "error": bridge_result.error.to_dict()
-                    if bridge_result.error
+                    "error": gateway_result.error.to_dict()
+                    if gateway_result.error
                     else None,
                 }
 
@@ -967,7 +967,7 @@ class RunService:
         continuity_key = session_id if session_id else run_id
         return f"minerva:{workspace_id}:{pack_scope}:{continuity_key}"
 
-    async def _execute_via_bridge(
+    async def _execute_via_gateway(
         self,
         routing: RunRoutingResult,
         message: str,
@@ -975,8 +975,8 @@ class RunService:
         session: Session,
         session_id: Optional[str] = None,
         sender_id: Optional[str] = None,
-    ) -> BridgeResult:
-        """Execute request via Picoclaw bridge with bounded recovery.
+    ) -> GatewayResult:
+        """Execute request via Zeroclaw gateway with bounded recovery.
 
         This method implements:
         1. Sandbox-scoped token resolution from repository
@@ -990,10 +990,51 @@ class RunService:
             is_guest: Whether this is a guest request
             session: Database session for token resolution and recovery
             session_id: Optional session ID for continuity
-            sender_id: External user identifier for Picoclaw conversation scoping
+            sender_id: External user identifier for Zeroclaw conversation scoping
 
         Returns:
-            BridgeResult with execution outcome
+            GatewayResult with execution outcome
+        """
+        # Keep the same implementation, just renamed method and types
+        return await self._execute_via_bridge(
+            routing=routing,
+            message=message,
+            is_guest=is_guest,
+            session=session,
+            session_id=session_id,
+            sender_id=sender_id,
+        )
+
+    async def _execute_via_bridge(
+        self,
+        routing: RunRoutingResult,
+        message: str,
+        is_guest: bool,
+        session: Session,
+        session_id: Optional[str] = None,
+        sender_id: Optional[str] = None,
+    ) -> GatewayResult:
+        """Execute request via gateway with bounded recovery.
+
+        DEPRECATED: Use _execute_via_gateway() instead.
+        Kept for backwards compatibility during cutover.
+
+        This method implements:
+        1. Sandbox-scoped token resolution from repository
+        2. Authoritative gateway URL enforcement (no synthetic URLs)
+        3. Bounded recovery loop (max 3 attempts) for transient failures
+        4. Deterministic fail-fast on recovery exhaustion
+
+        Args:
+            routing: The routing result containing sandbox info
+            message: The input message for execution
+            is_guest: Whether this is a guest request
+            session: Database session for token resolution and recovery
+            session_id: Optional session ID for continuity
+            sender_id: External user identifier for conversation scoping
+
+        Returns:
+            GatewayResult with execution outcome
         """
         # Generate session key scoped to workspace+pack with optional session continuity
         session_key = self._generate_session_key(
@@ -1015,32 +1056,32 @@ class RunService:
             sandbox_url = self._get_authoritative_sandbox_url(routing)
 
             if not sandbox_url:
-                return BridgeResult(
+                return GatewayResult(
                     success=False,
-                    error=BridgeError(
-                        error_type=BridgeErrorType.TRANSPORT_ERROR,
+                    error=GatewayError(
+                        error_type=GatewayErrorType.TRANSPORT_ERROR,
                         message="Sandbox gateway URL not available: authoritative endpoint required",
                         remediation="Sandbox may not be fully provisioned or gateway_url is missing. Reprovision may be needed.",
                     ),
                 )
 
-            # Resolve bridge tokens from sandbox metadata
-            token_bundle = self._resolve_bridge_tokens(routing, session)
+            # Resolve gateway tokens from sandbox metadata
+            token_bundle = self._resolve_gateway_tokens(routing, session)
 
             if not token_bundle or not token_bundle.current:
-                return BridgeResult(
+                return GatewayResult(
                     success=False,
-                    error=BridgeError(
-                        error_type=BridgeErrorType.AUTH_FAILED,
-                        message="Bridge authentication failed: no valid token resolved from sandbox metadata",
+                    error=GatewayError(
+                        error_type=GatewayErrorType.AUTH_FAILED,
+                        message="Gateway authentication failed: no valid token resolved from sandbox metadata",
                         remediation="Token must be set during sandbox provisioning. Check sandbox configuration.",
                     ),
                 )
 
-            # Execute via bridge
-            bridge_service = PicoclawBridgeService()
+            # Execute via Zeroclaw gateway
+            gateway_service = ZeroclawGatewayService()
 
-            result = await bridge_service.execute(
+            result = await gateway_service.execute(
                 sandbox_url=sandbox_url,
                 message=message,
                 session_key=session_key,
@@ -1058,7 +1099,7 @@ class RunService:
                 return result
 
             # Check if error is recoverable
-            if not self._is_recoverable_bridge_error(result.error):
+            if not self._is_recoverable_gateway_error(result.error):
                 # Non-recoverable error: fail fast
                 return result
 
@@ -1071,31 +1112,31 @@ class RunService:
                     routing = await self._recover_routing_target(routing, session)
                     if not routing or not routing.success:
                         # Recovery failed - return last error
-                        return BridgeResult(
+                        return GatewayResult(
                             success=False,
-                            error=BridgeError(
-                                error_type=BridgeErrorType.TRANSPORT_ERROR,
-                                message=f"Bridge execution failed after {attempt + 1} attempts. Recovery reprovisioning failed.",
+                            error=GatewayError(
+                                error_type=GatewayErrorType.TRANSPORT_ERROR,
+                                message=f"Gateway execution failed after {attempt + 1} attempts. Recovery reprovisioning failed.",
                                 remediation="Sandbox infrastructure may be unavailable. Retry or contact support.",
                             ),
                         )
                 except Exception as e:
                     # Recovery threw exception - fail fast
-                    return BridgeResult(
+                    return GatewayResult(
                         success=False,
-                        error=BridgeError(
-                            error_type=BridgeErrorType.TRANSPORT_ERROR,
-                            message=f"Bridge execution failed after {attempt + 1} attempts. Recovery error: {str(e)}",
+                        error=GatewayError(
+                            error_type=GatewayErrorType.TRANSPORT_ERROR,
+                            message=f"Gateway execution failed after {attempt + 1} attempts. Recovery error: {str(e)}",
                             remediation="Check provider status and retry.",
                         ),
                     )
 
         # Exhausted all recovery attempts
-        return BridgeResult(
+        return GatewayResult(
             success=False,
-            error=BridgeError(
-                error_type=BridgeErrorType.TRANSPORT_ERROR,
-                message=f"Bridge execution failed after {MAX_RECOVERY_ATTEMPTS} recovery attempts. Last error: {last_error.message if last_error else 'Unknown'}",
+            error=GatewayError(
+                error_type=GatewayErrorType.TRANSPORT_ERROR,
+                message=f"Gateway execution failed after {MAX_RECOVERY_ATTEMPTS} recovery attempts. Last error: {last_error.message if last_error else 'Unknown'}",
                 remediation="Sandbox endpoint remains unavailable after reprovisioning attempts. Check provider infrastructure or contact support.",
             ),
         )
@@ -1146,10 +1187,10 @@ class RunService:
             "http://local-sandbox-"
         ) or sandbox_url.startswith("https://local-sandbox-")
 
-    def _resolve_bridge_tokens(
+    def _resolve_gateway_tokens(
         self, routing: RunRoutingResult, session: Session
-    ) -> Optional[BridgeTokenBundle]:
-        """Resolve bridge authentication tokens from sandbox metadata.
+    ) -> Optional[GatewayTokenBundle]:
+        """Resolve gateway authentication tokens from sandbox metadata.
 
         Uses the sandbox instance repository to get the current and
         grace-period tokens for the sandbox.
@@ -1159,7 +1200,7 @@ class RunService:
             session: Database session
 
         Returns:
-            BridgeTokenBundle with current and optional grace token, or None
+            GatewayTokenBundle with current and optional grace token, or None
         """
         if not routing.sandbox_id:
             return None
@@ -1181,7 +1222,7 @@ class RunService:
                 return None
 
             # Build token bundle
-            return BridgeTokenBundle(
+            return GatewayTokenBundle(
                 current=token_data["current"],
                 previous=token_data.get("previous"),
                 previous_expires_at=token_data.get("previous_expires_at"),
@@ -1191,11 +1232,80 @@ class RunService:
             # Fail-closed: any resolution failure returns None
             return None
 
-    def _is_recoverable_bridge_error(self, error: Optional[BridgeError]) -> bool:
-        """Check if a bridge error is recoverable via reprovisioning.
+    def _resolve_bridge_tokens(
+        self, routing: RunRoutingResult, session: Session
+    ) -> Optional[GatewayTokenBundle]:
+        """Resolve bridge authentication tokens from sandbox metadata.
+
+        DEPRECATED: Use _resolve_gateway_tokens() instead.
+        Kept for backwards compatibility during cutover.
 
         Args:
-            error: The bridge error to check
+            routing: The routing result containing sandbox ID
+            session: Database session
+
+        Returns:
+            GatewayTokenBundle with current and optional grace token, or None
+        """
+        if not routing.sandbox_id:
+            return None
+
+        try:
+            from src.db.repositories.sandbox_instance_repository import (
+                SandboxInstanceRepository,
+            )
+
+            repo = SandboxInstanceRepository(session)
+
+            # Parse sandbox ID
+            sandbox_uuid = UUID(routing.sandbox_id)
+
+            # Resolve tokens from repository
+            token_data = repo.resolve_bridge_tokens(sandbox_uuid)
+
+            if not token_data or not token_data.get("current"):
+                return None
+
+            # Build token bundle
+            return GatewayTokenBundle(
+                current=token_data["current"],
+                previous=token_data.get("previous"),
+                previous_expires_at=token_data.get("previous_expires_at"),
+            )
+
+        except Exception:
+            # Fail-closed: any resolution failure returns None
+            return None
+
+    def _is_recoverable_gateway_error(self, error: Optional[GatewayError]) -> bool:
+        """Check if a gateway error is recoverable via reprovisioning.
+
+        Args:
+            error: The gateway error to check
+
+        Returns:
+            True if error may be resolved by reprovisioning
+        """
+        if not error:
+            return False
+
+        # These errors may be resolved by fresh reprovisioning
+        recoverable_types = {
+            GatewayErrorType.HEALTH_CHECK_FAILED,
+            GatewayErrorType.TIMEOUT,
+            GatewayErrorType.TRANSPORT_ERROR,
+        }
+
+        return error.error_type in recoverable_types
+
+    def _is_recoverable_bridge_error(self, error: Optional[GatewayError]) -> bool:
+        """Check if a bridge error is recoverable via reprovisioning.
+
+        DEPRECATED: Use _is_recoverable_gateway_error() instead.
+        Kept for backwards compatibility during cutover.
+
+        Args:
+            error: The gateway error to check
 
         Returns:
             True if error may be resolved by reprovisioning
@@ -1314,11 +1424,11 @@ class RunService:
             run_id=recovery_run_id,
         )
 
-    def _map_bridge_error_type(self, error: Optional[BridgeError]) -> str:
-        """Map bridge error to routing error type for API mapping.
+    def _map_gateway_error_type(self, error: Optional[GatewayError]) -> str:
+        """Map gateway error to routing error type for API mapping.
 
         Args:
-            error: The bridge error
+            error: The gateway error
 
         Returns:
             Routing error type constant
@@ -1327,12 +1437,38 @@ class RunService:
             return RoutingErrorType.ROUTING_FAILED
 
         error_type_map = {
-            BridgeErrorType.HEALTH_CHECK_FAILED: RoutingErrorType.BRIDGE_HEALTH_CHECK_FAILED,
-            BridgeErrorType.AUTH_FAILED: RoutingErrorType.BRIDGE_AUTH_FAILED,
-            BridgeErrorType.TIMEOUT: RoutingErrorType.BRIDGE_TIMEOUT,
-            BridgeErrorType.TRANSPORT_ERROR: RoutingErrorType.BRIDGE_TRANSPORT_ERROR,
-            BridgeErrorType.UPSTREAM_ERROR: RoutingErrorType.BRIDGE_UPSTREAM_ERROR,
-            BridgeErrorType.MALFORMED_RESPONSE: RoutingErrorType.BRIDGE_MALFORMED_RESPONSE,
+            GatewayErrorType.HEALTH_CHECK_FAILED: RoutingErrorType.GATEWAY_HEALTH_CHECK_FAILED,
+            GatewayErrorType.AUTH_FAILED: RoutingErrorType.GATEWAY_AUTH_FAILED,
+            GatewayErrorType.TIMEOUT: RoutingErrorType.GATEWAY_TIMEOUT,
+            GatewayErrorType.TRANSPORT_ERROR: RoutingErrorType.GATEWAY_TRANSPORT_ERROR,
+            GatewayErrorType.UPSTREAM_ERROR: RoutingErrorType.GATEWAY_UPSTREAM_ERROR,
+            GatewayErrorType.MALFORMED_RESPONSE: RoutingErrorType.GATEWAY_MALFORMED_RESPONSE,
+        }
+
+        return error_type_map.get(error.error_type, RoutingErrorType.ROUTING_FAILED)
+
+    def _map_bridge_error_type(self, error: Optional[GatewayError]) -> str:
+        """Map bridge error to routing error type for API mapping.
+
+        DEPRECATED: Use _map_gateway_error_type() instead.
+        Kept for backwards compatibility during cutover.
+
+        Args:
+            error: The gateway error
+
+        Returns:
+            Routing error type constant
+        """
+        if not error:
+            return RoutingErrorType.ROUTING_FAILED
+
+        error_type_map = {
+            GatewayErrorType.HEALTH_CHECK_FAILED: RoutingErrorType.GATEWAY_HEALTH_CHECK_FAILED,
+            GatewayErrorType.AUTH_FAILED: RoutingErrorType.GATEWAY_AUTH_FAILED,
+            GatewayErrorType.TIMEOUT: RoutingErrorType.GATEWAY_TIMEOUT,
+            GatewayErrorType.TRANSPORT_ERROR: RoutingErrorType.GATEWAY_TRANSPORT_ERROR,
+            GatewayErrorType.UPSTREAM_ERROR: RoutingErrorType.GATEWAY_UPSTREAM_ERROR,
+            GatewayErrorType.MALFORMED_RESPONSE: RoutingErrorType.GATEWAY_MALFORMED_RESPONSE,
         }
 
         return error_type_map.get(error.error_type, RoutingErrorType.ROUTING_FAILED)

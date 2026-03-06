@@ -30,8 +30,8 @@ from src.services.oss_sse_events import (
 )
 from src.services.run_service import RunService
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
-from src.services.picoclaw_bridge_service import (
-    BridgeErrorType,
+from src.services.zeroclaw_gateway_service import (
+    GatewayErrorType,
 )
 
 
