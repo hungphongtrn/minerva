@@ -42,14 +42,17 @@ TEST_TOKEN_BUNDLE = GatewayTokenBundle(current="test-token-current")
 
 
 def create_test_spec(auth_mode: str = "bearer") -> ZeroclawSpec:
-    """Create a test ZeroclawSpec with specified auth mode."""
+    """Create a test ZeroclawSpec with specified auth mode.
+
+    Uses spec.json defaults: execute_path="/webhook", stream_mode="none"
+    """
     return ZeroclawSpec(
         version="1.0.0",
         gateway=GatewaySpec(
             port=18790,
             health_path="/health",
-            execute_path="/execute",
-            stream_mode="sse",
+            execute_path="/webhook",
+            stream_mode="none",
         ),
         auth=AuthSpec(mode=auth_mode),  # type: ignore[arg-type]
         runtime=RuntimeSpec(
@@ -901,3 +904,124 @@ class TestSpecDrivenRequest:
             # Verify correct URL was called
             call_args = mock_post.call_args
             assert "/custom/execute" in call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_execute_falls_back_to_webhook_when_primary_is_execute(self):
+        """Execute retries /webhook when primary /execute returns 404."""
+        spec = create_test_spec()
+        spec.gateway.execute_path = "/execute"
+        service = ZeroclawGatewayService(spec=spec)
+
+        mock_health_response = AsyncMock(spec=httpx.Response)
+        mock_health_response.status_code = 200
+        mock_health_response.json.return_value = {"status": "ok"}
+
+        mock_404_response = AsyncMock(spec=httpx.Response)
+        mock_404_response.status_code = 404
+        mock_404_response.json.return_value = {"error": "not found"}
+
+        mock_webhook_success_response = AsyncMock(spec=httpx.Response)
+        mock_webhook_success_response.status_code = 200
+        mock_webhook_success_response.json.return_value = {"output": "via-webhook"}
+
+        with (
+            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
+            patch.object(
+                httpx.AsyncClient, "post", new_callable=AsyncMock
+            ) as mock_post,
+        ):
+            mock_get.return_value = mock_health_response
+            mock_post.side_effect = [mock_404_response, mock_webhook_success_response]
+
+            result = await service.execute(
+                sandbox_url=SANDBOX_URL,
+                message=MESSAGE,
+                session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
+            )
+
+            assert result.success is True
+            assert mock_post.call_count == 2
+            first_url = mock_post.call_args_list[0].args[0]
+            second_url = mock_post.call_args_list[1].args[0]
+            assert first_url.endswith("/execute")
+            assert second_url.endswith("/webhook")
+
+    @pytest.mark.asyncio
+    async def test_execute_falls_back_to_execute_when_primary_is_webhook(self):
+        """Execute retries /execute when primary /webhook returns 404."""
+        spec = create_test_spec()
+        spec.gateway.execute_path = "/webhook"
+        service = ZeroclawGatewayService(spec=spec)
+
+        mock_health_response = AsyncMock(spec=httpx.Response)
+        mock_health_response.status_code = 200
+        mock_health_response.json.return_value = {"status": "ok"}
+
+        mock_404_response = AsyncMock(spec=httpx.Response)
+        mock_404_response.status_code = 404
+        mock_404_response.json.return_value = {"error": "not found"}
+
+        mock_execute_success_response = AsyncMock(spec=httpx.Response)
+        mock_execute_success_response.status_code = 200
+        mock_execute_success_response.json.return_value = {"output": "via-execute"}
+
+        with (
+            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
+            patch.object(
+                httpx.AsyncClient, "post", new_callable=AsyncMock
+            ) as mock_post,
+        ):
+            mock_get.return_value = mock_health_response
+            mock_post.side_effect = [mock_404_response, mock_execute_success_response]
+
+            result = await service.execute(
+                sandbox_url=SANDBOX_URL,
+                message=MESSAGE,
+                session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
+            )
+
+            assert result.success is True
+            assert mock_post.call_count == 2
+            first_url = mock_post.call_args_list[0].args[0]
+            second_url = mock_post.call_args_list[1].args[0]
+            assert first_url.endswith("/webhook")
+            assert second_url.endswith("/execute")
+
+    @pytest.mark.asyncio
+    async def test_execute_does_not_duplicate_webhook_call_when_primary_is_webhook(
+        self,
+    ):
+        """Execute calls /webhook once when spec already points to /webhook."""
+        spec = create_test_spec()
+        spec.gateway.execute_path = "/webhook"
+        service = ZeroclawGatewayService(spec=spec)
+
+        mock_health_response = AsyncMock(spec=httpx.Response)
+        mock_health_response.status_code = 200
+        mock_health_response.json.return_value = {"status": "ok"}
+
+        mock_webhook_success_response = AsyncMock(spec=httpx.Response)
+        mock_webhook_success_response.status_code = 200
+        mock_webhook_success_response.json.return_value = {"output": "ok"}
+
+        with (
+            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
+            patch.object(
+                httpx.AsyncClient, "post", new_callable=AsyncMock
+            ) as mock_post,
+        ):
+            mock_get.return_value = mock_health_response
+            mock_post.return_value = mock_webhook_success_response
+
+            result = await service.execute(
+                sandbox_url=SANDBOX_URL,
+                message=MESSAGE,
+                session_key=SESSION_KEY,
+                token_bundle=TEST_TOKEN_BUNDLE,
+            )
+
+            assert result.success is True
+            assert mock_post.call_count == 1
+            assert mock_post.call_args.args[0].endswith("/webhook")

@@ -216,6 +216,31 @@ class ZeroclawGatewayService:
         path = self._spec.gateway.execute_path
         return urljoin(base + "/", path.lstrip("/"))
 
+    def _get_execute_candidate_urls(self, sandbox_url: str) -> list[str]:
+        """Build candidate execute URLs with bidirectional compatibility fallback.
+
+        Primary route always comes from spec.gateway.execute_path.
+        If the primary is `/webhook`, include `/execute` as a compatibility
+        fallback for legacy runtimes that expose only the execute route.
+        If the primary is `/execute`, include `/webhook` as a compatibility
+        fallback for runtimes that expose webhook ingress instead.
+        """
+        primary = self._get_execute_url(sandbox_url)
+
+        # Determine fallback based on primary path
+        if primary.endswith("/webhook"):
+            fallback = urljoin(sandbox_url.rstrip("/") + "/", "execute")
+        elif primary.endswith("/execute"):
+            fallback = urljoin(sandbox_url.rstrip("/") + "/", "webhook")
+        else:
+            # Unknown path - no fallback, try primary only
+            return [primary]
+
+        if primary == fallback:
+            return [primary]
+
+        return [primary, fallback]
+
     def _get_auth_headers(
         self, token_bundle: GatewayTokenBundle, attempt: int = 0
     ) -> Dict[str, str]:
@@ -445,7 +470,7 @@ class ZeroclawGatewayService:
         )
 
         # Step 3: Execute request with retries
-        execute_url = self._get_execute_url(sandbox_url)
+        execute_urls = self._get_execute_candidate_urls(sandbox_url)
         last_error = None
 
         for attempt in range(self.execute_retries + 1):
@@ -455,52 +480,64 @@ class ZeroclawGatewayService:
                     if token_bundle and self._requires_auth():
                         headers = self._get_auth_headers(token_bundle, attempt)
 
-                    response = await client.post(
-                        execute_url,
-                        headers=headers,
-                        json=zeroclaw_request,
-                    )
+                    for url_idx, execute_url in enumerate(execute_urls):
+                        response = await client.post(
+                            execute_url,
+                            headers=headers,
+                            json=zeroclaw_request,
+                        )
 
-                    if response.status_code == 200:
-                        try:
-                            data = response.json()
-                            return GatewayResult(success=True, output=data)
-                        except Exception as e:
+                        # Compatibility fallback: retry /webhook if primary route is missing
+                        if (
+                            response.status_code == 404
+                            and url_idx == 0
+                            and len(execute_urls) > 1
+                        ):
+                            continue
+
+                        if response.status_code == 200:
+                            try:
+                                data = response.json()
+                                return GatewayResult(success=True, output=data)
+                            except Exception as e:
+                                return GatewayResult(
+                                    success=False,
+                                    error=GatewayError(
+                                        error_type=GatewayErrorType.MALFORMED_RESPONSE,
+                                        message=f"Failed to parse response: {str(e)}",
+                                        remediation="Contact support - response format may have changed.",
+                                    ),
+                                )
+                        elif response.status_code == 401 or response.status_code == 403:
                             return GatewayResult(
                                 success=False,
                                 error=GatewayError(
-                                    error_type=GatewayErrorType.MALFORMED_RESPONSE,
-                                    message=f"Failed to parse response: {str(e)}",
-                                    remediation="Contact support - response format may have changed.",
+                                    error_type=GatewayErrorType.AUTH_FAILED,
+                                    message="Authentication failed",
+                                    status_code=response.status_code,
+                                    remediation="Check gateway token configuration.",
                                 ),
                             )
-                    elif response.status_code == 401 or response.status_code == 403:
-                        return GatewayResult(
-                            success=False,
-                            error=GatewayError(
-                                error_type=GatewayErrorType.AUTH_FAILED,
-                                message="Authentication failed",
+                        else:
+                            # Non-2xx response from upstream
+                            try:
+                                error_data = response.json()
+                                error_msg = error_data.get("error", "Unknown error")
+                            except Exception:
+                                error_msg = f"HTTP {response.status_code}"
+
+                            last_error = GatewayError(
+                                error_type=GatewayErrorType.UPSTREAM_ERROR,
+                                message=error_msg,
                                 status_code=response.status_code,
-                                remediation="Check gateway token configuration.",
-                            ),
-                        )
-                    else:
-                        # Non-2xx response from upstream
-                        try:
-                            error_data = response.json()
-                            error_msg = error_data.get("error", "Unknown error")
-                        except Exception:
-                            error_msg = f"HTTP {response.status_code}"
+                                remediation="Check Zeroclaw gateway logs for details.",
+                            )
 
-                        last_error = GatewayError(
-                            error_type=GatewayErrorType.UPSTREAM_ERROR,
-                            message=error_msg,
-                            status_code=response.status_code,
-                            remediation="Check Zeroclaw gateway logs for details.",
-                        )
+                            # Don't retry on 4xx errors
+                            if 400 <= response.status_code < 500:
+                                return GatewayResult(success=False, error=last_error)
 
-                        # Don't retry on 4xx errors
-                        if 400 <= response.status_code < 500:
+                            # Retry on 5xx using outer attempt loop
                             break
 
                 except httpx.TimeoutException:
