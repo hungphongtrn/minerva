@@ -8,6 +8,11 @@ Tests verify:
 """
 
 import pytest
+
+pytest.skip(
+    "Deprecated: Phase 2.1 Picoclaw bridge tests superseded by Zeroclaw gateway cutover tests (Phase 03.4)",
+    allow_module_level=True,
+)
 from uuid import uuid4
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
