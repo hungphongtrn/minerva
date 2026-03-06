@@ -438,7 +438,7 @@ def _map_routing_error(error_type: str, error_message: str) -> dict:
             "detail": {
                 "error": error_message,
                 "error_type": "bridge_timeout",
-                "remediation": "Execution timed out. Increase PICOCLAW_BRIDGE.EXECUTE_TIMEOUT or check sandbox performance.",
+                "remediation": "Execution timed out. Increase ZER0CLAW_GATEWAY.EXECUTE_TIMEOUT or check sandbox performance.",
             },
         }
 

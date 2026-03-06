@@ -105,13 +105,6 @@ class Settings(BaseSettings):
     for automatic cleanup after inactivity (minimum: 60 seconds).
     """
 
-    # Picoclaw Bridge Configuration
-    PICOCLAW_BRIDGE_TOKEN: str = ""
-    """Bearer token for Picoclaw gateway authentication.
-    
-    Set per-sandbox via environment variable. Leave empty for development.
-    """
-
     # Picoclaw Snapshot Configuration
     PICOCLAW_REPO_URL: str = ""
     """Git repository URL for Picoclaw source code."""
@@ -121,6 +114,28 @@ class Settings(BaseSettings):
 
     DAYTONA_PICOCLAW_SNAPSHOT_NAME: str = ""
     """Name of the Daytona snapshot to use for sandbox provisioning."""
+
+    # Zeroclaw Gateway Configuration
+    ZER0CLAW_GATEWAY_TOKEN: str = ""
+    """Bearer token for Zeroclaw gateway authentication.
+
+    Set per-sandbox via environment variable. Leave empty for development.
+    """
+
+    # Zeroclaw Gateway Configuration (accessed as ZER0CLAW_GATEWAY dict)
+    ZER0CLAW_GATEWAY: dict = {}
+    """Gateway timeout/retry/auth configuration.
+
+    Supports nested configuration:
+    - HEALTH_TIMEOUT: seconds (default: 10)
+    - HEALTH_RETRIES: count (default: 3)
+    - HEALTH_BACKOFF: seconds (default: 1.0)
+    - EXECUTE_TIMEOUT: seconds (default: 300)
+    - EXECUTE_RETRIES: count (default: 0)
+
+    Example:
+        ZER0CLAW_GATEWAY='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
+    """
 
     # LLM Configuration
     LLM_API_KEY: str = ""
@@ -140,21 +155,6 @@ class Settings(BaseSettings):
 
     OPENAI_MODEL: str = ""
     """Model name for OpenAI (backward compatibility)."""
-
-    # Bridge Configuration (accessed as PICOCLAW_BRIDGE dict)
-    PICOCLAW_BRIDGE: dict = {}
-    """Bridge timeout/retry/auth configuration.
-
-    Supports nested configuration:
-    - HEALTH_TIMEOUT: seconds (default: 10)
-    - HEALTH_RETRIES: count (default: 3)
-    - HEALTH_BACKOFF: seconds (default: 1.0)
-    - EXECUTE_TIMEOUT: seconds (default: 300)
-    - EXECUTE_RETRIES: count (default: 0)
-
-    Example:
-        PICOCLAW_BRIDGE='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
-    """
 
     # Checkpoint Storage Configuration (S3-compatible)
     CHECKPOINT_S3_BUCKET: str = ""

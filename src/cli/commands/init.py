@@ -210,15 +210,15 @@ MINERVA_WORKSPACE_ID=auto
 GUEST_ID=
 
 # =============================================================================
-# BRIDGE - Picoclaw Gateway Configuration
+# GATEWAY - Zeroclaw Gateway Configuration
 # =============================================================================
 
-# Bridge authentication token (set per-sandbox)
-PICOCLAW_BRIDGE_TOKEN=
+# Gateway authentication token (set per-sandbox)
+ZER0CLAW_GATEWAY_TOKEN=
 
-# Bridge configuration (JSON)
+# Gateway configuration (JSON)
 # Example: {"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}
-PICOCLAW_BRIDGE={}
+ZER0CLAW_GATEWAY={}
 """
 
 
