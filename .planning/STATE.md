@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
 **Current plan:** 07
-**Status:** In Progress
+**Status:** Complete
 
 ## Completed Plans
 
@@ -39,6 +39,11 @@ See: .planning/PROJECT.md
   - Commits: 2c92325, c7b4e5a
   - Duration: 15 min
   - Artifacts: Deleted 4 files (3,031 lines), renamed config to ZER0CLAW_GATEWAY*, clean repository state
+
+- [x] Plan 06: Gap Close Deprecated Bridge Recoverability
+  - Commits: 5a211a3, e5467fd
+  - Duration: 1 min
+  - Artifacts: Fixed deprecated _is_recoverable_bridge_error(), 8 regression tests, VERIFICATION Gap 1 closed
 
 - [x] Plan 07: Gap Close Legacy Phase 2.1 Test
   - Commits: 703d4af
@@ -140,7 +145,8 @@ See: .planning/PROJECT.md
 40. **03.4-04**: AST-based smoke test: Use Python AST parsing to prove no PicoclawBridgeService instantiation
 41. **03.4-05**: Post-cutover cleanup removes all Picoclaw bridge artifacts - no rollback path remains
 42. **03.4-05**: Keep PICOCLAW_REPO_URL/PICOCLAW_REPO_REF - these refer to runtime image naming, not bridge integration
-41. **03.4-04**: Test mocking requirement: Internal helpers (_create_workspace_symlinks, _start_bridge_runtime) must be mocked
+43. **03.4-04**: Test mocking requirement: Internal helpers (_create_workspace_symlinks, _start_bridge_runtime) must be mocked
+44. **03.4-06**: Delegation pattern for deprecated methods: delegate to new method for single source of truth rather than duplicating logic
 
 ## Accumulated Context
 
@@ -157,6 +163,7 @@ See: .planning/PROJECT.md
 ## Session Log
 
 - 2026-03-06: Completed plan 03.4-07 (Gap Close Legacy Phase 2.1 Test) - Module-level skip added to prevent ImportError from deleted picoclaw_bridge_service, VERIFICATION Gap 2 closed
+- 2026-03-06: Completed plan 03.4-06 (Gap Close Deprecated Bridge Recoverability) - Fixed deprecated _is_recoverable_bridge_error() to use GatewayErrorType, 8 regression tests added, VERIFICATION Gap 1 closed
 - 2026-03-06: Completed plan 03.4-05 (Remove Picoclaw Integration and Rename Config) - Deleted 4 files (3,031 lines), renamed config to ZER0CLAW_GATEWAY*, Phase 03.4 COMPLETE
 - 2026-03-06: Completed plan 03.4-04 (Implement Zeroclaw Integration and Cutover) - ZeroclawGatewayService, RunService cutover, 45 tests passing
 - 2026-03-05: Completed plan 03.4-03 (Live Audit Execution and Migration Decision) - Live audit FAILED, Zeroclaw migration approved, spec.json created
@@ -174,5 +181,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed 03.4-07-Gap-Close-Legacy-Phase2-1-Test
+- **Stopped at:** Completed 03.4-06-Gap-Close-Deprecated-Bridge-Recoverability
 - **Resume file:** None
