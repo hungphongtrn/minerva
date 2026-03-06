@@ -3,8 +3,8 @@
   "gateway": {
     "port": 18790,
     "health_path": "/health",
-    "execute_path": "/execute",
-    "stream_mode": "sse"
+    "execute_path": "/webhook",
+    "stream_mode": "none"
   },
   "auth": {
     "mode": "bearer"

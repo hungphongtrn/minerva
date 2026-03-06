@@ -21,8 +21,8 @@ class TestLoadZeroclawSpec:
         assert spec.version == "1.0.0"
         assert spec.gateway.port == 18790
         assert spec.gateway.health_path == "/health"
-        assert spec.gateway.execute_path == "/execute"
-        assert spec.gateway.stream_mode == "sse"
+        assert spec.gateway.execute_path == "/webhook"
+        assert spec.gateway.stream_mode == "none"
         assert spec.auth.mode == "bearer"
         assert spec.runtime.config_path == "/workspace/.zeroclaw/config.json"
         assert (
@@ -57,8 +57,8 @@ class TestSpecValidation:
             "gateway": {
                 "port": 18790,
                 "health_path": "/health",
-                "execute_path": "/execute",
-                "stream_mode": "sse",
+                "execute_path": "/webhook",
+                "stream_mode": "none",
             },
             "auth": {"mode": "bearer"},
             "runtime": {
