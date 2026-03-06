@@ -8,8 +8,8 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
-**Current plan:** 04
-**Status:** In Progress
+**Current plan:** 05
+**Status:** Complete
 
 ## Completed Plans
 
@@ -34,6 +34,11 @@ See: .planning/PROJECT.md
   - Commits: 617abf2, d5b43c4, 6ddae49
   - Duration: ~60 min
   - Artifacts: ZeroclawGatewayService, Daytona provider integration, RunService cutover, 45 tests
+
+- [x] Plan 05: Remove Picoclaw Integration and Rename Config
+  - Commits: 2c92325, c7b4e5a
+  - Duration: 15 min
+  - Artifacts: Deleted 4 files (3,031 lines), renamed config to ZER0CLAW_GATEWAY*, clean repository state
 
 ### Phase 03.3: Close Pack-Mount Isolation and Identity-Collision Gaps
 
@@ -128,6 +133,8 @@ See: .planning/PROJECT.md
 38. **03.4-04**: Type renaming: Bridge* -> Gateway* for clarity during transition
 39. **03.4-04**: Backwards compatibility: Deprecated methods retained with delegation to new Gateway methods
 40. **03.4-04**: AST-based smoke test: Use Python AST parsing to prove no PicoclawBridgeService instantiation
+41. **03.4-05**: Post-cutover cleanup removes all Picoclaw bridge artifacts - no rollback path remains
+42. **03.4-05**: Keep PICOCLAW_REPO_URL/PICOCLAW_REPO_REF - these refer to runtime image naming, not bridge integration
 41. **03.4-04**: Test mocking requirement: Internal helpers (_create_workspace_symlinks, _start_bridge_runtime) must be mocked
 
 ## Accumulated Context
@@ -144,6 +151,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-06: Completed plan 03.4-05 (Remove Picoclaw Integration and Rename Config) - Deleted 4 files (3,031 lines), renamed config to ZER0CLAW_GATEWAY*, Phase 03.4 COMPLETE
 - 2026-03-06: Completed plan 03.4-04 (Implement Zeroclaw Integration and Cutover) - ZeroclawGatewayService, RunService cutover, 45 tests passing
 - 2026-03-05: Completed plan 03.4-03 (Live Audit Execution and Migration Decision) - Live audit FAILED, Zeroclaw migration approved, spec.json created
 - 2026-03-05: Completed plan 03.4-02 (Daytona Picoclaw Audit Evidence Report) - Live audit test with graceful skip, audit report with verdict framework
@@ -160,5 +168,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed 03.4-04-Implement-Zeroclaw-Integration-and-Cutover
+- **Stopped at:** Completed 03.4-05-Remove-Picoclaw-Integration-and-Rename-Config
 - **Resume file:** None
