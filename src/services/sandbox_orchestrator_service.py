@@ -1284,10 +1284,11 @@ class SandboxOrchestratorService:
         agent_pack_id: Optional[UUID],
         env_vars: Dict[str, str],
     ) -> Dict[str, Any]:
-        """Generate runtime bridge configuration for Picoclaw gateway.
+        """Generate runtime bridge configuration for Zeroclaw gateway.
 
-        This creates the per-sandbox configuration needed for the Picoclaw
-        runtime to operate in bridge mode with isolated credentials.
+        This creates the per-sandbox configuration needed for the Zeroclaw
+        runtime to operate in gateway mode with isolated credentials.
+        Configuration is spec-driven from ZeroclawSpec.
 
         Args:
             workspace_id: Workspace UUID for scoping.
@@ -1298,42 +1299,41 @@ class SandboxOrchestratorService:
             Runtime bridge configuration dict for provider use.
         """
         import secrets
+        from src.integrations.zeroclaw.spec import load_zeroclaw_spec
+
+        # Load spec for gateway port
+        spec = load_zeroclaw_spec()
 
         # Generate unique bridge auth token for this sandbox
         bridge_auth_token = secrets.token_urlsafe(32)
 
         # Build the runtime config that providers will use to generate config.json
+        # This follows Zeroclaw's spec-driven configuration format
         config = {
             "workspace_id": str(workspace_id),
             "agent_pack_id": str(agent_pack_id) if agent_pack_id else None,
             "bridge": {
                 "enabled": True,
                 "auth_token": bridge_auth_token,
-                # Gateway port - standard Picoclaw gateway port
-                "gateway_port": 18790,
+                "auth_mode": spec.auth.mode,
+                # Gateway port from spec
+                "gateway_port": spec.gateway.port,
             },
             # Environment variables to inject (for sensitive credentials)
             # Note: Sensitive values should come from env vars, not be embedded
             "env_vars": env_vars,
-            # Channel configuration - bridge-only, public channels disabled
-            "channels": {
-                "bridge": {"enabled": True},
-                "telegram": {"enabled": False},
-                "discord": {"enabled": False},
-                "slack": {"enabled": False},
-                "line": {"enabled": False},
-                "wecom": {"enabled": False},
-                "feishu": {"enabled": False},
-                "dingtalk": {"enabled": False},
-                "qq": {"enabled": False},
-                "onebot": {"enabled": False},
-                "whatsapp": {"enabled": False},
-                "maixcam": {"enabled": False},
-            },
-            # Gateway configuration
+            # Gateway configuration from spec
             "gateway": {
                 "host": "0.0.0.0",
-                "port": 18790,
+                "port": spec.gateway.port,
+                "health_path": spec.gateway.health_path,
+                "execute_path": spec.gateway.execute_path,
+                "stream_mode": spec.gateway.stream_mode,
+            },
+            # Runtime paths from spec
+            "runtime": {
+                "config_path": spec.runtime.config_path,
+                "start_command": spec.runtime.start_command,
             },
         }
 

@@ -1142,7 +1142,7 @@ class TestDaytonaSdkBackedProvider:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            # Patch identity verification and gateway resolution
+            # Patch identity verification, gateway resolution, and internal helpers
             with (
                 patch.object(
                     provider, "verify_identity_files", new_callable=AsyncMock
@@ -1150,6 +1150,12 @@ class TestDaytonaSdkBackedProvider:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_create_workspace_symlinks", new_callable=AsyncMock
+                ) as mock_symlinks,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_bridge,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -1157,6 +1163,7 @@ class TestDaytonaSdkBackedProvider:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_bridge.return_value = True
 
                 result = await provider.provision_sandbox(config)
 
@@ -1433,7 +1440,7 @@ class TestDaytonaSdkBackPackBinding:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            # Patch identity verification and gateway resolution
+            # Patch identity verification, gateway resolution, and internal helpers
             with (
                 patch.object(
                     provider, "verify_identity_files", new_callable=AsyncMock
@@ -1441,6 +1448,12 @@ class TestDaytonaSdkBackPackBinding:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_create_workspace_symlinks", new_callable=AsyncMock
+                ) as mock_symlinks,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_bridge,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -1448,6 +1461,7 @@ class TestDaytonaSdkBackPackBinding:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_bridge.return_value = True
 
                 info = await provider.provision_sandbox(config)
 
@@ -1486,7 +1500,7 @@ class TestDaytonaSdkBackPackBinding:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            # Patch identity verification and gateway resolution
+            # Patch identity verification, gateway resolution, and internal helpers
             with (
                 patch.object(
                     provider, "verify_identity_files", new_callable=AsyncMock
@@ -1494,6 +1508,12 @@ class TestDaytonaSdkBackPackBinding:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_create_workspace_symlinks", new_callable=AsyncMock
+                ) as mock_symlinks,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_bridge,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -1501,6 +1521,7 @@ class TestDaytonaSdkBackPackBinding:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_bridge.return_value = True
 
                 info = await provider.provision_sandbox(config)
 
@@ -1842,7 +1863,7 @@ class TestPackMaterialization:
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        # Patch identity verification and gateway resolution
+        # Patch identity verification, gateway resolution, and internal helpers
         with (
             patch.object(
                 daytona_provider, "verify_identity_files", new_callable=AsyncMock
@@ -1850,6 +1871,12 @@ class TestPackMaterialization:
             patch.object(
                 daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
             ) as mock_gateway,
+            patch.object(
+                daytona_provider, "_create_workspace_symlinks", new_callable=AsyncMock
+            ) as mock_symlinks,
+            patch.object(
+                daytona_provider, "_start_bridge_runtime", new_callable=AsyncMock
+            ) as mock_start_bridge,
         ):
             mock_verify.return_value = IdentityVerificationResult(
                 ready=True, missing_files=[]
@@ -1857,6 +1884,7 @@ class TestPackMaterialization:
             mock_gateway.return_value = (
                 f"https://gateway-{workspace_id}.daytona.run:18790"
             )
+            mock_start_bridge.return_value = True
 
             info = await daytona_provider.provision_sandbox(config)
 
@@ -2098,8 +2126,9 @@ class TestDaytonaProductionReadiness:
 
         captured_create_params = {}
 
-        async def capture_create(params):
+        async def capture_create(params, timeout=None):
             captured_create_params["params"] = params
+            captured_create_params["timeout"] = timeout
             return mock_sandbox
 
         mock_daytona.create = capture_create
@@ -2112,7 +2141,7 @@ class TestDaytonaProductionReadiness:
             )
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            # Patch identity verification and gateway resolution
+            # Patch identity verification, gateway resolution, and internal helpers
             with (
                 patch.object(
                     provider, "verify_identity_files", new_callable=AsyncMock
@@ -2120,6 +2149,12 @@ class TestDaytonaProductionReadiness:
                 patch.object(
                     provider, "resolve_gateway_endpoint", new_callable=AsyncMock
                 ) as mock_gateway,
+                patch.object(
+                    provider, "_create_workspace_symlinks", new_callable=AsyncMock
+                ) as mock_symlinks,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_bridge,
             ):
                 mock_verify.return_value = IdentityVerificationResult(
                     ready=True, missing_files=[]
@@ -2127,6 +2162,7 @@ class TestDaytonaProductionReadiness:
                 mock_gateway.return_value = (
                     f"https://gateway-{workspace_id}.daytona.run:18790"
                 )
+                mock_start_bridge.return_value = True
 
                 await provider.provision_sandbox(config)
 
@@ -2347,27 +2383,22 @@ class TestOrchestratorBoundedReprovision:
             idle_ttl_seconds=3600,
         )
 
-        # Resolve should fail after bounded retry attempts
+        # Resolve should fail with identity error (not retried)
         result = await orchestrator.resolve_sandbox(
             workspace_id=test_workspace.id,
             profile=SandboxProfile.DAYTONA,
         )
 
-        # Should exhaust retry budget
+        # Should fail with identity error (not retried - identity failures are terminal)
         assert result.success is False
-        assert result.reprovision_exhausted is True
-        assert result.reprovision_attempts == orchestrator.MAX_REPROVISION_ATTEMPTS
-        assert result.remediation is not None
+        assert result.result == RoutingResult.IDENTITY_CHECK_FAILED
         assert (
-            "identity" in result.remediation.lower()
-            or "contact support" in result.remediation.lower()
-        )
+            result.reprovision_attempts == 1
+        )  # Single attempt, identity errors not retried
+        # Identity errors don't set reprovision_exhausted because they're not retryable
 
-        # Should have called provision MAX_REPROVISION_ATTEMPTS times
-        assert (
-            mock_provider.provision_sandbox.call_count
-            == orchestrator.MAX_REPROVISION_ATTEMPTS
-        )
+        # Should have called provision once (identity errors are not retried)
+        assert mock_provider.provision_sandbox.call_count == 1
 
     @pytest.mark.asyncio
     async def test_gateway_persistence_and_authoritative_resolution(

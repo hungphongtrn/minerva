@@ -716,6 +716,9 @@ class DaytonaSandboxProvider:
     ) -> Dict[str, Any]:
         """Generate Picoclaw config.json for sandbox.
 
+        DEPRECATED: Use _generate_zeroclaw_config for new provisioning.
+        Kept for backwards compatibility during migration.
+
         Creates a deterministic, sandbox-scoped config with:
         - Bridge-only channels (public channels disabled)
         - Credentials from environment variables
@@ -784,6 +787,70 @@ class DaytonaSandboxProvider:
 
         return picoclaw_config
 
+    def _generate_zeroclaw_config(
+        self,
+        config: SandboxConfig,
+    ) -> Dict[str, Any]:
+        """Generate Zeroclaw config.json for sandbox (spec-driven).
+
+        Creates a deterministic, sandbox-scoped config driven by ZeroclawSpec:
+        - Auth token from runtime_bridge_config
+        - Gateway port from spec
+        - Workspace path for identity file access
+        - Environment variables for LLM configuration
+
+        Args:
+            config: Sandbox configuration with runtime_bridge_config.
+
+        Returns:
+            Complete Zeroclaw config dict.
+        """
+        from src.integrations.zeroclaw.spec import load_zeroclaw_spec
+
+        # Load spec for port configuration
+        spec = load_zeroclaw_spec()
+
+        # Get runtime bridge config from orchestrator
+        runtime_config = config.runtime_bridge_config or {}
+
+        # Extract bridge settings
+        bridge_config = runtime_config.get("bridge", {})
+        bridge_auth_token = bridge_config.get("auth_token", "temp-token")
+        gateway_port = spec.gateway.port
+
+        # Build Zeroclaw config.json structure
+        # Uses Zeroclaw's spec-driven configuration format
+        zeroclaw_config = {
+            "version": spec.version,
+            "gateway": {
+                "host": "0.0.0.0",
+                "port": gateway_port,
+                "health_path": spec.gateway.health_path,
+                "execute_path": spec.gateway.execute_path,
+                "stream_mode": spec.gateway.stream_mode,
+            },
+            "auth": {
+                "mode": spec.auth.mode,
+                "token": bridge_auth_token,
+            },
+            "workspace": {
+                "path": WORKSPACE_PATH,
+                "pack_mount_path": PACK_MOUNT_PATH,
+            },
+            "llm": {
+                "model": "${LLM_MODEL:-openai/gpt-4}",
+                "api_key": "${LLM_API_KEY}",
+                "api_base": "${LLM_API_BASE}",
+                "max_tokens": 8192,
+                "temperature": 0.7,
+            },
+            "runtime": {
+                "max_tool_iterations": 20,
+            },
+        }
+
+        return zeroclaw_config
+
     async def _create_workspace_symlinks(self, sandbox) -> None:
         """Create workspace directory and symlink identity files from pack volume.
 
@@ -828,22 +895,22 @@ class DaytonaSandboxProvider:
     async def _start_bridge_runtime(self, sandbox: Any, strict: bool = True) -> bool:
         """Start the bridge runtime process and verify port listener.
 
+        Uses Zeroclaw start_command from spec for runtime initialization.
+
         Returns:
             True when listener is confirmed. In non-strict mode returns False
             instead of raising on startup/readiness failures.
         """
+        from src.integrations.zeroclaw.spec import load_zeroclaw_spec
+
+        spec = load_zeroclaw_spec()
+        zeroclaw_port = spec.gateway.port
+
         if await self._is_bridge_listening(sandbox):
             return True
 
-        start_cmd = (
-            "sh -lc '"
-            "if command -v daytona >/dev/null 2>&1; then "
-            'pkill -f "daytona picoclaw" >/dev/null 2>&1 || true; '
-            "nohup daytona picoclaw >/tmp/picoclaw.log 2>&1 & "
-            "else "
-            'echo "daytona CLI not found" >&2; exit 1; '
-            "fi'"
-        )
+        # Use Zeroclaw start command from spec
+        start_cmd = spec.runtime.start_command
 
         max_attempts = self.BRIDGE_START_MAX_ATTEMPTS if strict else 1
         listen_timeout = self.BRIDGE_LISTEN_TIMEOUT_SECONDS if strict else 1.0
@@ -860,7 +927,7 @@ class DaytonaSandboxProvider:
                     await asyncio.sleep(0.5)
 
                 last_error = (
-                    f"Bridge listener not ready on port {self.BRIDGE_PORT} "
+                    f"Bridge listener not ready on port {zeroclaw_port} "
                     f"after {listen_timeout:.0f}s"
                 )
             except SandboxProvisionError as exc:
@@ -871,7 +938,7 @@ class DaytonaSandboxProvider:
 
         if strict:
             raise SandboxProvisionError(
-                f"Failed to start Picoclaw bridge runtime: {last_error}"
+                f"Failed to start Zeroclaw bridge runtime: {last_error}"
             )
 
         return False
@@ -1248,8 +1315,11 @@ class DaytonaSandboxProvider:
                         workspace_id=config.workspace_id,
                     )
 
-                # Write per-sandbox Picoclaw config via file API (outside shared pack volume)
-                config_path = CONFIG_PATH
+                # Write per-sandbox Zeroclaw config via file API (outside shared pack volume)
+                from src.integrations.zeroclaw.spec import load_zeroclaw_spec
+
+                spec = load_zeroclaw_spec()
+                config_path = spec.runtime.config_path
                 try:
 
                     async def _fs_call(method, *args):
@@ -1263,15 +1333,16 @@ class DaytonaSandboxProvider:
                         f"Config path must be outside {PACK_MOUNT_PATH}: {config_path}"
                     )
 
-                    # Generate Picoclaw config
-                    picoclaw_config = self._generate_picoclaw_config(config)
-                    config_bytes = json.dumps(picoclaw_config, indent=2).encode("utf-8")
+                    # Generate Zeroclaw config (spec-driven)
+                    zeroclaw_config = self._generate_zeroclaw_config(config)
+                    config_bytes = json.dumps(zeroclaw_config, indent=2).encode("utf-8")
 
                     # Create config directory via file API
+                    config_dir = "/".join(config_path.split("/")[:-1])
                     try:
                         await _fs_call(
                             sandbox.fs.create_folder,
-                            "/home/daytona/.picoclaw",
+                            config_dir,
                             "700",
                         )
                     except DaytonaError as e:
@@ -1284,7 +1355,7 @@ class DaytonaSandboxProvider:
 
                 except DaytonaError as e:
                     raise SandboxProvisionError(
-                        f"Failed to write Picoclaw config: {e}",
+                        f"Failed to write Zeroclaw config: {e}",
                         provider_ref=sandbox_id,
                         workspace_id=config.workspace_id,
                     )
