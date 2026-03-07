@@ -152,10 +152,13 @@ Plans:
 
 **Goal:** Rewrite the orchestrator completely based on ZeroClaw Gateway API reference and integration plan documents to ensure proper alignment with the gateway's capabilities and integration patterns.
 **Depends on:** Phase 03.4
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 03.5 to break down)
+- [ ] 03.5-01-fix-sandbox-token-lifecycle-and-config-PLAN.md — Make provision-time gateway token injection consistent with persisted sandbox tokens.
+- [ ] 03.5-02-implement-token-grace-fallback-in-gateway-client-PLAN.md — Add 401/403 grace-token retry for health+execute while keeping fail-closed semantics.
+- [ ] 03.5-03-add-runservice-recovery-and-url-enforcement-tests-PLAN.md — Add regression tests for bounded recovery and authoritative gateway URL enforcement.
+- [ ] 03.5-04-add-event-streaming-bridge-mapping-PLAN.md — Map upstream ZeroClaw runtime events into OSS SSE envelope and wire /runs to emit them.
 
 ### Phase 3.1: Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
 
