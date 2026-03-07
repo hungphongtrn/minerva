@@ -293,7 +293,7 @@ flowchart TD
 | 03.2 - OSS Agent Server MVP | Complete | 100% |
 | 03.3 - Close pack-mount isolation and identity-collision gaps | Complete | 100% |
 | 03.4 - Picoclaw bridge gateway audit and Zeroclaw migration | Complete | 100% |
-| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | 4/4 | Complete   | 2026-03-07 | 04 - Execution Orchestration and Fairness | Not Started | 0% |
+| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | 4/4 | Complete    | 2026-03-07 | 04 - Execution Orchestration and Fairness | Not Started | 0% |
 | 05 - Typed Event Streaming API | Not Started | 0% |
 
 **Overall Progress:** 71%

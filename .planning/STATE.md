@@ -9,7 +9,7 @@ See: .planning/PROJECT.md
 **Milestone:** v1.0 milestone
 **Current phase:** 03.5-rewrite-orchestrator-per-zeroclaw-gateway-api-and-integration-plan-docs
 **Current plan:** 04
-**Status:** In Progress
+**Status:** Ready to plan
 
 ## Completed Plans
 
