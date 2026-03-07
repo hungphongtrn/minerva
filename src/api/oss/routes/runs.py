@@ -27,6 +27,7 @@ from src.services.oss_sse_events import (
     OssSseEventBuilder,
     OssEventType,
     sanitize_error_for_user,
+    map_zeroclaw_event_to_oss_event,
 )
 from src.services.run_service import RunService
 from src.runtime_policy.models import EgressPolicy, ToolPolicy, SecretScope
@@ -164,26 +165,61 @@ async def _execute_run_with_events(
             ).to_sse_lines()
             return
 
-        # Check for bridge output
+        # Track if upstream already sent terminal events to avoid double-terminal
+        upstream_terminal_emitted = False
+
+        # Check for upstream runtime events in gateway output
         if result and hasattr(result, "outputs") and result.outputs:
             outputs = result.outputs
 
-            # Check for final output from bridge
-            final_output = outputs.get("final_output")
-            if final_output:
-                yield event_builder.message(
-                    role="assistant", content=str(final_output)
-                ).to_sse_lines()
-            elif outputs.get("bridge", {}).get("success"):
-                bridge_output = outputs["bridge"].get("output", {})
-                message = bridge_output.get("message") or bridge_output.get("content")
-                if message:
-                    yield event_builder.message(
-                        role="assistant", content=str(message)
-                    ).to_sse_lines()
+            # Extract upstream events list if present (gateway_result.output.events)
+            gateway_output = outputs.get("gateway", {})
+            upstream_events = None
+            if isinstance(gateway_output, dict):
+                # Try to get events from gateway output
+                upstream_events = gateway_output.get("output", {}).get("events")
+                # Also check for events directly in gateway output
+                if upstream_events is None:
+                    upstream_events = gateway_output.get("events")
 
-        # Yield completed event
-        yield event_builder.completed().to_sse_lines()
+            if upstream_events and isinstance(upstream_events, list):
+                # Emit mapped upstream events
+                for upstream_event in upstream_events:
+                    if not isinstance(upstream_event, dict):
+                        continue
+
+                    mapped_event = map_zeroclaw_event_to_oss_event(
+                        event_builder, upstream_event
+                    )
+                    if mapped_event:
+                        yield mapped_event.to_sse_lines()
+
+                        # Check if this is a terminal event
+                        event_type = upstream_event.get("type", "")
+                        if event_type in ("completed", "failed"):
+                            upstream_terminal_emitted = True
+
+            # If no upstream events, fall back to best-effort final output extraction
+            if not upstream_events:
+                # Check for final output from bridge (legacy path)
+                final_output = outputs.get("final_output")
+                if final_output:
+                    yield event_builder.message(
+                        role="assistant", content=str(final_output)
+                    ).to_sse_lines()
+                elif outputs.get("bridge", {}).get("success"):
+                    bridge_output = outputs["bridge"].get("output", {})
+                    message = bridge_output.get("message") or bridge_output.get(
+                        "content"
+                    )
+                    if message:
+                        yield event_builder.message(
+                            role="assistant", content=str(message)
+                        ).to_sse_lines()
+
+        # Yield completed event only if upstream didn't already emit terminal
+        if not upstream_terminal_emitted:
+            yield event_builder.completed().to_sse_lines()
 
     except Exception as e:
         # Handle unexpected errors
