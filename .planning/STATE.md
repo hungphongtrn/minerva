@@ -7,11 +7,18 @@ See: .planning/PROJECT.md
 ## Position
 
 **Milestone:** v1.0 milestone
-**Current phase:** 03.4-picoclaw-bridge-gateway-audit-and-zeroclaw-migration
-**Current plan:** 07
-**Status:** Ready to plan
+**Current phase:** 03.5-rewrite-orchestrator-per-zeroclaw-gateway-api-and-integration-plan-docs
+**Current plan:** 01
+**Status:** In Progress
 
 ## Completed Plans
+
+### Phase 03.5: Rewrite Orchestrator per ZeroClaw Gateway API and Integration Plan Docs
+
+- [x] Plan 01: Fix Sandbox Token Lifecycle and Config
+  - Commits: 5bd16e9, a2c86ca
+  - Duration: 8 min
+  - Artifacts: Aligned provision-time token with persisted token, 5 regression tests
 
 ### Phase 03.4: Picoclaw Bridge Gateway Audit and ZeroClaw Migration
 
@@ -149,6 +156,8 @@ See: .planning/PROJECT.md
 42. **03.4-05**: Keep PICOCLAW_REPO_URL/PICOCLAW_REPO_REF - these refer to runtime image naming, not bridge integration
 43. **03.4-04**: Test mocking requirement: Internal helpers (_create_workspace_symlinks, _start_bridge_runtime) must be mocked
 44. **03.4-06**: Delegation pattern for deprecated methods: delegate to new method for single source of truth rather than duplicating logic
+45. **03.5-01**: Option A preferred: Changed _generate_runtime_bridge_config() to accept bridge_auth_token parameter rather than generating internally
+46. **03.5-01**: Single token generation in provisioning path prevents mismatch by construction - token generated once and used for both persistence and config
 
 ## Accumulated Context
 
@@ -165,6 +174,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-07: Completed plan 03.5-01 (Fix Sandbox Token Lifecycle and Config) - Aligned provision-time token with persisted token to prevent AUTH_FAILED cascades. 5 regression tests added.
 - 2026-03-06: Completed quick task 004 - Comprehensive testing report following DEV-WORKFLOW.md. Documented 30+ test failures, performance issues (15-20min runtime), and 6 documentation/code mismatches. Report at: .planning/quick/4-create-a-comprehensive-testing-following/4-TESTING-REPORT.md
 - 2026-03-06: Completed plan 03.4-07 (Gap Close Legacy Phase 2.1 Test) - Module-level skip added to prevent ImportError from deleted picoclaw_bridge_service, VERIFICATION Gap 2 closed
 - 2026-03-06: Completed plan 03.4-06 (Gap Close Deprecated Bridge Recoverability) - Fixed deprecated _is_recoverable_bridge_error() to use GatewayErrorType, 8 regression tests added, VERIFICATION Gap 1 closed
@@ -185,5 +195,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed quick task 004: Create comprehensive testing report following DEV-WORKFLOW.md
+- **Stopped at:** Completed plan 03.5-01: Fix Sandbox Token Lifecycle and Config
 - **Resume file:** None

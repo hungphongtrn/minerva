@@ -143,16 +143,18 @@ Plans:
 
 Plans:
 - [x] 03.4-01-picoclaw-gateway-audit-harness-PLAN.md — Build an automated Picoclaw gateway audit harness (Daytona + direct URL modes).
-- [ ] 03.4-02-daytona-picoclaw-audit-evidence-report-PLAN.md — Run the audit in Daytona (when configured) and produce a written evidence report with verdict.
-- [ ] 03.4-03-zeroclaw-spec-intake-and-decision-gate-PLAN.md — Gate migration on audit verdict and capture Zeroclaw contract in a validated in-repo spec.
-- [ ] 03.4-04-implement-zeroclaw-integration-and-cutover-PLAN.md — Implement Zeroclaw integration and big-bang cutover (conditional on audit/spec).
-- [ ] 03.4-05-remove-picoclaw-integration-and-rename-config-PLAN.md — Delete Picoclaw artifacts and rename config/env/docs to Zeroclaw (conditional on migration).
+- [x] 03.4-02-daytona-picoclaw-audit-evidence-report-PLAN.md — Run the audit in Daytona (when configured) and produce a written evidence report with verdict.
+- [x] 03.4-03-live-audit-execution-and-migration-decision-PLAN.md — Gate migration on audit verdict and capture Zeroclaw contract in a validated in-repo spec.
+- [x] 03.4-04-implement-zeroclaw-integration-and-cutover-PLAN.md — Implement Zeroclaw integration and big-bang cutover (conditional on audit/spec).
+- [x] 03.4-05-remove-picoclaw-integration-and-rename-config-PLAN.md — Delete Picoclaw artifacts and rename config/env/docs to Zeroclaw (conditional on migration).
+- [x] 03.4-06-gap-close-deprecated-bridge-recoverability-PLAN.md — Fix deprecated _is_recoverable_bridge_error() to use GatewayErrorType.
+- [x] 03.4-07-gap-close-legacy-phase-2-1-test-PLAN.md — Add module-level skip for legacy Phase 2.1 bridge execution test.
 
 ### Phase 03.5: Rewrite orchestrator per ZeroClaw Gateway API and integration plan docs (INSERTED)
 
 **Goal:** Rewrite the orchestrator completely based on ZeroClaw Gateway API reference and integration plan documents to ensure proper alignment with the gateway's capabilities and integration patterns.
 **Depends on:** Phase 03.4
-**Plans:** 2/4 plans executed
+**Plans:** 4 plans (1/4 complete)
 
 Plans:
 - [x] 03.5-01-fix-sandbox-token-lifecycle-and-config-PLAN.md — Make provision-time gateway token injection consistent with persisted sandbox tokens.
@@ -291,7 +293,8 @@ flowchart TD
 | 03.2 - OSS Agent Server MVP | Complete | 100% |
 | 03.3 - Close pack-mount isolation and identity-collision gaps | Complete | 100% |
 | 03.4 - Picoclaw bridge gateway audit and Zeroclaw migration | Complete | 100% |
-| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | 2/4 | In Progress|  | 04 - Execution Orchestration and Fairness | Not Started | 0% |
+| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | In Progress | 25% |
+| 04 - Execution Orchestration and Fairness | Not Started | 0% |
 | 05 - Typed Event Streaming API | Not Started | 0% |
 
 **Overall Progress:** 71%
