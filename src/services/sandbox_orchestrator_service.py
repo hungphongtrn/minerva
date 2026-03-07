@@ -848,11 +848,19 @@ class SandboxOrchestratorService:
             pack_source_path = pack.source_path
             pack_digest = pack.source_digest
 
-        # Generate runtime bridge config for Picoclaw gateway
+        # Generate a single bridge auth token for this sandbox provisioning
+        # This token will be both persisted to DB and injected into runtime config
+        import secrets
+
+        bridge_auth_token = secrets.token_urlsafe(32)
+
+        # Generate runtime bridge config with the pre-generated token
+        # This ensures the in-sandbox gateway uses the same token Minerva persists
         runtime_bridge_config = self._generate_runtime_bridge_config(
             workspace_id=workspace_id,
             agent_pack_id=agent_pack_id,
             env_vars=env_vars or {},
+            bridge_auth_token=bridge_auth_token,
         )
 
         sandbox: Optional[SandboxInstance] = None
@@ -1017,11 +1025,9 @@ class SandboxOrchestratorService:
                     )
 
                 # Rotate bridge token with 30-second grace period
-                import secrets
-
-                bridge_token = secrets.token_urlsafe(32)
+                # Use the same token that was injected into runtime_bridge_config
                 self._repository.rotate_bridge_token(
-                    sandbox.id, bridge_token, grace_seconds=30
+                    sandbox.id, bridge_auth_token, grace_seconds=30
                 )
 
                 # Mark identity ready (sandbox is now request-ready)
@@ -1283,6 +1289,7 @@ class SandboxOrchestratorService:
         workspace_id: UUID,
         agent_pack_id: Optional[UUID],
         env_vars: Dict[str, str],
+        bridge_auth_token: str,
     ) -> Dict[str, Any]:
         """Generate runtime bridge configuration for Zeroclaw gateway.
 
@@ -1294,18 +1301,16 @@ class SandboxOrchestratorService:
             workspace_id: Workspace UUID for scoping.
             agent_pack_id: Optional agent pack ID for workspace mapping.
             env_vars: Existing environment variables to include in config.
+            bridge_auth_token: The bridge authentication token to inject into config.
+                This must be the same token persisted via rotate_bridge_token().
 
         Returns:
             Runtime bridge configuration dict for provider use.
         """
-        import secrets
         from src.integrations.zeroclaw.spec import load_zeroclaw_spec
 
         # Load spec for gateway port
         spec = load_zeroclaw_spec()
-
-        # Generate unique bridge auth token for this sandbox
-        bridge_auth_token = secrets.token_urlsafe(32)
 
         # Build the runtime config that providers will use to generate config.json
         # This follows Zeroclaw's spec-driven configuration format
