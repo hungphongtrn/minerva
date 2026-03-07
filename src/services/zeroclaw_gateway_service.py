@@ -259,6 +259,58 @@ class ZeroclawGatewayService:
             "Content-Type": "application/json",
         }
 
+    async def _request_with_auth_fallback(
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        url: str,
+        token_bundle: Optional[GatewayTokenBundle],
+        **kwargs,
+    ) -> httpx.Response:
+        """Make HTTP request with one-time auth fallback on 401/403.
+
+        On first attempt, uses current token. If 401/403 received and grace
+        token is valid, retries exactly once with the previous token.
+
+        Args:
+            client: httpx AsyncClient instance
+            method: HTTP method ("get", "post", etc.)
+            url: Request URL
+            token_bundle: Token bundle with current and optional grace token
+            **kwargs: Additional arguments passed to client.request()
+
+        Returns:
+            Final httpx.Response (from current or grace token attempt)
+        """
+        headers = kwargs.pop("headers", {})
+        base_headers = {"Content-Type": "application/json"}
+        base_headers.update(headers)
+
+        # First attempt with current token
+        if token_bundle and self._requires_auth():
+            auth_headers = self._get_auth_headers(token_bundle, attempt=0)
+            base_headers.update(auth_headers)
+
+        response = await client.request(method, url, headers=base_headers, **kwargs)
+
+        # On 401/403, retry once with grace token if valid
+        if response.status_code in (401, 403):
+            if (
+                token_bundle
+                and self._requires_auth()
+                and token_bundle.is_grace_token_valid()
+            ):
+                # Retry with previous/grace token
+                grace_headers = {"Content-Type": "application/json"}
+                grace_headers.update(headers)
+                grace_auth = self._get_auth_headers(token_bundle, attempt=1)
+                grace_headers.update(grace_auth)
+                response = await client.request(
+                    method, url, headers=grace_headers, **kwargs
+                )
+
+        return response
+
     async def check_health(
         self, sandbox_url: str, token_bundle: Optional[GatewayTokenBundle] = None
     ) -> HealthStatus:
@@ -277,11 +329,9 @@ class ZeroclawGatewayService:
 
         async with httpx.AsyncClient(timeout=self.health_timeout) as client:
             try:
-                headers = {"Content-Type": "application/json"}
-                if token_bundle and self._requires_auth():
-                    headers = self._get_auth_headers(token_bundle)
-
-                response = await client.get(health_url, headers=headers)
+                response = await self._request_with_auth_fallback(
+                    client, "GET", health_url, token_bundle
+                )
 
                 if response.status_code == 200:
                     try:
@@ -469,16 +519,17 @@ class ZeroclawGatewayService:
             session_id=session_id,
         )
 
-        # Step 3: Execute request with retries
+        # Step 3: Execute request with retries and auth fallback
         execute_urls = self._get_execute_candidate_urls(sandbox_url)
         last_error = None
+        auth_fallback_attempted = False
 
         for attempt in range(self.execute_retries + 1):
             async with httpx.AsyncClient(timeout=self.execute_timeout) as client:
                 try:
                     headers = {"Content-Type": "application/json"}
                     if token_bundle and self._requires_auth():
-                        headers = self._get_auth_headers(token_bundle, attempt)
+                        headers = self._get_auth_headers(token_bundle, attempt=0)
 
                     for url_idx, execute_url in enumerate(execute_urls):
                         response = await client.post(
@@ -495,6 +546,26 @@ class ZeroclawGatewayService:
                         ):
                             continue
 
+                        # Auth fallback: retry once with grace token on 401/403
+                        if (
+                            response.status_code in (401, 403)
+                            and not auth_fallback_attempted
+                            and token_bundle
+                            and self._requires_auth()
+                            and token_bundle.is_grace_token_valid()
+                        ):
+                            auth_fallback_attempted = True
+                            # Retry with grace token (attempt=1 uses previous token)
+                            grace_headers = {"Content-Type": "application/json"}
+                            grace_headers.update(
+                                self._get_auth_headers(token_bundle, attempt=1)
+                            )
+                            response = await client.post(
+                                execute_url,
+                                headers=grace_headers,
+                                json=zeroclaw_request,
+                            )
+
                         if response.status_code == 200:
                             try:
                                 data = response.json()
@@ -504,7 +575,7 @@ class ZeroclawGatewayService:
                                     success=False,
                                     error=GatewayError(
                                         error_type=GatewayErrorType.MALFORMED_RESPONSE,
-                                        message=f"Failed to parse response: {str(e)}",
+                                        message="Failed to parse response",
                                         remediation="Contact support - response format may have changed.",
                                     ),
                                 )
@@ -533,7 +604,7 @@ class ZeroclawGatewayService:
                                 remediation="Check Zeroclaw gateway logs for details.",
                             )
 
-                            # Don't retry on 4xx errors
+                            # Don't retry on 4xx errors (except handled above)
                             if 400 <= response.status_code < 500:
                                 return GatewayResult(success=False, error=last_error)
 

@@ -88,8 +88,10 @@ class TestHealthCheck:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok", "uptime": 100}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
 
@@ -106,8 +108,10 @@ class TestHealthCheck:
         mock_response.status_code = 500
         mock_response.json.return_value = {"error": "internal error"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
 
@@ -123,8 +127,10 @@ class TestHealthCheck:
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 401
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
 
@@ -137,8 +143,10 @@ class TestHealthCheck:
         spec = create_test_spec()
         service = ZeroclawGatewayService(spec=spec)
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = httpx.TimeoutException("timeout")
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = httpx.TimeoutException("timeout")
 
             status = await service.check_health(SANDBOX_URL)
 
@@ -157,14 +165,16 @@ class TestHealthCheck:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL)
 
             # Verify correct URL was called
-            call_args = mock_get.call_args
-            assert "/custom/health" in call_args.args[0]
+            call_args = mock_request.call_args
+            assert "/custom/health" in call_args.args[1]
 
 
 class TestHealthPolling:
@@ -182,13 +192,15 @@ class TestHealthPolling:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             status = await service.poll_health(SANDBOX_URL)
 
             assert status.healthy is True
-            assert mock_get.call_count == 1
+            assert mock_request.call_count == 1
 
     @pytest.mark.asyncio
     async def test_poll_health_retries_on_failure(self):
@@ -206,8 +218,10 @@ class TestHealthPolling:
         mock_response_success.status_code = 200
         mock_response_success.json.return_value = {"status": "ok"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = [
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
                 mock_response_fail,
                 mock_response_fail,
                 mock_response_success,
@@ -216,7 +230,7 @@ class TestHealthPolling:
             status = await service.poll_health(SANDBOX_URL)
 
             assert status.healthy is True
-            assert mock_get.call_count == 3
+            assert mock_request.call_count == 3
 
     @pytest.mark.asyncio
     async def test_poll_health_fails_closed_after_retries_exhausted(self):
@@ -229,14 +243,16 @@ class TestHealthPolling:
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 500
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             status = await service.poll_health(SANDBOX_URL)
 
             assert status.healthy is False
             # Initial + 2 retries = 3 calls
-            assert mock_get.call_count == 3
+            assert mock_request.call_count == 3
 
 
 class TestAuthentication:
@@ -252,13 +268,15 @@ class TestAuthentication:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL, token_bundle=TEST_TOKEN_BUNDLE)
 
             # Verify Authorization header was sent
-            call_args = mock_get.call_args
+            call_args = mock_request.call_args
             headers = call_args.kwargs.get("headers", {})
             assert "Authorization" in headers
             assert headers["Authorization"].startswith("Bearer ")
@@ -273,13 +291,15 @@ class TestAuthentication:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL, token_bundle=TEST_TOKEN_BUNDLE)
 
             # Verify Authorization header was NOT sent (auth not required)
-            call_args = mock_get.call_args
+            call_args = mock_request.call_args
             headers = call_args.kwargs.get("headers", {})
             assert "Authorization" not in headers
 
@@ -289,23 +309,21 @@ class TestAuthentication:
         spec = create_test_spec(auth_mode="bearer")
         service = ZeroclawGatewayService(spec=spec)
 
-        # Mock health check to pass
+        # Mock health check to pass (GET request)
         mock_health_response = AsyncMock(spec=httpx.Response)
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
+        # Mock execute to pass (POST request)
         mock_execute_response = AsyncMock(spec=httpx.Response)
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_execute_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            # First call is health check (GET), second is execute (POST)
+            mock_request.side_effect = [mock_health_response, mock_execute_response]
 
             await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -314,8 +332,10 @@ class TestAuthentication:
                 token_bundle=TEST_TOKEN_BUNDLE,
             )
 
-            # Verify Authorization header was sent
-            call_args = mock_post.call_args
+            # Find the POST call (execute)
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 1
+            call_args = post_calls[0]
             headers = call_args.kwargs.get("headers", {})
             assert "Authorization" in headers
             assert headers["Authorization"].startswith("Bearer ")
@@ -353,8 +373,10 @@ class TestFailClosed:
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 500
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_response
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -379,8 +401,10 @@ class TestFailClosed:
         mock_health_response = AsyncMock(spec=httpx.Response)
         mock_health_response.status_code = 401
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_health_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = mock_health_response
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -405,13 +429,11 @@ class TestFailClosed:
         mock_response.status_code = 500
 
         with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
             patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
+                httpx.AsyncClient, "request", new_callable=AsyncMock
+            ) as mock_request,
         ):
-            mock_get.return_value = mock_response
-            mock_post.return_value = mock_response  # Should never be called
+            mock_request.return_value = mock_response
 
             await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -420,8 +442,10 @@ class TestFailClosed:
                 token_bundle=TEST_TOKEN_BUNDLE,
             )
 
-            # Execute should never be called
-            assert mock_post.call_count == 0
+            # Execute should never be called - only health checks (3 attempts with retries)
+            # All calls should be GET (health checks), no POST (execute) calls
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 0
 
 
 class TestTimeout:
@@ -435,19 +459,19 @@ class TestTimeout:
             spec=spec, health_retries=0, execute_timeout=5, health_backoff=0.01
         )
 
-        # Health passes
+        # Health passes (GET), then timeout on execute (POST)
         mock_health_response = AsyncMock(spec=httpx.Response)
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = httpx.TimeoutException("Request timed out")
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            # First call is health check, second raises timeout
+            mock_request.side_effect = [
+                mock_health_response,
+                httpx.TimeoutException("Request timed out"),
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -467,8 +491,10 @@ class TestTimeout:
         spec = create_test_spec()
         service = ZeroclawGatewayService(spec=spec, health_timeout=5)
 
-        with patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get:
-            mock_get.side_effect = httpx.TimeoutException("Health check timeout")
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = httpx.TimeoutException("Health check timeout")
 
             status = await service.check_health(SANDBOX_URL)
 
@@ -501,17 +527,15 @@ class TestRetry:
         mock_success_response.status_code = 200
         mock_success_response.json.return_value = {"output": "success"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = [
-                mock_fail_response,
-                mock_fail_response,
-                mock_success_response,
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            # 1 health check + 3 execute attempts (fail, fail, success)
+            mock_request.side_effect = [
+                mock_health_response,  # health check
+                mock_fail_response,  # execute attempt 1
+                mock_fail_response,  # execute attempt 2
+                mock_success_response,  # execute attempt 3
             ]
 
             result = await service.execute(
@@ -522,7 +546,8 @@ class TestRetry:
             )
 
             assert result.success is True
-            assert mock_post.call_count == 3
+            # 1 health check + 3 execute attempts = 4 calls
+            assert mock_request.call_count == 4
 
     @pytest.mark.asyncio
     async def test_execute_no_retry_on_client_error(self):
@@ -542,14 +567,13 @@ class TestRetry:
         mock_response.status_code = 400
         mock_response.json.return_value = {"error": "bad request"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,  # health check
+                mock_response,  # execute attempt (no retry on 4xx)
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -558,8 +582,8 @@ class TestRetry:
                 token_bundle=TEST_TOKEN_BUNDLE,
             )
 
-            # Should not retry on 4xx
-            assert mock_post.call_count == 1
+            # Should be 2 calls: 1 health + 1 execute (no retry on 4xx)
+            assert mock_request.call_count == 2
             assert result.success is False
             assert result.error.status_code == 400
 
@@ -580,14 +604,13 @@ class TestErrorTyping:
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = httpx.RequestError("Connection refused")
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,  # health check
+                httpx.RequestError("Connection refused"),  # execute fails
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -616,14 +639,13 @@ class TestErrorTyping:
         mock_response.status_code = 200
         mock_response.json.side_effect = ValueError("Invalid JSON")
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,  # health check
+                mock_response,  # execute with malformed response
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -647,14 +669,13 @@ class TestErrorTyping:
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = httpx.TimeoutException("timeout")
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,  # health check
+                httpx.TimeoutException("timeout"),  # execute times out
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -842,14 +863,13 @@ class TestSpecDrivenRequest:
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_execute_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,
+                mock_execute_response,
+            ]
 
             await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -860,8 +880,10 @@ class TestSpecDrivenRequest:
                 sender_id="user-456",
             )
 
-            # Verify request structure
-            call_args = mock_post.call_args
+            # Find the POST call (execute)
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 1
+            call_args = post_calls[0]
             request_json = call_args.kwargs.get("json", {})
 
             assert request_json["message"] == "Custom message"
@@ -885,14 +907,13 @@ class TestSpecDrivenRequest:
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_execute_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,
+                mock_execute_response,
+            ]
 
             await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -901,9 +922,11 @@ class TestSpecDrivenRequest:
                 token_bundle=TEST_TOKEN_BUNDLE,
             )
 
-            # Verify correct URL was called
-            call_args = mock_post.call_args
-            assert "/custom/execute" in call_args.args[0]
+            # Verify correct URL was called (find POST call)
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 1
+            call_args = post_calls[0]
+            assert "/custom/execute" in call_args.args[1]
 
     @pytest.mark.asyncio
     async def test_execute_falls_back_to_webhook_when_primary_is_execute(self):
@@ -924,14 +947,15 @@ class TestSpecDrivenRequest:
         mock_webhook_success_response.status_code = 200
         mock_webhook_success_response.json.return_value = {"output": "via-webhook"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = [mock_404_response, mock_webhook_success_response]
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            # Health + 2 execute calls (404 then 200)
+            mock_request.side_effect = [
+                mock_health_response,
+                mock_404_response,
+                mock_webhook_success_response,
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -941,9 +965,12 @@ class TestSpecDrivenRequest:
             )
 
             assert result.success is True
-            assert mock_post.call_count == 2
-            first_url = mock_post.call_args_list[0].args[0]
-            second_url = mock_post.call_args_list[1].args[0]
+            # 1 health + 2 execute = 3 calls
+            assert mock_request.call_count == 3
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 2
+            first_url = post_calls[0].args[1]
+            second_url = post_calls[1].args[1]
             assert first_url.endswith("/execute")
             assert second_url.endswith("/webhook")
 
@@ -966,14 +993,15 @@ class TestSpecDrivenRequest:
         mock_execute_success_response.status_code = 200
         mock_execute_success_response.json.return_value = {"output": "via-execute"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.side_effect = [mock_404_response, mock_execute_success_response]
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            # Health + 2 execute calls (404 then 200)
+            mock_request.side_effect = [
+                mock_health_response,
+                mock_404_response,
+                mock_execute_success_response,
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -983,9 +1011,12 @@ class TestSpecDrivenRequest:
             )
 
             assert result.success is True
-            assert mock_post.call_count == 2
-            first_url = mock_post.call_args_list[0].args[0]
-            second_url = mock_post.call_args_list[1].args[0]
+            # 1 health + 2 execute = 3 calls
+            assert mock_request.call_count == 3
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 2
+            first_url = post_calls[0].args[1]
+            second_url = post_calls[1].args[1]
             assert first_url.endswith("/webhook")
             assert second_url.endswith("/execute")
 
@@ -1006,14 +1037,13 @@ class TestSpecDrivenRequest:
         mock_webhook_success_response.status_code = 200
         mock_webhook_success_response.json.return_value = {"output": "ok"}
 
-        with (
-            patch.object(httpx.AsyncClient, "get", new_callable=AsyncMock) as mock_get,
-            patch.object(
-                httpx.AsyncClient, "post", new_callable=AsyncMock
-            ) as mock_post,
-        ):
-            mock_get.return_value = mock_health_response
-            mock_post.return_value = mock_webhook_success_response
+        with patch.object(
+            httpx.AsyncClient, "request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [
+                mock_health_response,
+                mock_webhook_success_response,
+            ]
 
             result = await service.execute(
                 sandbox_url=SANDBOX_URL,
@@ -1023,5 +1053,8 @@ class TestSpecDrivenRequest:
             )
 
             assert result.success is True
-            assert mock_post.call_count == 1
-            assert mock_post.call_args.args[0].endswith("/webhook")
+            # 1 health + 1 execute = 2 calls
+            assert mock_request.call_count == 2
+            post_calls = [c for c in mock_request.call_args_list if c.args[0] == "POST"]
+            assert len(post_calls) == 1
+            assert post_calls[0].args[1].endswith("/webhook")
