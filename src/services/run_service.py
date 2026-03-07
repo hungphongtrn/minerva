@@ -967,6 +967,17 @@ class RunService:
         continuity_key = session_id if session_id else run_id
         return f"minerva:{workspace_id}:{pack_scope}:{continuity_key}"
 
+    def _create_gateway_service(self) -> ZeroclawGatewayService:
+        """Factory method to create ZeroclawGatewayService instance.
+
+        This factory enables testability by allowing tests to override
+        the gateway service creation and inject mocks.
+
+        Returns:
+            ZeroclawGatewayService instance
+        """
+        return ZeroclawGatewayService()
+
     async def _execute_via_gateway(
         self,
         routing: RunRoutingResult,
@@ -1079,7 +1090,7 @@ class RunService:
                 )
 
             # Execute via Zeroclaw gateway
-            gateway_service = ZeroclawGatewayService()
+            gateway_service = self._create_gateway_service()
 
             result = await gateway_service.execute(
                 sandbox_url=sandbox_url,
