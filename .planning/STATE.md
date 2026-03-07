@@ -8,7 +8,7 @@ See: .planning/PROJECT.md
 
 **Milestone:** v1.0 milestone
 **Current phase:** 03.5-rewrite-orchestrator-per-zeroclaw-gateway-api-and-integration-plan-docs
-**Current plan:** 02
+**Current plan:** 04
 **Status:** In Progress
 
 ## Completed Plans
@@ -24,6 +24,13 @@ See: .planning/PROJECT.md
   - Commits: 0c224df, 60992aa
   - Duration: 10 min
   - Artifacts: Grace-token fallback on 401/403, 15 new tests, 52 total tests passing
+
+- [x] Plan 03: *(skipped - not present in phase directory)*
+
+- [x] Plan 04: Add Event Streaming Bridge Mapping
+  - Commits: d30051f, 96704ac, 5b77e4c
+  - Duration: 3 min
+  - Artifacts: ZeroClaw upstream event mapping helper, /runs event streaming integration, 29 unit tests
 
 ### Phase 03.4: Picoclaw Bridge Gateway Audit and ZeroClaw Migration
 
@@ -184,6 +191,7 @@ See: .planning/PROJECT.md
 
 ## Session Log
 
+- 2026-03-07: Completed plan 03.5-04 (Add Event Streaming Bridge Mapping) - Implemented ZeroClaw upstream event to OSS SSE mapping helper, wired /runs to emit mapped events, added 29 comprehensive unit tests. Bridge is forward-compatible with future streaming mode enablement.
 - 2026-03-07: Completed plan 03.5-02 (Implement Token-Grace-Fallback in Gateway Client) - Added one-time grace-token retry on 401/403 for health and execute. 15 new tests, 52 total tests passing.
 - 2026-03-07: Completed plan 03.5-01 (Fix Sandbox Token Lifecycle and Config) - Aligned provision-time token with persisted token to prevent AUTH_FAILED cascades. 5 regression tests added.
 - 2026-03-06: Completed quick task 004 - Comprehensive testing report following DEV-WORKFLOW.md. Documented 30+ test failures, performance issues (15-20min runtime), and 6 documentation/code mismatches. Report at: .planning/quick/4-create-a-comprehensive-testing-following/4-TESTING-REPORT.md
@@ -206,5 +214,5 @@ See: .planning/PROJECT.md
 
 ## Last Session
 
-- **Stopped at:** Completed plan 03.5-02: Implement Token-Grace-Fallback in Gateway Client
+- **Stopped at:** Completed plan 03.5-04: Add Event Streaming Bridge Mapping
 - **Resume file:** None
