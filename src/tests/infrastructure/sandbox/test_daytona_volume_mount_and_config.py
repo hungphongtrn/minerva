@@ -240,10 +240,10 @@ class TestIdentityFileVerification:
 
             # Verify get_file_info was called for each required file
             expected_calls = [
-                "/home/daytona/workspace/AGENT.md",
-                "/home/daytona/workspace/SOUL.md",
-                "/home/daytona/workspace/IDENTITY.md",
-                "/home/daytona/workspace/skills",
+                "/workspace/AGENT.md",
+                "/workspace/SOUL.md",
+                "/workspace/IDENTITY.md",
+                "/workspace/skills",
             ]
             actual_calls = [
                 call[0][0] for call in mock_sandbox.fs.get_file_info.call_args_list

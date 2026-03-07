@@ -332,6 +332,58 @@ class DaytonaSandboxProvider:
             "stderr": stderr,
         }
 
+    async def _best_effort_stop_failed_sandbox(
+        self,
+        daytona: AsyncDaytona,
+        sandbox: Any,
+    ) -> None:
+        """Attempt to stop a partially provisioned sandbox.
+
+        Cleanup is best-effort and must never mask the original provisioning error.
+        """
+        try:
+            await self._maybe_await(daytona.stop(sandbox, timeout=60))
+        except Exception:
+            return
+
+    async def _best_effort_cleanup_failed_create(
+        self,
+        daytona: AsyncDaytona,
+        config: SandboxConfig,
+    ) -> None:
+        """Cleanup provider-side ERROR sandboxes left by failed create attempts."""
+        try:
+            listed = await self._maybe_await(daytona.list())
+        except Exception:
+            return
+
+        items = getattr(listed, "items", None) or []
+        workspace_id = str(config.workspace_id)
+
+        for candidate in items:
+            labels = getattr(candidate, "labels", None) or {}
+            if labels.get("workspace_id") != workspace_id:
+                continue
+            if config.external_user_id and labels.get("external_user_id") != str(
+                config.external_user_id
+            ):
+                continue
+            if getattr(candidate, "snapshot", None) != self._snapshot_name:
+                continue
+
+            state = getattr(candidate, "state", None)
+            state_val = (getattr(state, "value", None) or str(state)).strip().lower()
+            if state_val != "error":
+                continue
+
+            try:
+                await self._maybe_await(daytona.delete(candidate, timeout=60))
+            except Exception:
+                try:
+                    await self._maybe_await(daytona.stop(candidate, timeout=60))
+                except Exception:
+                    continue
+
     async def verify_identity_files(
         self,
         sandbox_id: str,
@@ -854,13 +906,13 @@ class DaytonaSandboxProvider:
     async def _create_workspace_symlinks(self, sandbox) -> None:
         """Create workspace directory and symlink identity files from pack volume.
 
-        Creates /home/daytona/workspace/ and symlinks:
+        Creates /workspace/ and symlinks:
         - AGENT.md, SOUL.md, IDENTITY.md (files)
         - skills/ (directory)
         from /workspace/pack/ into the workspace directory.
 
         This implements mount isolation: pack volume (read-only, shared) is mounted
-        at /workspace/pack, while dynamic runtime data lives at /home/daytona/workspace.
+        at /workspace/pack, while dynamic runtime data lives at /workspace.
         Identity files are symlinked to make them accessible from the workspace.
         """
 
@@ -1247,10 +1299,14 @@ class DaytonaSandboxProvider:
 
         # Pack binding: track pack info if provided
         pack_bound = config.pack_source_path is not None
+        daytona_client: Optional[AsyncDaytona] = None
+        sandbox: Optional[Any] = None
+        sandbox_id = ref
 
         try:
             daytona_config = self._create_config()
             async with AsyncDaytona(config=daytona_config) as daytona:
+                daytona_client = daytona
                 pack_volume_id = None
                 if pack_bound and config.agent_pack_id and config.pack_digest:
                     pack_volume_id = await self._ensure_pack_volume_id(
@@ -1284,7 +1340,6 @@ class DaytonaSandboxProvider:
                     ) from e
 
                 # Get the actual sandbox ID from the response
-                sandbox_id = ref
                 if hasattr(sandbox, "id"):
                     sandbox_id = sandbox.id
 
@@ -1293,7 +1348,7 @@ class DaytonaSandboxProvider:
                 await self._create_workspace_symlinks(sandbox)
 
                 # Verify identity files are mounted at workspace path (hard gate)
-                # This confirms symlinks work: files accessible at /home/daytona/workspace/...
+                # This confirms symlinks work at the configured workspace path.
                 identity_result = await self.verify_identity_files(
                     sandbox_id,
                     timeout=self.IDENTITY_VERIFY_TIMEOUT_SECONDS,
@@ -1414,14 +1469,30 @@ class DaytonaSandboxProvider:
                 )
 
         except SandboxIdentityError:
+            if sandbox is not None and daytona_client is not None:
+                await self._best_effort_stop_failed_sandbox(daytona_client, sandbox)
             raise
         except DaytonaError as e:
+            if daytona_client is not None:
+                if sandbox is not None:
+                    await self._best_effort_stop_failed_sandbox(daytona_client, sandbox)
+                else:
+                    await self._best_effort_cleanup_failed_create(
+                        daytona_client, config
+                    )
             raise SandboxProvisionError(
                 f"Failed to provision Daytona sandbox: {e}",
                 provider_ref=ref,
                 workspace_id=config.workspace_id,
             )
         except Exception as e:
+            if daytona_client is not None:
+                if sandbox is not None:
+                    await self._best_effort_stop_failed_sandbox(daytona_client, sandbox)
+                else:
+                    await self._best_effort_cleanup_failed_create(
+                        daytona_client, config
+                    )
             raise SandboxProvisionError(
                 f"Unexpected error provisioning Daytona sandbox: {e}",
                 provider_ref=ref,

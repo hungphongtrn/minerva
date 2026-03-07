@@ -18,7 +18,7 @@ from uuid import UUID
 PACK_MOUNT_PATH: str = "/workspace/pack"
 """Static, read-only pack volume mount point. Contains identity files and skills."""
 
-WORKSPACE_PATH: str = "/home/daytona/workspace"
+WORKSPACE_PATH: str = "/workspace"
 """Dynamic, writable per-sandbox workspace. Contains runtime data (memory/, sessions/, etc.)."""
 
 CONFIG_PATH: str = "/home/daytona/.picoclaw/config.json"

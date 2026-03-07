@@ -154,6 +154,7 @@ See: .planning/PROJECT.md
 
 ### Roadmap Evolution
 
+- Phase 03.5 inserted after Phase 03.4: Rewrite orchestrator per ZeroClaw Gateway API and integration plan docs (URGENT)
 - Phase 03.4 inserted after Phase 3: Picoclaw bridge gateway audit and Zeroclaw migration (URGENT)
 - Phase 03.3 inserted after Phase 3.2: Close pack-mount isolation and identity-collision gaps (URGENT)
 

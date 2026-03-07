@@ -148,6 +148,15 @@ Plans:
 - [ ] 03.4-04-implement-zeroclaw-integration-and-cutover-PLAN.md — Implement Zeroclaw integration and big-bang cutover (conditional on audit/spec).
 - [ ] 03.4-05-remove-picoclaw-integration-and-rename-config-PLAN.md — Delete Picoclaw artifacts and rename config/env/docs to Zeroclaw (conditional on migration).
 
+### Phase 03.5: Rewrite orchestrator per ZeroClaw Gateway API and integration plan docs (INSERTED)
+
+**Goal:** Rewrite the orchestrator completely based on ZeroClaw Gateway API reference and integration plan documents to ensure proper alignment with the gateway's capabilities and integration patterns.
+**Depends on:** Phase 03.4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 03.5 to break down)
+
 ### Phase 3.1: Make Daytona Production-Ready for Picoclaw Gateway Execution (INSERTED)
 
 **Goal:** Daytona-backed `/runs` execution is production-hardened with authoritative gateway resolution, per-sandbox bridge token rotation, identity-first readiness, and bounded reprovision/hydration recovery while preserving orchestrator control-plane authority.

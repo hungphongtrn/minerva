@@ -1691,6 +1691,75 @@ class TestDaytonaFailClosedBehavior:
 
             assert "failed" in str(exc_info.value).lower()
 
+    @pytest.mark.asyncio
+    async def test_provision_cleans_up_failed_create_without_sandbox(self, provider):
+        """Create-time Daytona errors trigger best-effort failed-create cleanup."""
+        workspace_id = uuid4()
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            external_user_id="cleanup-user",
+        )
+
+        from daytona import DaytonaError
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(
+            side_effect=DaytonaError("Sandbox failed to start")
+        )
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            with patch.object(
+                provider,
+                "_best_effort_cleanup_failed_create",
+                new_callable=AsyncMock,
+            ) as cleanup_mock:
+                with pytest.raises(SandboxProvisionError):
+                    await provider.provision_sandbox(config)
+
+                cleanup_mock.assert_called_once_with(mock_daytona, config)
+
+    @pytest.mark.asyncio
+    async def test_provision_stops_partial_sandbox_on_post_create_failure(
+        self, provider
+    ):
+        """Post-create failures trigger best-effort sandbox stop cleanup."""
+        workspace_id = uuid4()
+        config = SandboxConfig(workspace_id=workspace_id)
+
+        mock_sandbox = MagicMock()
+        mock_sandbox.id = "sandbox-partial"
+        mock_sandbox.state = "started"
+
+        mock_daytona = AsyncMock()
+        mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+        mock_daytona.stop = AsyncMock()
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            with patch.object(
+                provider,
+                "_create_workspace_symlinks",
+                new_callable=AsyncMock,
+                side_effect=SandboxProvisionError("workspace setup failed"),
+            ):
+                with pytest.raises(SandboxProvisionError):
+                    await provider.provision_sandbox(config)
+
+        mock_daytona.stop.assert_called_once_with(mock_sandbox, timeout=60)
+
 
 class TestPicoclawConfigGeneration:
     """Test Picoclaw config generation for bridge-only channels."""

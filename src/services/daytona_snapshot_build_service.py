@@ -17,7 +17,7 @@ Environment variables:
 """
 
 import os
-import shutil
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -158,26 +158,93 @@ class DaytonaSnapshotBuildService:
         Returns:
             Daytona Image configured from the Dockerfile
         """
-        # Check common locations for Dockerfile
-        dockerfile_path = repo_dir / "Dockerfile"
-        if not dockerfile_path.exists():
-            # Try docker/Dockerfile (common pattern)
-            alt_dockerfile = repo_dir / "docker" / "Dockerfile"
-            if alt_dockerfile.exists():
-                # Copy Dockerfile to root so context is correct
-                shutil.copy2(alt_dockerfile, dockerfile_path)
+        dockerfile_candidates = [
+            repo_dir / "picoclaw" / "Dockerfile",
+            repo_dir / "Dockerfile",
+            repo_dir / "docker" / "Dockerfile",
+        ]
+        dockerfile_path = next(
+            (candidate for candidate in dockerfile_candidates if candidate.exists()),
+            None,
+        )
 
-        if not dockerfile_path.exists():
+        if dockerfile_path is None:
             raise SnapshotBuildError(
-                f"Dockerfile not found in root or docker/ directory of {self.repo_url}",
+                "Dockerfile not found in picoclaw/, root, or docker/ directory "
+                f"of {self.repo_url}",
                 remediation="Ensure PICOCLAW_REPO_URL points to a valid Picoclaw repository with a Dockerfile",
             )
 
-        # Use from_dockerfile for self-contained Dockerfiles
-        # Daytona will handle the build context automatically
+        self._normalize_dockerfile_for_builder(dockerfile_path)
+        self._ensure_rust_toolchain_file(repo_dir, dockerfile_path)
+
+        # Use repository Dockerfile path as-is to preserve monorepo-relative
+        # COPY/ADD semantics and avoid accidental path breakage.
         image = Image.from_dockerfile(str(dockerfile_path))
 
         return image
+
+    def _ensure_rust_toolchain_file(
+        self, repo_dir: Path, dockerfile_path: Path
+    ) -> None:
+        """Synthesize rust-toolchain.toml when Dockerfile expects it.
+
+        Some runtime repos copy `rust-toolchain.toml` in Dockerfile but only
+        declare Rust version in Cargo.toml. For those repos, create a minimal
+        toolchain file in build context so snapshot builds remain deterministic.
+        """
+        try:
+            dockerfile_text = dockerfile_path.read_text(encoding="utf-8")
+        except OSError:
+            return
+
+        if "rust-toolchain.toml" not in dockerfile_text:
+            return
+
+        build_context = dockerfile_path.parent
+        toolchain_path = build_context / "rust-toolchain.toml"
+        if toolchain_path.exists():
+            return
+
+        cargo_candidates = [build_context / "Cargo.toml", repo_dir / "Cargo.toml"]
+        cargo_text = ""
+        for candidate in cargo_candidates:
+            if candidate.exists():
+                try:
+                    cargo_text = candidate.read_text(encoding="utf-8")
+                    break
+                except OSError:
+                    continue
+
+        channel = "stable"
+        match = re.search(
+            r"^\s*rust-version\s*=\s*\"([^\"]+)\"", cargo_text, re.MULTILINE
+        )
+        if match:
+            channel = match.group(1).strip()
+
+        toolchain_path.write_text(
+            f'[toolchain]\nchannel = "{channel}"\n',
+            encoding="utf-8",
+        )
+
+    def _normalize_dockerfile_for_builder(self, dockerfile_path: Path) -> None:
+        """Remove BuildKit-only cache mounts for broader builder compatibility."""
+        try:
+            dockerfile_text = dockerfile_path.read_text(encoding="utf-8")
+        except OSError:
+            return
+
+        if "--mount=type=cache" not in dockerfile_text:
+            return
+
+        normalized = re.sub(
+            r"\s*--mount=type=cache,[^\\\n]*(?:\\\n)?",
+            " ",
+            dockerfile_text,
+        )
+        if normalized != dockerfile_text:
+            dockerfile_path.write_text(normalized, encoding="utf-8")
 
     async def build_snapshot(
         self,
@@ -209,17 +276,62 @@ class DaytonaSnapshotBuildService:
             async with AsyncDaytona() as daytona:
                 try:
                     existing_snapshot = await daytona.snapshot.get(self.snapshot_name)
-                    # Snapshot exists - reuse it
-                    if on_logs:
-                        on_logs(
-                            f"Snapshot '{self.snapshot_name}' already exists; reusing\n"
+                    existing_state = getattr(existing_snapshot, "state", None)
+                    existing_state_val = (
+                        (getattr(existing_state, "value", None) or str(existing_state))
+                        .strip()
+                        .lower()
+                    )
+
+                    # Snapshot exists and is active - reuse it
+                    if existing_state_val == "active":
+                        if on_logs:
+                            on_logs(
+                                f"Snapshot '{self.snapshot_name}' already exists; reusing\n"
+                            )
+
+                        return SnapshotBuildResult(
+                            success=True,
+                            snapshot_name=self.snapshot_name,
+                            reused=True,
                         )
 
-                    return SnapshotBuildResult(
-                        success=True,
-                        snapshot_name=self.snapshot_name,
-                        reused=True,
-                    )
+                    # Snapshot exists but is not reusable.
+                    # If it's failed/error, best-effort delete and recreate.
+                    if existing_state_val in {"error", "failed"}:
+                        if on_logs:
+                            on_logs(
+                                f"Snapshot '{self.snapshot_name}' exists in state "
+                                f"'{existing_state_val}'; deleting and rebuilding\n"
+                            )
+                        try:
+                            await daytona.snapshot.delete(existing_snapshot)
+                        except DaytonaError as delete_error:
+                            return SnapshotBuildResult(
+                                success=False,
+                                snapshot_name=self.snapshot_name,
+                                error_message=(
+                                    "Failed to delete invalid existing snapshot "
+                                    f"'{self.snapshot_name}': {delete_error}"
+                                ),
+                                remediation=(
+                                    "Delete the snapshot manually in Daytona, then rerun "
+                                    "`minerva snapshot build`."
+                                ),
+                            )
+                    else:
+                        return SnapshotBuildResult(
+                            success=False,
+                            snapshot_name=self.snapshot_name,
+                            error_message=(
+                                f"Snapshot '{self.snapshot_name}' exists in state "
+                                f"'{existing_state_val or 'unknown'}' and cannot be reused"
+                            ),
+                            remediation=(
+                                "Wait for the snapshot build to finish or choose a different "
+                                "snapshot name."
+                            ),
+                        )
                 except DaytonaError as e:
                     # Check if this is a "not found" error vs auth/permission error
                     error_str = str(e).lower()

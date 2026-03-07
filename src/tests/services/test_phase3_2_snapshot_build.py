@@ -357,6 +357,68 @@ class TestDaytonaSnapshotBuildService:
             assert image is not None
             mock_image.from_dockerfile.assert_called_once_with(str(dockerfile))
 
+    def test_build_image_prefers_picoclaw_subdir_dockerfile(self, tmp_path):
+        """Image build prefers picoclaw/Dockerfile when available."""
+        root_dockerfile = tmp_path / "Dockerfile"
+        root_dockerfile.write_text("FROM alpine:3.23\n")
+
+        picoclaw_dir = tmp_path / "picoclaw"
+        picoclaw_dir.mkdir()
+        picoclaw_dockerfile = picoclaw_dir / "Dockerfile"
+        picoclaw_dockerfile.write_text("FROM alpine:3.23\n")
+
+        service = DaytonaSnapshotBuildService()
+
+        with patch("src.services.daytona_snapshot_build_service.Image") as mock_image:
+            mock_image.from_dockerfile.return_value = MagicMock()
+
+            service._build_image(tmp_path)
+
+            mock_image.from_dockerfile.assert_called_once_with(str(picoclaw_dockerfile))
+
+    def test_build_image_creates_missing_rust_toolchain_file(self, tmp_path):
+        """Image build synthesizes rust-toolchain.toml when Dockerfile expects it."""
+        dockerfile = tmp_path / "Dockerfile"
+        dockerfile.write_text(
+            "COPY Cargo.toml Cargo.lock rust-toolchain.toml ./\n",
+            encoding="utf-8",
+        )
+        cargo_toml = tmp_path / "Cargo.toml"
+        cargo_toml.write_text(
+            '[package]\nname = "demo"\nversion = "0.1.0"\nrust-version = "1.91"\n',
+            encoding="utf-8",
+        )
+        (tmp_path / "Cargo.lock").write_text("", encoding="utf-8")
+
+        service = DaytonaSnapshotBuildService()
+
+        with patch("src.services.daytona_snapshot_build_service.Image") as mock_image:
+            mock_image.from_dockerfile.return_value = MagicMock()
+
+            service._build_image(tmp_path)
+
+        toolchain_file = tmp_path / "rust-toolchain.toml"
+        assert toolchain_file.exists()
+        assert 'channel = "1.91"' in toolchain_file.read_text(encoding="utf-8")
+
+    def test_build_image_normalizes_buildkit_mounts(self, tmp_path):
+        """Image build strips BuildKit cache mount directives when present."""
+        dockerfile = tmp_path / "Dockerfile"
+        dockerfile.write_text(
+            "RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \\\n+    apt-get update\n",
+            encoding="utf-8",
+        )
+
+        service = DaytonaSnapshotBuildService()
+
+        with patch("src.services.daytona_snapshot_build_service.Image") as mock_image:
+            mock_image.from_dockerfile.return_value = MagicMock()
+
+            service._build_image(tmp_path)
+
+        normalized = dockerfile.read_text(encoding="utf-8")
+        assert "--mount=type=cache" not in normalized
+
     @pytest.mark.asyncio
     async def test_build_snapshot_success(self):
         """Full snapshot build succeeds."""
@@ -578,6 +640,7 @@ class TestDaytonaSnapshotBuildService:
             # Mock get to succeed (snapshot exists)
             mock_snapshot = MagicMock()
             mock_snapshot.name = "existing-snapshot"
+            mock_snapshot.state = "active"
             mock_daytona_instance.snapshot.get = AsyncMock(return_value=mock_snapshot)
             mock_daytona_instance.snapshot.create = AsyncMock()
             mock_daytona.return_value = mock_daytona_instance
@@ -594,6 +657,49 @@ class TestDaytonaSnapshotBuildService:
         mock_daytona_instance.snapshot.create.assert_not_called()
         # Verify snapshot.get was called with correct name
         mock_daytona_instance.snapshot.get.assert_called_once_with("existing-snapshot")
+
+    @pytest.mark.asyncio
+    async def test_build_snapshot_recreates_when_existing_is_error(self):
+        """Snapshot build deletes errored snapshot and recreates it."""
+        from daytona import DaytonaError, Image
+
+        service = DaytonaSnapshotBuildService(
+            repo_url="https://github.com/example/picoclaw",
+            repo_ref="main",
+            snapshot_name="errored-snapshot",
+        )
+
+        mock_image = Image.base("alpine:3.23")
+
+        with patch.object(service, "_clone_repo"):
+            with patch.object(service, "_build_image", return_value=mock_image):
+                with patch(
+                    "src.services.daytona_snapshot_build_service.AsyncDaytona"
+                ) as mock_daytona:
+                    mock_daytona_instance = AsyncMock()
+                    mock_daytona_instance.__aenter__ = AsyncMock(
+                        return_value=mock_daytona_instance
+                    )
+                    mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
+                    mock_daytona_instance.snapshot = AsyncMock()
+
+                    mock_snapshot = MagicMock()
+                    mock_snapshot.name = "errored-snapshot"
+                    mock_snapshot.state = "error"
+
+                    mock_daytona_instance.snapshot.get = AsyncMock(
+                        return_value=mock_snapshot
+                    )
+                    mock_daytona_instance.snapshot.delete = AsyncMock()
+                    mock_daytona_instance.snapshot.create = AsyncMock()
+                    mock_daytona.return_value = mock_daytona_instance
+
+                    result = await service.build_snapshot()
+
+        assert result.success is True
+        assert result.reused is False
+        mock_daytona_instance.snapshot.delete.assert_called_once_with(mock_snapshot)
+        mock_daytona_instance.snapshot.create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_build_snapshot_creates_when_missing(self):
