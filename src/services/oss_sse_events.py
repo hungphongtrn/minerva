@@ -11,11 +11,12 @@ import json
 import time
 from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 class OssEventType(str, Enum):
     """Event types for OSS SSE streaming."""
+
     # Lifecycle events
     QUEUED = "queued"
     PROVISIONING = "provisioning"
@@ -48,6 +49,7 @@ class OssSseEvent:
     - Extensible via data field
     - Compatible with SSE protocol
     """
+
     id: str
     type: str  # OssEventType value
     ts: float
@@ -63,11 +65,13 @@ class OssSseEvent:
         return {
             "id": self.id,
             "event": self.type,
-            "data": json.dumps({
-                "ts": self.ts,
-                "run_id": self.run_id,
-                "data": self.data,
-            }),
+            "data": json.dumps(
+                {
+                    "ts": self.ts,
+                    "run_id": self.run_id,
+                    "data": self.data,
+                }
+            ),
         }
 
     def to_sse_lines(self) -> str:
@@ -77,15 +81,19 @@ class OssSseEvent:
             SSE formatted string (id:, event:, data: lines)
         """
         # Handle both enum and string types
-        event_type = self.type.value if hasattr(self.type, 'value') else self.type
+        event_type = self.type.value if hasattr(self.type, "value") else self.type
         lines = [
             f"id: {self.id}",
             f"event: {event_type}",
-            f"data: {json.dumps({
-                'ts': self.ts,
-                'run_id': self.run_id,
-                'data': self.data,
-            })}",
+            f"data: {
+                json.dumps(
+                    {
+                        'ts': self.ts,
+                        'run_id': self.run_id,
+                        'data': self.data,
+                    }
+                )
+            }",
             "",  # Empty line terminates event
             "",  # Extra empty line for SSE protocol
         ]
@@ -136,7 +144,9 @@ class OssSseEventBuilder:
             data=data,
         )
 
-    def provisioning(self, step: str, message: Optional[str] = None, **extra) -> OssSseEvent:
+    def provisioning(
+        self, step: str, message: Optional[str] = None, **extra
+    ) -> OssSseEvent:
         """Create provisioning status event.
 
         Args:
@@ -196,7 +206,9 @@ class OssSseEventBuilder:
             data=extra,
         )
 
-    def failed(self, error: str, error_category: Optional[str] = None, **extra) -> OssSseEvent:
+    def failed(
+        self, error: str, error_category: Optional[str] = None, **extra
+    ) -> OssSseEvent:
         """Create failed event.
 
         Args:
@@ -238,7 +250,9 @@ class OssSseEventBuilder:
             data=data,
         )
 
-    def tool_call(self, tool_id: str, name: str, arguments: Dict[str, Any], **extra) -> OssSseEvent:
+    def tool_call(
+        self, tool_id: str, name: str, arguments: Dict[str, Any], **extra
+    ) -> OssSseEvent:
         """Create tool_call event.
 
         Args:
@@ -322,7 +336,7 @@ class OssSseEventBuilder:
         message: str,
         category: str = "agent_error",
         retryable: bool = False,
-        **extra
+        **extra,
     ) -> OssSseEvent:
         """Create error event (non-terminal).
 
@@ -350,7 +364,142 @@ class OssSseEventBuilder:
         )
 
 
-def sanitize_error_for_user(error: Union[str, Exception, Dict[str, Any]], category: str = "agent_error") -> Dict[str, str]:
+def map_zeroclaw_event_to_oss_event(
+    builder: OssSseEventBuilder, upstream: Dict[str, Any]
+) -> Optional[OssSseEvent]:
+    """Map a ZeroClaw upstream runtime event to an OSS SSE event.
+
+    Translates ZeroClaw runtime event types into Minerva's stable OSS event
+    envelope. Unknown event types are safely ignored (returns None).
+    Missing keys do not raise exceptions.
+
+    Supported upstream event types:
+    - message.delta, message -> OssEventType.MESSAGE
+    - tool.call -> OssEventType.TOOL_CALL
+    - tool.result -> OssEventType.TOOL_RESULT
+    - ui.patch -> OssEventType.UI_PATCH
+    - state.update -> OssEventType.STATE_UPDATE
+    - error -> OssEventType.ERROR
+    - completed -> OssEventType.COMPLETED
+    - failed -> OssEventType.FAILED
+
+    Args:
+        builder: OssSseEventBuilder for creating typed events
+        upstream: Upstream event dict with 'type' and 'data' keys
+
+    Returns:
+        OssSseEvent if the event type is recognized and mapped, None otherwise
+    """
+    try:
+        event_type = upstream.get("type")
+        if not event_type or not isinstance(event_type, str):
+            return None
+
+        event_data = upstream.get("data", {})
+        if not isinstance(event_data, dict):
+            event_data = {}
+
+        # Message events (message.delta, message)
+        if event_type in ("message.delta", "message"):
+            content = event_data.get("content", "")
+            role = event_data.get("role", "assistant")
+            return builder.message(
+                role=role,
+                content=content,
+                **{k: v for k, v in event_data.items() if k not in ("content", "role")},
+            )
+
+        # Tool call events
+        if event_type == "tool.call":
+            tool_id = event_data.get("tool_id", "")
+            name = event_data.get("name", "")
+            arguments = event_data.get("arguments", {})
+            return builder.tool_call(
+                tool_id=tool_id,
+                name=name,
+                arguments=arguments if isinstance(arguments, dict) else {},
+                **{
+                    k: v
+                    for k, v in event_data.items()
+                    if k not in ("tool_id", "name", "arguments")
+                },
+            )
+
+        # Tool result events
+        if event_type == "tool.result":
+            tool_id = event_data.get("tool_id", "")
+            result = event_data.get("result")
+            return builder.tool_result(
+                tool_id=tool_id,
+                result=result,
+                **{
+                    k: v
+                    for k, v in event_data.items()
+                    if k not in ("tool_id", "result")
+                },
+            )
+
+        # UI patch events
+        if event_type == "ui.patch":
+            patch = event_data.get("patch", {})
+            return builder.ui_patch(
+                patch=patch if isinstance(patch, dict) else {},
+                **{k: v for k, v in event_data.items() if k != "patch"},
+            )
+
+        # State update events
+        if event_type == "state.update":
+            state = event_data.get("state", {})
+            return builder.state_update(
+                state=state if isinstance(state, dict) else {},
+                **{k: v for k, v in event_data.items() if k != "state"},
+            )
+
+        # Error events (non-terminal)
+        if event_type == "error":
+            message = event_data.get("message", "Unknown error")
+            category = event_data.get("category", "agent_error")
+            retryable = event_data.get("retryable", False)
+            return builder.error(
+                message=message,
+                category=category,
+                retryable=retryable,
+                **{
+                    k: v
+                    for k, v in event_data.items()
+                    if k not in ("message", "category", "retryable")
+                },
+            )
+
+        # Terminal: completed
+        if event_type == "completed":
+            return builder.completed(**event_data)
+
+        # Terminal: failed
+        if event_type == "failed":
+            error_msg = event_data.get("error", "Run failed")
+            error_category = event_data.get("category", "agent_error")
+            return builder.failed(
+                error=error_msg,
+                error_category=error_category,
+                **{
+                    k: v
+                    for k, v in event_data.items()
+                    if k not in ("error", "category")
+                },
+            )
+
+        # Unknown event type - safely ignore
+        return None
+
+    except Exception:
+        # Never raise on missing keys or malformed data
+        return None
+
+
+def sanitize_error_for_user(
+    error: Union[str, Exception, Dict[str, Any]], category: str = "agent_error"
+) -> Dict[str, str]:
     """Sanitize internal error for end-user consumption.
 
     Removes sensitive information like:
@@ -380,25 +529,21 @@ def sanitize_error_for_user(error: Union[str, Exception, Dict[str, Any]], catego
     sensitive_patterns = [
         # Internal IDs (UUIDs) - must come before generic token regex
         (r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "[ID]"),
-
         # URLs with credentials
         (r"https?://[^:]+:[^@]+@", "https://[REDACTED]@"),
-
         # Bearer tokens (specific pattern)
         (r"bearer\s+\S+", "bearer [REDACTED]"),
-
         # API keys (specific pattern)
         (r"api[_-]?key[=:]\S+", "api_key=[REDACTED]"),
-
         # Generic token patterns (handle values with hyphens, underscores, etc.)
         (r"token[:=][\w\-]+", "token=[REDACTED]"),
-
         # Stack trace indicators
         (r"File \"[^\"]+\", line \d+", "[LOCATION]"),
         (r"Traceback \(most recent call last\)", "[TRACE]"),
     ]
 
     import re
+
     sanitized = message
     for pattern, replacement in sensitive_patterns:
         sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
