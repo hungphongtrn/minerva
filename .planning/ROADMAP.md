@@ -154,11 +154,11 @@ Plans:
 
 **Goal:** Rewrite the orchestrator completely based on ZeroClaw Gateway API reference and integration plan documents to ensure proper alignment with the gateway's capabilities and integration patterns.
 **Depends on:** Phase 03.4
-**Plans:** 4 plans (1/4 complete)
+**Plans:** 4 plans (2/4 complete)
 
 Plans:
 - [x] 03.5-01-fix-sandbox-token-lifecycle-and-config-PLAN.md — Make provision-time gateway token injection consistent with persisted sandbox tokens.
-- [ ] 03.5-02-implement-token-grace-fallback-in-gateway-client-PLAN.md — Add 401/403 grace-token retry for health+execute while keeping fail-closed semantics.
+- [x] 03.5-02-implement-token-grace-fallback-in-gateway-client-PLAN.md — Add 401/403 grace-token retry for health+execute while keeping fail-closed semantics.
 - [ ] 03.5-03-add-runservice-recovery-and-url-enforcement-tests-PLAN.md — Add regression tests for bounded recovery and authoritative gateway URL enforcement.
 - [ ] 03.5-04-add-event-streaming-bridge-mapping-PLAN.md — Map upstream ZeroClaw runtime events into OSS SSE envelope and wire /runs to emit them.
 
@@ -293,7 +293,7 @@ flowchart TD
 | 03.2 - OSS Agent Server MVP | Complete | 100% |
 | 03.3 - Close pack-mount isolation and identity-collision gaps | Complete | 100% |
 | 03.4 - Picoclaw bridge gateway audit and Zeroclaw migration | Complete | 100% |
-| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | In Progress | 25% |
+| 03.5 - Rewrite orchestrator per ZeroClaw Gateway API | In Progress | 50% |
 | 04 - Execution Orchestration and Fairness | Not Started | 0% |
 | 05 - Typed Event Streaming API | Not Started | 0% |
 
