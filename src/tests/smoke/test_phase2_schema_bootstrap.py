@@ -56,17 +56,13 @@ class TestPhase2SchemaBootstrap:
         ]
 
         for table in expected_tables:
-            assert table in table_names, (
-                f"Expected table '{table}' not found in database"
-            )
+            assert table in table_names, f"Expected table '{table}' not found in database"
 
     def test_workspace_leases_table_structure(self, db_session: Session):
         """Verify workspace_leases table has expected columns."""
         engine = get_engine()
         inspector = inspect(engine)
-        columns = {
-            col["name"]: col for col in inspector.get_columns("workspace_leases")
-        }
+        columns = {col["name"]: col for col in inspector.get_columns("workspace_leases")}
 
         expected_columns = [
             "id",
@@ -89,17 +85,13 @@ class TestPhase2SchemaBootstrap:
         # Verify foreign key to workspaces
         fks = inspector.get_foreign_keys("workspace_leases")
         workspace_fk = [fk for fk in fks if "workspace_id" in fk["constrained_columns"]]
-        assert len(workspace_fk) > 0, (
-            "Expected foreign key from workspace_leases to workspaces"
-        )
+        assert len(workspace_fk) > 0, "Expected foreign key from workspace_leases to workspaces"
 
     def test_sandbox_instances_table_structure(self, db_session: Session):
         """Verify sandbox_instances table has expected columns."""
         engine = get_engine()
         inspector = inspect(engine)
-        columns = {
-            col["name"]: col for col in inspector.get_columns("sandbox_instances")
-        }
+        columns = {col["name"]: col for col in inspector.get_columns("sandbox_instances")}
 
         expected_columns = [
             "id",
@@ -143,17 +135,13 @@ class TestPhase2SchemaBootstrap:
         ]
 
         for col_name in expected_columns:
-            assert col_name in columns, (
-                f"Expected column '{col_name}' not found in agent_packs"
-            )
+            assert col_name in columns, f"Expected column '{col_name}' not found in agent_packs"
 
     def test_agent_pack_revisions_table_structure(self, db_session: Session):
         """Verify agent_pack_revisions table has expected columns."""
         engine = get_engine()
         inspector = inspect(engine)
-        columns = {
-            col["name"]: col for col in inspector.get_columns("agent_pack_revisions")
-        }
+        columns = {col["name"]: col for col in inspector.get_columns("agent_pack_revisions")}
 
         expected_columns = [
             "id",
@@ -269,6 +257,4 @@ class TestPhase2SchemaBootstrap:
             SELECT typname FROM pg_type WHERE typname = 'agent_pack_validation_status'
         """)
         )
-        assert result.scalar() is not None, (
-            "Expected agent_pack_validation_status enum not found"
-        )
+        assert result.scalar() is not None, "Expected agent_pack_validation_status enum not found"

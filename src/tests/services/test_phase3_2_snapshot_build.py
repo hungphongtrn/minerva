@@ -123,9 +123,7 @@ class TestSnapshotBuildCLI:
 
     @patch("src.cli.commands.snapshot_build.asyncio.run")
     @patch("src.cli.commands.snapshot_build.DaytonaSnapshotBuildService")
-    def test_cli_uses_env_vars_when_args_not_provided(
-        self, mock_service_class, mock_run
-    ):
+    def test_cli_uses_env_vars_when_args_not_provided(self, mock_service_class, mock_run):
         """CLI uses env vars when CLI args are not provided."""
         import argparse
 
@@ -533,14 +531,10 @@ class TestDaytonaSnapshotBuildService:
             snapshot_name="test-snapshot",
         )
 
-        with patch(
-            "src.services.daytona_snapshot_build_service.AsyncDaytona"
-        ) as mock_daytona:
+        with patch("src.services.daytona_snapshot_build_service.AsyncDaytona") as mock_daytona:
             # Mock AsyncDaytona to raise permission error on get
             mock_daytona_instance = AsyncMock()
-            mock_daytona_instance.__aenter__ = AsyncMock(
-                return_value=mock_daytona_instance
-            )
+            mock_daytona_instance.__aenter__ = AsyncMock(return_value=mock_daytona_instance)
             mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
             mock_daytona_instance.snapshot = AsyncMock()
             mock_daytona_instance.snapshot.get = AsyncMock(
@@ -563,14 +557,10 @@ class TestDaytonaSnapshotBuildService:
             snapshot_name="test-snapshot",
         )
 
-        with patch(
-            "src.services.daytona_snapshot_build_service.AsyncDaytona"
-        ) as mock_daytona:
+        with patch("src.services.daytona_snapshot_build_service.AsyncDaytona") as mock_daytona:
             # Mock AsyncDaytona to raise unauthorized error on get
             mock_daytona_instance = AsyncMock()
-            mock_daytona_instance.__aenter__ = AsyncMock(
-                return_value=mock_daytona_instance
-            )
+            mock_daytona_instance.__aenter__ = AsyncMock(return_value=mock_daytona_instance)
             mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
             mock_daytona_instance.snapshot = AsyncMock()
             mock_daytona_instance.snapshot.get = AsyncMock(
@@ -650,14 +640,10 @@ class TestDaytonaSnapshotBuildService:
             snapshot_name="existing-snapshot",
         )
 
-        with patch(
-            "src.services.daytona_snapshot_build_service.AsyncDaytona"
-        ) as mock_daytona:
+        with patch("src.services.daytona_snapshot_build_service.AsyncDaytona") as mock_daytona:
             # Mock AsyncDaytona - snapshot exists
             mock_daytona_instance = AsyncMock()
-            mock_daytona_instance.__aenter__ = AsyncMock(
-                return_value=mock_daytona_instance
-            )
+            mock_daytona_instance.__aenter__ = AsyncMock(return_value=mock_daytona_instance)
             mock_daytona_instance.__aexit__ = AsyncMock(return_value=None)
             mock_daytona_instance.snapshot = AsyncMock()
             # Mock get to succeed (snapshot exists)
@@ -710,9 +696,7 @@ class TestDaytonaSnapshotBuildService:
                     mock_snapshot.name = "errored-snapshot"
                     mock_snapshot.state = "error"
 
-                    mock_daytona_instance.snapshot.get = AsyncMock(
-                        return_value=mock_snapshot
-                    )
+                    mock_daytona_instance.snapshot.get = AsyncMock(return_value=mock_snapshot)
                     mock_daytona_instance.snapshot.delete = AsyncMock()
                     mock_daytona_instance.snapshot.create = AsyncMock()
                     mock_daytona.return_value = mock_daytona_instance

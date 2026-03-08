@@ -170,9 +170,7 @@ class WorkspaceLeaseService:
                                         f"Lease acquired after recovering expired lease "
                                         f"for workspace {workspace_id}"
                                     ),
-                                    contention_waited_ms=elapsed_ms
-                                    if attempt > 1
-                                    else None,
+                                    contention_waited_ms=elapsed_ms if attempt > 1 else None,
                                 )
 
                     return LeaseAcquisitionResult(
@@ -208,9 +206,7 @@ class WorkspaceLeaseService:
                     # Store conflict info and wait before retry
 
                     # Sleep with exponential backoff
-                    sleep_seconds = min(
-                        retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0
-                    )
+                    sleep_seconds = min(retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0)
                     time.sleep(sleep_seconds)
                     retry_delay_ms = min(
                         int(retry_delay_ms * self.EXPONENTIAL_BACKOFF_FACTOR),
@@ -248,9 +244,7 @@ class WorkspaceLeaseService:
                     )
 
                 # Wait with exponential backoff before retry
-                sleep_seconds = min(
-                    retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0
-                )
+                sleep_seconds = min(retry_delay_ms / 1000.0, self.MAX_RETRY_DELAY_MS / 1000.0)
                 time.sleep(sleep_seconds)
                 retry_delay_ms = min(
                     int(retry_delay_ms * self.EXPONENTIAL_BACKOFF_FACTOR),
@@ -462,14 +456,12 @@ class WorkspaceLeaseService:
 
         if ttl_seconds < self.MIN_LEASE_TTL_SECONDS:
             raise ValueError(
-                f"TTL must be at least {self.MIN_LEASE_TTL_SECONDS} seconds, "
-                f"got {ttl_seconds}"
+                f"TTL must be at least {self.MIN_LEASE_TTL_SECONDS} seconds, got {ttl_seconds}"
             )
 
         if ttl_seconds > self.MAX_LEASE_TTL_SECONDS:
             raise ValueError(
-                f"TTL must be at most {self.MAX_LEASE_TTL_SECONDS} seconds, "
-                f"got {ttl_seconds}"
+                f"TTL must be at most {self.MAX_LEASE_TTL_SECONDS} seconds, got {ttl_seconds}"
             )
 
         return ttl_seconds

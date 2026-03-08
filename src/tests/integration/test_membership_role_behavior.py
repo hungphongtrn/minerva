@@ -122,9 +122,7 @@ class TestOwnerMemberDivergence:
         data = response.json()
         assert "detail" in data
         detail_str = str(data["detail"]).lower()
-        assert (
-            "member" in detail_str or "cannot" in detail_str or "denied" in detail_str
-        )
+        assert "member" in detail_str or "cannot" in detail_str or "denied" in detail_str
 
     def test_member_cannot_update_workspace_resource(
         self,

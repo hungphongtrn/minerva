@@ -108,9 +108,7 @@ class TestHealthGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [mock_401_response, mock_200_response]
 
             status = await service.check_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -144,9 +142,7 @@ class TestHealthGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [mock_403_response, mock_200_response]
 
             status = await service.check_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -164,9 +160,7 @@ class TestHealthGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_401_response
 
             status = await service.check_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -186,9 +180,7 @@ class TestHealthGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_401_response
 
             status = await service.check_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -208,9 +200,7 @@ class TestHealthGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_401_response
 
             status = await service.check_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -235,9 +225,7 @@ class TestHealthGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [mock_401_response, mock_200_response]
 
             status = await service.poll_health(SANDBOX_URL, token_bundle=token_bundle)
@@ -269,9 +257,7 @@ class TestExecuteGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"output": "success"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,  # health check
                 mock_401_response,  # execute with current token
@@ -318,9 +304,7 @@ class TestExecuteGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"output": "success"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_403_response,
@@ -354,9 +338,7 @@ class TestExecuteGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_401_response,
@@ -392,9 +374,7 @@ class TestExecuteGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_401_response,
@@ -430,9 +410,7 @@ class TestExecuteGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_401_response,  # current token fails
@@ -474,9 +452,7 @@ class TestExecuteGraceFallback:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"output": "success"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_401_response,
@@ -511,9 +487,7 @@ class TestExecuteGraceFallback:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_401_response,  # current token fails
@@ -553,9 +527,7 @@ class TestGraceFallbackEdgeCases:
         mock_200_response.status_code = 200
         mock_200_response.json.return_value = {"output": "success"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_200_response,
@@ -585,9 +557,7 @@ class TestGraceFallbackEdgeCases:
         mock_401_response = AsyncMock(spec=httpx.Response)
         mock_401_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_401_response
 
             result = await service.execute(

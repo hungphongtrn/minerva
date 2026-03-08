@@ -163,9 +163,7 @@ class AgentPackService:
             )
 
         # Check if pack already exists for this workspace+path
-        existing_pack = self._repository.get_by_workspace_and_path(
-            workspace_id, normalized_path
-        )
+        existing_pack = self._repository.get_by_workspace_and_path(workspace_id, normalized_path)
 
         try:
             if existing_pack:
@@ -173,9 +171,7 @@ class AgentPackService:
                 pack = self._update_existing_pack(existing_pack, name, report)
             else:
                 # Create new pack
-                pack = self._create_new_pack(
-                    workspace_id, name, normalized_path, report
-                )
+                pack = self._create_new_pack(workspace_id, name, normalized_path, report)
 
             return RegistrationResult(
                 success=True,

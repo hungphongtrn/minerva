@@ -9,7 +9,6 @@ Tests map directly to roadmap success criteria:
 6. SECU-01/02/03: Runtime policy enforces default-deny egress/tool/secret semantics
 """
 
-
 from fastapi.testclient import TestClient
 from fastapi import status
 
@@ -51,9 +50,7 @@ class TestApiKeyAuth:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert "Invalid API key" in response.json()["detail"]
 
-    def test_revoked_api_key_returns_401(
-        self, client: TestClient, revoked_headers: dict
-    ):
+    def test_revoked_api_key_returns_401(self, client: TestClient, revoked_headers: dict):
         """Success Criterion 1: Revoked API key fails authentication."""
         response = client.get("/api/v1/whoami", headers=revoked_headers)
 
@@ -442,9 +439,7 @@ class TestGuestMode:
         data = response.json()
         # Response should indicate guest/ephemeral nature
         assert data["is_guest"] is True
-        assert (
-            "ephemeral" in data["message"].lower() or "guest" in data["message"].lower()
-        )
+        assert "ephemeral" in data["message"].lower() or "guest" in data["message"].lower()
 
 
 # ============================================================================
@@ -715,9 +710,7 @@ class TestIntegrationFlows:
             "allowed_tools": ["safe_tool"],
         }
 
-        run_response = client.post(
-            "/api/v1/runs", json=run_request, headers=owner_headers
-        )
+        run_response = client.post("/api/v1/runs", json=run_request, headers=owner_headers)
         # Policy might deny based on allowed_hosts/allowed_tools, but request is valid
         # We just verify the request is processed (not a 401/403 auth error)
         assert run_response.status_code in [

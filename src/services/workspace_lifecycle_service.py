@@ -202,15 +202,13 @@ class WorkspaceLifecycleService:
                         lease_result=lease_result,
                         sandbox=None,
                         routing_result=None,
-                        error=lease_result.message
-                        if lease_result
-                        else "Lease acquisition failed",
+                        error=lease_result.message if lease_result else "Lease acquisition failed",
                         agent_pack_id=agent_pack_id,
                     )
 
             # Step 2.5: Resolve effective agent pack binding
-            effective_agent_pack_id = (
-                agent_pack_id or self._resolve_default_agent_pack_id(workspace.id)
+            effective_agent_pack_id = agent_pack_id or self._resolve_default_agent_pack_id(
+                workspace.id
             )
 
             # Step 3: Resolve sandbox target (with optional agent pack binding)
@@ -248,9 +246,7 @@ class WorkspaceLifecycleService:
     def _resolve_default_agent_pack_id(self, workspace_id: UUID) -> Optional[str]:
         """Resolve the default active+valid agent pack for a workspace."""
         pack_repo = AgentPackRepository(self._session)
-        packs = pack_repo.list_by_workspace(
-            workspace_id=workspace_id, include_inactive=False
-        )
+        packs = pack_repo.list_by_workspace(workspace_id=workspace_id, include_inactive=False)
 
         for pack in packs:
             if pack.validation_status == AgentPackValidationStatus.VALID:
@@ -278,9 +274,7 @@ class WorkspaceLifecycleService:
         from uuid import UUID
 
         # Get user ID from principal - try both 'id' and 'user_id' attributes
-        user_id_raw = getattr(principal, "user_id", None) or getattr(
-            principal, "id", None
-        )
+        user_id_raw = getattr(principal, "user_id", None) or getattr(principal, "id", None)
         if not user_id_raw:
             return None
 
@@ -294,9 +288,7 @@ class WorkspaceLifecycleService:
             user_id = user_id_raw
 
         # Look for existing workspace owned by user
-        workspace = (
-            self._session.query(Workspace).filter(Workspace.owner_id == user_id).first()
-        )
+        workspace = self._session.query(Workspace).filter(Workspace.owner_id == user_id).first()
 
         if workspace:
             return workspace
@@ -455,9 +447,7 @@ class WorkspaceLifecycleService:
         Returns:
             Workspace or None if not found.
         """
-        return (
-            self._session.query(Workspace).filter(Workspace.id == workspace_id).first()
-        )
+        return self._session.query(Workspace).filter(Workspace.id == workspace_id).first()
 
     async def get_or_create_workspace(
         self,

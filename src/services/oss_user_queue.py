@@ -16,6 +16,7 @@ from enum import Enum
 
 class IdempotencyStatus(Enum):
     """Status of an idempotent request."""
+
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -24,6 +25,7 @@ class IdempotencyStatus(Enum):
 @dataclass
 class IdempotencyEntry:
     """Entry in the idempotency cache."""
+
     status: IdempotencyStatus
     result: Optional[Any] = None
     error: Optional[str] = None
@@ -35,6 +37,7 @@ class IdempotencyEntry:
 @dataclass
 class OssQueueResult:
     """Result of queuing and executing a user request."""
+
     success: bool
     result: Optional[Any] = None
     error: Optional[str] = None
@@ -91,16 +94,17 @@ class OssUserQueue:
         """Remove expired entries for a user."""
         now = time.time()
         expired_keys = [
-            key for key, entry in self._idempotency_cache.items()
-            if key[0] == user_id and entry.completed_at
+            key
+            for key, entry in self._idempotency_cache.items()
+            if key[0] == user_id
+            and entry.completed_at
             and (now - entry.completed_at) > self._ttl_seconds
         ]
         for key in expired_keys:
             del self._idempotency_cache[key]
             # Remove from user's entry list
             self._entries_per_user[user_id] = [
-                (k, ts) for k, ts in self._entries_per_user[user_id]
-                if k != key[1]
+                (k, ts) for k, ts in self._entries_per_user[user_id] if k != key[1]
             ]
 
     def _enforce_max_entries(self, user_id: str) -> None:
@@ -247,10 +251,7 @@ class OssUserQueue:
         Returns:
             Dict with total, in_progress, completed, failed counts
         """
-        entries = [
-            entry for key, entry in self._idempotency_cache.items()
-            if key[0] == user_id
-        ]
+        entries = [entry for key, entry in self._idempotency_cache.items() if key[0] == user_id]
 
         return {
             "total": len(entries),
@@ -267,10 +268,7 @@ class OssUserQueue:
                      If None, clear all entries.
         """
         if user_id:
-            keys_to_remove = [
-                key for key in self._idempotency_cache.keys()
-                if key[0] == user_id
-            ]
+            keys_to_remove = [key for key in self._idempotency_cache.keys() if key[0] == user_id]
             for key in keys_to_remove:
                 del self._idempotency_cache[key]
             self._entries_per_user[user_id] = []

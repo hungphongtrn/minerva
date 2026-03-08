@@ -158,9 +158,7 @@ class TestEgressPolicyEnforcement:
         default_deny_secret_policy,
     ):
         """All requested egress URLs must be allowed."""
-        egress_policy = EgressPolicy(
-            allowed_hosts=["api.example.com", "api.trusted.com"]
-        )
+        egress_policy = EgressPolicy(allowed_hosts=["api.example.com", "api.trusted.com"])
 
         # All allowed
         result = run_service.execute_run(

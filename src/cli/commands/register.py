@@ -68,9 +68,7 @@ def _resolve_workspace_id(session, workspace_id_arg: Optional[str]) -> UUID:
         try:
             workspace_id = UUID(workspace_id_arg)
             # Verify workspace exists
-            workspace = (
-                session.query(Workspace).filter(Workspace.id == workspace_id).first()
-            )
+            workspace = session.query(Workspace).filter(Workspace.id == workspace_id).first()
             if not workspace:
                 raise ValueError(f"Workspace not found: {workspace_id}")
             return workspace_id
@@ -82,9 +80,7 @@ def _resolve_workspace_id(session, workspace_id_arg: Optional[str]) -> UUID:
         try:
             workspace_id = UUID(env_workspace_id)
             # Check if workspace exists
-            workspace = (
-                session.query(Workspace).filter(Workspace.id == workspace_id).first()
-            )
+            workspace = session.query(Workspace).filter(Workspace.id == workspace_id).first()
             if workspace:
                 # Workspace exists - use it
                 return workspace_id
@@ -370,9 +366,7 @@ def handle(args: argparse.Namespace) -> int:
                     f"\nThe pack was registered in the database but volume sync failed.",
                     file=sys.stderr,
                 )
-                print(
-                    f"You can retry sync by re-running this command.", file=sys.stderr
-                )
+                print(f"You can retry sync by re-running this command.", file=sys.stderr)
                 return 3
             except Exception as e:
                 print(f"\n✗ Unexpected error during volume sync: {e}", file=sys.stderr)

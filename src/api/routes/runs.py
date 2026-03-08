@@ -26,12 +26,8 @@ router = APIRouter(prefix="/runs", tags=["Runs"])
 class StartRunRequest(BaseModel):
     """Request to start a new run."""
 
-    agent_pack_id: Optional[str] = Field(
-        None, description="Optional agent pack to execute"
-    )
-    input: Dict[str, Any] = Field(
-        default_factory=dict, description="Input parameters for the run"
-    )
+    agent_pack_id: Optional[str] = Field(None, description="Optional agent pack to execute")
+    input: Dict[str, Any] = Field(default_factory=dict, description="Input parameters for the run")
 
     # Runtime intents (what the run will attempt to do)
     requested_egress_urls: list[str] = Field(
@@ -77,9 +73,7 @@ class StartRunResponse(BaseModel):
         default_factory=list, description="Secrets that were injected (based on policy)"
     )
     # Bridge execution output (if bridge was invoked)
-    output: Optional[str] = Field(
-        None, description="Final assistant output from Picoclaw runtime"
-    )
+    output: Optional[str] = Field(None, description="Final assistant output from Picoclaw runtime")
     bridge_output: Optional[Dict[str, Any]] = Field(
         None, description="Full bridge execution output metadata"
     )
@@ -95,9 +89,7 @@ class RunErrorResponse(BaseModel):
     action: Optional[str] = Field(
         None, description="Action that was denied (egress, tool, secret)"
     )
-    resource: Optional[str] = Field(
-        None, description="Resource that was denied access to"
-    )
+    resource: Optional[str] = Field(None, description="Resource that was denied access to")
     reason: Optional[str] = Field(None, description="Reason for denial")
 
 
@@ -186,9 +178,7 @@ async def start_run(
     # Handle errors
     if result.status == "error":
         # Extract routing error type from outputs if present
-        routing_error_type = (
-            result.outputs.get("routing_error_type") if result.outputs else None
-        )
+        routing_error_type = result.outputs.get("routing_error_type") if result.outputs else None
 
         # Map routing error types to appropriate HTTP status codes and details
         if routing_error_type:
@@ -210,9 +200,7 @@ async def start_run(
                     "remediation": "Retry after current operation completes",
                 },
             )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=result.error
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.error)
 
     if result.status == "denied":
         # Parse policy violation error for structured response
@@ -221,9 +209,7 @@ async def start_run(
             try:
                 import re
 
-                match = re.match(
-                    r"Policy violation \(([^)]+)\): (.+?) - (.+)", result.error
-                )
+                match = re.match(r"Policy violation \(([^)]+)\): (.+?) - (.+)", result.error)
                 if match:
                     detail["action"] = match.group(1)
                     detail["resource"] = match.group(2)
@@ -272,9 +258,7 @@ async def start_run(
         status=result.status,
         is_guest=is_guest,
         message=message,
-        injected_secrets=result.outputs.get("secrets_injected", [])
-        if result.outputs
-        else [],
+        injected_secrets=result.outputs.get("secrets_injected", []) if result.outputs else [],
         output=final_output,
         bridge_output=bridge_output,
     )

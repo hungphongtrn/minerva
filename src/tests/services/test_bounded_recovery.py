@@ -165,12 +165,8 @@ class TestBoundedRecovery:
                 lifecycle_target=MockLifecycleTarget(agent_pack_id="test-pack"),
                 run_id=str(uuid4()),
             )
-            run_service._recover_routing_target = AsyncMock(
-                return_value=recovered_routing
-            )
-            run_service._resolve_gateway_tokens = MagicMock(
-                return_value=mock_token_bundle
-            )
+            run_service._recover_routing_target = AsyncMock(return_value=recovered_routing)
+            run_service._resolve_gateway_tokens = MagicMock(return_value=mock_token_bundle)
 
             # Act
             result = await run_service._execute_via_gateway(
@@ -183,9 +179,7 @@ class TestBoundedRecovery:
             # Assert: Should retry up to 3 times with recovery between
             assert result.success is False  # All attempts fail
             assert mock_gateway.execute.call_count == 3  # Max attempts
-            assert (
-                run_service._recover_routing_target.call_count == 2
-            )  # Recovery between attempts
+            assert run_service._recover_routing_target.call_count == 2  # Recovery between attempts
 
             # Reset for next iteration
             run_service._recover_routing_target.reset_mock()
@@ -219,9 +213,7 @@ class TestBoundedRecovery:
 
             run_service._create_gateway_service = MagicMock(return_value=mock_gateway)
             run_service._recover_routing_target = AsyncMock()  # Should NOT be called
-            run_service._resolve_gateway_tokens = MagicMock(
-                return_value=mock_token_bundle
-            )
+            run_service._resolve_gateway_tokens = MagicMock(return_value=mock_token_bundle)
 
             # Act
             result = await run_service._execute_via_gateway(

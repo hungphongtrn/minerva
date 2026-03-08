@@ -66,10 +66,7 @@ class TestAgentPackValidationService:
         # Find the missing file error
         missing_entry = None
         for entry in report.checklist:
-            if (
-                entry.code == ValidationCode.MISSING_FILE.value
-                and entry.path == "AGENT.md"
-            ):
+            if entry.code == ValidationCode.MISSING_FILE.value and entry.path == "AGENT.md":
                 missing_entry = entry
                 break
 
@@ -93,10 +90,7 @@ class TestAgentPackValidationService:
         # Find the missing directory error
         missing_entry = None
         for entry in report.checklist:
-            if (
-                entry.code == ValidationCode.MISSING_DIRECTORY.value
-                and entry.path == "skills"
-            ):
+            if entry.code == ValidationCode.MISSING_DIRECTORY.value and entry.path == "skills":
                 missing_entry = entry
                 break
 
@@ -153,10 +147,7 @@ class TestAgentPackValidationService:
 
         missing_entry = None
         for entry in report.checklist:
-            if (
-                entry.path == "skills"
-                and entry.severity == ValidationSeverity.ERROR.value
-            ):
+            if entry.path == "skills" and entry.severity == ValidationSeverity.ERROR.value:
                 missing_entry = entry
                 break
 

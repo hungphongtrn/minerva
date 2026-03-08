@@ -25,14 +25,10 @@ def upgrade() -> None:
     """Add user_id to api_keys and backfill existing records."""
 
     # Add user_id column as nullable first (for backfill)
-    op.add_column(
-        "api_keys", sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True)
-    )
+    op.add_column("api_keys", sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=True))
 
     # Add foreign key constraint
-    op.create_foreign_key(
-        "fk_api_keys_user_id", "api_keys", "users", ["user_id"], ["id"]
-    )
+    op.create_foreign_key("fk_api_keys_user_id", "api_keys", "users", ["user_id"], ["id"])
 
     # Backfill: Bind existing API keys to their workspace owner
     # This is deterministic - all existing keys belong to the workspace owner

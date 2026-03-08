@@ -202,9 +202,7 @@ class DaytonaSnapshotBuildService:
 
         return image
 
-    def _ensure_rust_toolchain_file(
-        self, repo_dir: Path, dockerfile_path: Path
-    ) -> None:
+    def _ensure_rust_toolchain_file(self, repo_dir: Path, dockerfile_path: Path) -> None:
         """Synthesize rust-toolchain.toml when Dockerfile expects it.
 
         Some runtime repos copy `rust-toolchain.toml` in Dockerfile but only
@@ -235,9 +233,7 @@ class DaytonaSnapshotBuildService:
                     continue
 
         channel = "stable"
-        match = re.search(
-            r"^\s*rust-version\s*=\s*\"([^\"]+)\"", cargo_text, re.MULTILINE
-        )
+        match = re.search(r"^\s*rust-version\s*=\s*\"([^\"]+)\"", cargo_text, re.MULTILINE)
         if match:
             channel = match.group(1).strip()
 
@@ -304,9 +300,7 @@ class DaytonaSnapshotBuildService:
                     # Snapshot exists and is active - reuse it
                     if existing_state_val == "active":
                         if on_logs:
-                            on_logs(
-                                f"Snapshot '{self.snapshot_name}' already exists; reusing\n"
-                            )
+                            on_logs(f"Snapshot '{self.snapshot_name}' already exists; reusing\n")
 
                         return SnapshotBuildResult(
                             success=True,
@@ -388,9 +382,7 @@ class DaytonaSnapshotBuildService:
 
                     # Not found - proceed to create (this is the expected path for new snapshots)
                     if on_logs:
-                        on_logs(
-                            f"Snapshot '{self.snapshot_name}' not found, building...\n"
-                        )
+                        on_logs(f"Snapshot '{self.snapshot_name}' not found, building...\n")
 
             # Create temporary directory for repo clone
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -425,9 +417,7 @@ class DaytonaSnapshotBuildService:
                     )
 
                 if on_logs:
-                    on_logs(
-                        f"\n✅ Snapshot '{self.snapshot_name}' created successfully\n"
-                    )
+                    on_logs(f"\n✅ Snapshot '{self.snapshot_name}' created successfully\n")
 
                 return SnapshotBuildResult(
                     success=True,
@@ -461,9 +451,7 @@ class DaytonaSnapshotBuildService:
             elif "unauthorized" in error_str or "401" in error_str:
                 remediation = "Verify DAYTONA_API_KEY is set correctly"
             elif "not found" in error_str or "404" in error_str:
-                remediation = (
-                    "Verify DAYTONA_API_URL is correct (leave empty for Daytona Cloud)"
-                )
+                remediation = "Verify DAYTONA_API_URL is correct (leave empty for Daytona Cloud)"
             else:
                 remediation = "Check Daytona logs for details"
 

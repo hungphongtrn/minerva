@@ -173,9 +173,7 @@ class S3CheckpointStore:
                 },
             )
         except Exception as e:
-            raise StorageError(
-                f"Failed to store checkpoint {checkpoint_id}: {e}"
-            ) from e
+            raise StorageError(f"Failed to store checkpoint {checkpoint_id}: {e}") from e
 
     def get_archive(
         self,
@@ -205,9 +203,7 @@ class S3CheckpointStore:
                 f"Checkpoint {checkpoint_id} not found in workspace {workspace_id}"
             )
         except Exception as e:
-            raise StorageError(
-                f"Failed to retrieve checkpoint {checkpoint_id}: {e}"
-            ) from e
+            raise StorageError(f"Failed to retrieve checkpoint {checkpoint_id}: {e}") from e
 
     def get_manifest(
         self,
@@ -236,13 +232,9 @@ class S3CheckpointStore:
             manifest_data = json.loads(response["Body"].read().decode("utf-8"))
             return CheckpointManifest.from_dict(manifest_data)
         except self._client.exceptions.NoSuchKey:
-            raise CheckpointNotFoundError(
-                f"Manifest for checkpoint {checkpoint_id} not found"
-            )
+            raise CheckpointNotFoundError(f"Manifest for checkpoint {checkpoint_id} not found")
         except Exception as e:
-            raise StorageError(
-                f"Failed to retrieve manifest for {checkpoint_id}: {e}"
-            ) from e
+            raise StorageError(f"Failed to retrieve manifest for {checkpoint_id}: {e}") from e
 
     def head_manifest(
         self,
@@ -308,9 +300,7 @@ class S3CheckpointStore:
                 },
             )
         except Exception as e:
-            raise StorageError(
-                f"Failed to delete checkpoint {checkpoint_id}: {e}"
-            ) from e
+            raise StorageError(f"Failed to delete checkpoint {checkpoint_id}: {e}") from e
 
     @staticmethod
     def is_static_identity_path(path: str | Path) -> bool:

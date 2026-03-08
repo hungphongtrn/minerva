@@ -157,9 +157,7 @@ class DaytonaZeroclawPlayground:
         output = str(getattr(response, "result", "") or "")
         return ExecResult(command=command, exit_code=exit_code, output=output)
 
-    async def create_sandbox(
-        self, daytona: AsyncDaytona, name: str | None = None
-    ) -> Any:
+    async def create_sandbox(self, daytona: AsyncDaytona, name: str | None = None) -> Any:
         """Create sandbox, trying snapshot first, falling back to base image."""
         try:
             params = CreateSandboxFromSnapshotParams(
@@ -174,9 +172,7 @@ class DaytonaZeroclawPlayground:
         except DaytonaError as e:
             error_str = str(e).lower()
             if "not found" in error_str or "snapshot" in error_str:
-                print(
-                    f"Snapshot '{self._snapshot_name}' not found. Using base image instead..."
-                )
+                print(f"Snapshot '{self._snapshot_name}' not found. Using base image instead...")
                 # Use a standard Debian-based image that can run Rust
                 params = CreateSandboxFromImageParams(
                     name=name,
@@ -216,9 +212,7 @@ class DaytonaZeroclawPlayground:
 
         return buffer.getvalue()
 
-    async def upload_repo(
-        self, sandbox: Any, repo_path: Path, remote_path: str
-    ) -> None:
+    async def upload_repo(self, sandbox: Any, repo_path: Path, remote_path: str) -> None:
         archive = self.build_repo_archive(repo_path)
         archive_path = "/tmp/zeroclaw.tar.gz"
 
@@ -246,9 +240,7 @@ class DaytonaZeroclawPlayground:
             timeout=300,
         )
         if deps_result.exit_code != 0:
-            raise RuntimeError(
-                f"Failed to install build dependencies: {deps_result.output}"
-            )
+            raise RuntimeError(f"Failed to install build dependencies: {deps_result.output}")
 
         print("Installing Rust toolchain...")
         rustup_cmd = (
@@ -282,9 +274,7 @@ class DaytonaZeroclawPlayground:
     async def build_zeroclaw(self, sandbox: Any, repo_path: str) -> ExecResult:
         """Build Zeroclaw from source in the sandbox."""
         print(f"Building Zeroclaw from {repo_path}...")
-        build_cmd = (
-            f". $HOME/.cargo/env && cd {repo_path} && cargo build --release --locked"
-        )
+        build_cmd = f". $HOME/.cargo/env && cd {repo_path} && cargo build --release --locked"
         return await self._exec(sandbox, build_cmd, timeout=600)
 
     async def install_zeroclaw(self, sandbox: Any, repo_path: str) -> ExecResult:
@@ -496,9 +486,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _interactive_repl(
-    playground: DaytonaZeroclawPlayground, sandbox: Any
-) -> None:
+async def _interactive_repl(playground: DaytonaZeroclawPlayground, sandbox: Any) -> None:
     print("\nInteractive mode. Type commands to run in sandbox. Type 'exit' to quit.")
 
     while True:
@@ -583,9 +571,7 @@ async def main_async() -> int:
             bootstrap_commands = [
                 "pwd",
                 "ls -la /workspace",
-                f"ls -la {args.remote_repo_path}"
-                if not args.skip_upload
-                else "ls -la /workspace",
+                f"ls -la {args.remote_repo_path}" if not args.skip_upload else "ls -la /workspace",
             ]
 
             for command in bootstrap_commands + list(args.command):
@@ -598,32 +584,23 @@ async def main_async() -> int:
             if args.start_gateway:
                 # If using base image (no snapshot) or explicitly requested, we need to build from source
                 if not args.sandbox_id and (
-                    args.build_from_source
-                    or args.snapshot_name == DEFAULT_SNAPSHOT_NAME
+                    args.build_from_source or args.snapshot_name == DEFAULT_SNAPSHOT_NAME
                 ):
                     if args.prebuilt:
                         print("\nInstalling Zeroclaw from prebuilt binary...")
-                        install_result = await playground.install_zeroclaw_prebuilt(
-                            sandbox
-                        )
+                        install_result = await playground.install_zeroclaw_prebuilt(sandbox)
                         if install_result.exit_code != 0:
-                            print(
-                                "Prebuilt install failed, falling back to source build..."
-                            )
+                            print("Prebuilt install failed, falling back to source build...")
                             args.prebuilt = False
 
                     if not args.prebuilt:
-                        print(
-                            "\nBuilding Zeroclaw from source (no snapshot available)..."
-                        )
+                        print("\nBuilding Zeroclaw from source (no snapshot available)...")
                         await playground.setup_rust_toolchain(sandbox)
                         build_result = await playground.build_zeroclaw(
                             sandbox, args.remote_repo_path
                         )
                         if build_result.exit_code != 0:
-                            raise RuntimeError(
-                                f"Failed to build Zeroclaw: {build_result.output}"
-                            )
+                            raise RuntimeError(f"Failed to build Zeroclaw: {build_result.output}")
                         print("Build successful!")
 
                         install_result = await playground.install_zeroclaw(
@@ -636,13 +613,9 @@ async def main_async() -> int:
 
                     print("Installed to /usr/local/bin/zeroclaw")
 
-                    config_result = await playground.setup_zeroclaw_config(
-                        sandbox, "/workspace"
-                    )
+                    config_result = await playground.setup_zeroclaw_config(sandbox, "/workspace")
                     if config_result.exit_code != 0:
-                        raise RuntimeError(
-                            f"Failed to setup config: {config_result.output}"
-                        )
+                        raise RuntimeError(f"Failed to setup config: {config_result.output}")
                     print("Config created at /workspace/.zeroclaw/config.toml")
 
                 start_result = await playground.start_gateway(sandbox)
@@ -654,14 +627,10 @@ async def main_async() -> int:
                     "health_response": None,
                 }
 
-                preview_url = await playground.get_preview_url(
-                    sandbox, args.gateway_port
-                )
+                preview_url = await playground.get_preview_url(sandbox, args.gateway_port)
                 if preview_url:
                     gateway_summary["preview_url"] = preview_url
-                    ok, health_response = await playground.wait_for_gateway_health(
-                        preview_url
-                    )
+                    ok, health_response = await playground.wait_for_gateway_health(preview_url)
                     gateway_summary["health_ok"] = ok
                     gateway_summary["health_response"] = health_response
 
@@ -691,9 +660,7 @@ async def main_async() -> int:
                 print(json.dumps(summary, indent=2))
             return 1
         finally:
-            should_cleanup = (
-                created_here and not args.keep_sandbox and not args.interactive
-            )
+            should_cleanup = created_here and not args.keep_sandbox and not args.interactive
             if should_cleanup and summary.get("sandbox_id"):
                 try:
                     sandbox = await daytona.get(summary["sandbox_id"])

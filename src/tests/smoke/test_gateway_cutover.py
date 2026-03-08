@@ -56,12 +56,8 @@ class TestGatewayCutover:
         assert "PicoclawBridgeService" not in import_text, (
             "RunService should not import PicoclawBridgeService"
         )
-        assert "BridgeResult" not in import_text, (
-            "RunService should not import BridgeResult"
-        )
-        assert "BridgeError" not in import_text, (
-            "RunService should not import BridgeError"
-        )
+        assert "BridgeResult" not in import_text, "RunService should not import BridgeResult"
+        assert "BridgeError" not in import_text, "RunService should not import BridgeError"
         assert "BridgeTokenBundle" not in import_text, (
             "RunService should not import BridgeTokenBundle"
         )
@@ -180,9 +176,7 @@ class TestGatewayCutover:
         """Orchestrator generates Zeroclaw-compatible runtime bridge config."""
         from src.services.sandbox_orchestrator_service import SandboxOrchestratorService
 
-        source = inspect.getsource(
-            SandboxOrchestratorService._generate_runtime_bridge_config
-        )
+        source = inspect.getsource(SandboxOrchestratorService._generate_runtime_bridge_config)
 
         # Should load Zeroclaw spec
         assert "load_zeroclaw_spec" in source

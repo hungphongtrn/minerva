@@ -36,12 +36,8 @@ class TestOssUserQueue:
             return f"result-{user}"
 
         # Start two operations for same user concurrently
-        task1 = asyncio.create_task(
-            queue.execute("user-1", None, operation, "op1")
-        )
-        task2 = asyncio.create_task(
-            queue.execute("user-1", None, operation, "op2")
-        )
+        task1 = asyncio.create_task(queue.execute("user-1", None, operation, "op1"))
+        task2 = asyncio.create_task(queue.execute("user-1", None, operation, "op2"))
 
         results = await asyncio.gather(task1, task2)
 
@@ -60,12 +56,8 @@ class TestOssUserQueue:
             return f"result-{user}"
 
         # Start operations for different users concurrently
-        task1 = asyncio.create_task(
-            queue.execute("user-1", None, operation, "user-1")
-        )
-        task2 = asyncio.create_task(
-            queue.execute("user-2", None, operation, "user-2")
-        )
+        task1 = asyncio.create_task(queue.execute("user-1", None, operation, "user-1"))
+        task2 = asyncio.create_task(queue.execute("user-2", None, operation, "user-2"))
 
         await asyncio.gather(task1, task2)
 
@@ -144,12 +136,8 @@ class TestOssUserQueue:
             return f"result-{call_count}"
 
         # Start two operations with same key concurrently
-        task1 = asyncio.create_task(
-            queue.execute("user-1", "key-1", slow_operation)
-        )
-        task2 = asyncio.create_task(
-            queue.execute("user-1", "key-1", slow_operation)
-        )
+        task1 = asyncio.create_task(queue.execute("user-1", "key-1", slow_operation))
+        task2 = asyncio.create_task(queue.execute("user-1", "key-1", slow_operation))
 
         results = await asyncio.gather(task1, task2)
 
@@ -242,6 +230,7 @@ class TestOssUserQueue:
 
     async def test_cache_stats(self, queue):
         """Test cache statistics."""
+
         async def operation():
             return "result"
 
@@ -254,6 +243,7 @@ class TestOssUserQueue:
 
     async def test_clear_cache(self, queue):
         """Test clearing cache."""
+
         async def operation():
             return "result"
 

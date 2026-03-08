@@ -126,8 +126,12 @@ at `/app/skills/` when the agent is initialized.
             print(f"Skipped: {skills_readme_path} (already exists)")
 
         # Print summary
-        created_count = sum(1 for r in results if r.created and r.entry_type == ScaffoldEntryType.FILE)
-        skipped_count = sum(1 for r in results if r.already_existed and r.entry_type == ScaffoldEntryType.FILE)
+        created_count = sum(
+            1 for r in results if r.created and r.entry_type == ScaffoldEntryType.FILE
+        )
+        skipped_count = sum(
+            1 for r in results if r.already_existed and r.entry_type == ScaffoldEntryType.FILE
+        )
 
         print(f"\n✅ Scaffold generated at: {output_path}")
         print(f"   Files created: {created_count + 1}")  # +1 for skills/README.md

@@ -180,9 +180,7 @@ class TestSyncPackToVolume:
         mock_sandbox.id = "test-sandbox-123"
         mock_sandbox.fs.upload_files = AsyncMock()
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)
@@ -207,9 +205,7 @@ class TestSyncPackToVolume:
             assert volume_name == expected_name
 
     @pytest.mark.asyncio
-    async def test_sync_uploads_to_correct_destination(
-        self, pack_id, source_digest, pack_files
-    ):
+    async def test_sync_uploads_to_correct_destination(self, pack_id, source_digest, pack_files):
         """Files are uploaded to /workspace/pack (volume mount point)."""
         service = DaytonaPackVolumeService()
 
@@ -218,9 +214,7 @@ class TestSyncPackToVolume:
         mock_sandbox.id = "test-sandbox"
         mock_sandbox.fs.upload_files = AsyncMock()
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)
@@ -255,9 +249,7 @@ class TestSyncPackToVolume:
                 assert upload.destination.startswith("/workspace/pack/")
 
     @pytest.mark.asyncio
-    async def test_sync_cleanup_on_upload_error(
-        self, pack_id, source_digest, pack_files
-    ):
+    async def test_sync_cleanup_on_upload_error(self, pack_id, source_digest, pack_files):
         """Disposable sandbox is cleaned up even if upload fails."""
         service = DaytonaPackVolumeService()
 
@@ -266,9 +258,7 @@ class TestSyncPackToVolume:
         mock_sandbox.id = "test-sandbox"
         mock_sandbox.fs.upload_files = AsyncMock(side_effect=Exception("Upload failed"))
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)
@@ -308,9 +298,7 @@ class TestSyncPackToVolume:
         mock_sandbox.id = "test-sandbox"
         mock_sandbox.fs.upload_files = AsyncMock()
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)
@@ -341,15 +329,11 @@ class TestSyncPackToVolume:
             assert volume_mount.mount_path == "/workspace/pack"
 
     @pytest.mark.asyncio
-    async def test_sync_cleanup_on_volume_error(
-        self, pack_id, source_digest, pack_files
-    ):
+    async def test_sync_cleanup_on_volume_error(self, pack_id, source_digest, pack_files):
         """Handles volume creation errors gracefully."""
         service = DaytonaPackVolumeService()
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)
@@ -357,9 +341,7 @@ class TestSyncPackToVolume:
             # Simulate volume creation failure
             from daytona import DaytonaError
 
-            mock_daytona.volume.get = AsyncMock(
-                side_effect=DaytonaError("Volume creation failed")
-            )
+            mock_daytona.volume.get = AsyncMock(side_effect=DaytonaError("Volume creation failed"))
 
             mock_daytona_cls.return_value = mock_daytona
 
@@ -386,9 +368,7 @@ class TestEnsureVolumeExists:
         mock_volume = MagicMock()
         mock_volume.name = expected_volume_name
 
-        with patch(
-            "src.services.daytona_pack_volume_service.AsyncDaytona"
-        ) as mock_daytona_cls:
+        with patch("src.services.daytona_pack_volume_service.AsyncDaytona") as mock_daytona_cls:
             mock_daytona = AsyncMock()
             mock_daytona.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_daytona.__aexit__ = AsyncMock(return_value=None)

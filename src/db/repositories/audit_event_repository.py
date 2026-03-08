@@ -230,9 +230,7 @@ class AuditEventRepository:
         """
         from sqlalchemy import func
 
-        stmt = select(func.count(AuditEvent.id)).where(
-            AuditEvent.workspace_id == workspace_id
-        )
+        stmt = select(func.count(AuditEvent.id)).where(AuditEvent.workspace_id == workspace_id)
 
         if category:
             stmt = stmt.where(AuditEvent.category == category)

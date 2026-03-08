@@ -107,9 +107,7 @@ class CheckpointRestoreService:
             checkpoint_service: Optional checkpoint service for storage operations.
         """
         self._session = session
-        self._checkpoint_repo = checkpoint_repository or WorkspaceCheckpointRepository(
-            session
-        )
+        self._checkpoint_repo = checkpoint_repository or WorkspaceCheckpointRepository(session)
         self._audit_repo = audit_repository or AuditEventRepository(session)
         self._checkpoint_service = checkpoint_service
 
@@ -369,9 +367,7 @@ class CheckpointRestoreService:
             ),
         )
 
-        outcome = (
-            RestoreOutcome.FALLBACK_SUCCESS if is_fallback else RestoreOutcome.SUCCESS
-        )
+        outcome = RestoreOutcome.FALLBACK_SUCCESS if is_fallback else RestoreOutcome.SUCCESS
 
         return RestoreResult(
             outcome=outcome,
@@ -516,9 +512,7 @@ class CheckpointRestoreService:
                 checkpoint_id=checkpoint_id,
             )
 
-    def _extract_restore_data(
-        self, manifest: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+    def _extract_restore_data(self, manifest: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Extract restore data from manifest.
 
         Args:

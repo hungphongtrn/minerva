@@ -344,9 +344,7 @@ class LocalComposeSandboxProvider(SandboxProvider):
             materialized_config_path = materialization.get("config_path")
 
         # Fail-fast contract guard: dynamic paths must not be under pack mount
-        if materialized_config_path and materialized_config_path.startswith(
-            PACK_MOUNT_PATH
-        ):
+        if materialized_config_path and materialized_config_path.startswith(PACK_MOUNT_PATH):
             raise SandboxConfigurationError(
                 f"Config path must be outside pack mount {PACK_MOUNT_PATH}: {materialized_config_path}",
                 provider_ref=ref,

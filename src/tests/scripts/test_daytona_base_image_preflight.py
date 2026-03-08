@@ -125,9 +125,7 @@ class TestPreflightValidation:
     @pytest.fixture
     def mock_daytona_sdk(self):
         """Mock Daytona SDK for testing."""
-        with patch(
-            "src.scripts.daytona_base_image_preflight.AsyncDaytona"
-        ) as mock_class:
+        with patch("src.scripts.daytona_base_image_preflight.AsyncDaytona") as mock_class:
             mock_daytona = AsyncMock()
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -138,9 +136,7 @@ class TestPreflightValidation:
             mock_sandbox.state = "running"
             mock_sandbox.status = "running"
             mock_sandbox.preview_url = "https://test.daytona.run"
-            mock_sandbox.metadata = {
-                "gateway_url": "https://gateway-test.daytona.run:18790"
-            }
+            mock_sandbox.metadata = {"gateway_url": "https://gateway-test.daytona.run:18790"}
 
             mock_daytona.create = AsyncMock(return_value=mock_sandbox)
             mock_daytona.get = AsyncMock(return_value=mock_sandbox)
@@ -221,10 +217,7 @@ class TestPreflightValidation:
         )
 
         assert result.success is False
-        assert (
-            "timeout" in str(result.errors).lower()
-            or "provision" in str(result.checks).lower()
-        )
+        assert "timeout" in str(result.errors).lower() or "provision" in str(result.checks).lower()
 
     @pytest.mark.asyncio
     async def test_preflight_sandbox_not_running(self, mock_daytona_sdk):
@@ -391,9 +384,7 @@ class TestArgumentParser:
         """Parser accepts --sandbox-id."""
         parser = create_parser()
 
-        args = parser.parse_args(
-            ["--image", "test:latest", "--sandbox-id", "custom-id"]
-        )
+        args = parser.parse_args(["--image", "test:latest", "--sandbox-id", "custom-id"])
 
         assert args.sandbox_id == "custom-id"
 
@@ -459,9 +450,7 @@ class TestJSONOutput:
     @pytest.fixture
     def mock_daytona_sdk(self):
         """Mock Daytona SDK for testing."""
-        with patch(
-            "src.scripts.daytona_base_image_preflight.AsyncDaytona"
-        ) as mock_class:
+        with patch("src.scripts.daytona_base_image_preflight.AsyncDaytona") as mock_class:
             mock_daytona = AsyncMock()
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=False)

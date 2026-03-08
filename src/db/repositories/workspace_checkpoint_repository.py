@@ -78,9 +78,7 @@ class WorkspaceCheckpointRepository:
         Returns:
             WorkspaceCheckpoint if found, None otherwise.
         """
-        stmt = select(WorkspaceCheckpoint).where(
-            WorkspaceCheckpoint.id == checkpoint_db_id
-        )
+        stmt = select(WorkspaceCheckpoint).where(WorkspaceCheckpoint.id == checkpoint_db_id)
         return self._session.execute(stmt).scalar_one_or_none()
 
     def get_by_checkpoint_id(
@@ -140,9 +138,7 @@ class WorkspaceCheckpointRepository:
         Returns:
             List of WorkspaceCheckpoint records in reverse chronological order.
         """
-        stmt = select(WorkspaceCheckpoint).where(
-            WorkspaceCheckpoint.workspace_id == workspace_id
-        )
+        stmt = select(WorkspaceCheckpoint).where(WorkspaceCheckpoint.workspace_id == workspace_id)
 
         if state:
             stmt = stmt.where(WorkspaceCheckpoint.state == state)

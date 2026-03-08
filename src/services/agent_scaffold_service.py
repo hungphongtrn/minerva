@@ -207,9 +207,7 @@ Describe the agent's personality traits:
                     )
                 )
             except OSError as e:
-                raise ScaffoldError(
-                    f"Failed to create directory {dir_path}: {e}"
-                ) from e
+                raise ScaffoldError(f"Failed to create directory {dir_path}: {e}") from e
 
         # Create required files
         for file_name in self.REQUIRED_FILES:
@@ -310,9 +308,7 @@ Describe the agent's personality traits:
         if path.is_absolute() and not self._base_path_explicit:
             # Absolute path with default base: validate no traversal components
             if ".." in pack_path.replace("\\", "/"):
-                raise PathTraversalError(
-                    f"Path '{pack_path}' contains traversal components"
-                )
+                raise PathTraversalError(f"Path '{pack_path}' contains traversal components")
         else:
             # Either relative path, or absolute with explicit base:
             # Validate containment within base_path

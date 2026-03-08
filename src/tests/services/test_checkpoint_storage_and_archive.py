@@ -176,9 +176,7 @@ class TestCheckpointScope:
         """Regular session files are not excluded."""
         assert not S3CheckpointStore.is_static_identity_path("/workspace/session.json")
         assert not S3CheckpointStore.is_static_identity_path("/workspace/data.txt")
-        assert not S3CheckpointStore.is_static_identity_path(
-            "/workspace/checkpoint.json"
-        )
+        assert not S3CheckpointStore.is_static_identity_path("/workspace/checkpoint.json")
 
     def test_archive_service_excludes_static_paths(self):
         """CheckpointArchiveService excludes static paths from scope."""
@@ -234,9 +232,7 @@ class TestArchivePackUnpack:
 
         # Verify roundtrip
         assert extracted_state.session_data == original_state.session_data
-        assert (
-            extracted_state.conversation_history == original_state.conversation_history
-        )
+        assert extracted_state.conversation_history == original_state.conversation_history
         assert extracted_state.runtime_variables == original_state.runtime_variables
         assert extracted_state.metadata == original_state.metadata
 
@@ -313,10 +309,7 @@ class TestS3StoreOperations:
         # Verify manifest was written with checksum metadata
         manifest_call = mock_client.put_object.call_args_list[1]
         assert manifest_call.kwargs["Key"].endswith("manifest.json")
-        assert (
-            manifest_call.kwargs["Metadata"]["archive-checksum"]
-            == manifest.archive_checksum
-        )
+        assert manifest_call.kwargs["Metadata"]["archive-checksum"] == manifest.archive_checksum
 
     def test_get_archive_raises_not_found(self):
         """get_archive raises CheckpointNotFoundError for missing checkpoint."""
@@ -395,9 +388,7 @@ class TestArchiveServiceWithStore:
         """save_checkpoint raises StorageError if store not configured."""
         service = CheckpointArchiveService(store=None)
 
-        with pytest.raises(
-            ArchiveStorageError, match="S3CheckpointStore not configured"
-        ):
+        with pytest.raises(ArchiveStorageError, match="S3CheckpointStore not configured"):
             service.save_checkpoint(
                 workspace_id=uuid4(),
                 agent_pack_id=uuid4(),
@@ -408,9 +399,7 @@ class TestArchiveServiceWithStore:
         """load_checkpoint raises StorageError if store not configured."""
         service = CheckpointArchiveService(store=None)
 
-        with pytest.raises(
-            ArchiveStorageError, match="S3CheckpointStore not configured"
-        ):
+        with pytest.raises(ArchiveStorageError, match="S3CheckpointStore not configured"):
             service.load_checkpoint(uuid4(), uuid4())
 
 

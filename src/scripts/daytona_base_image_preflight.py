@@ -95,15 +95,9 @@ class DaytonaBaseImagePreflight:
             api_url: Daytona API URL (or from DAYTONA_API_URL env var)
             target: Target region for Daytona Cloud
         """
-        self._api_key = (
-            api_key if api_key is not None else os.environ.get("DAYTONA_API_KEY", "")
-        )
-        self._api_url = (
-            api_url if api_url is not None else os.environ.get("DAYTONA_API_URL", "")
-        )
-        self._target = (
-            target if target is not None else os.environ.get("DAYTONA_TARGET", "us")
-        )
+        self._api_key = api_key if api_key is not None else os.environ.get("DAYTONA_API_KEY", "")
+        self._api_url = api_url if api_url is not None else os.environ.get("DAYTONA_API_URL", "")
+        self._target = target if target is not None else os.environ.get("DAYTONA_TARGET", "us")
 
     def _create_config(self) -> DaytonaConfig:
         """Create DaytonaConfig from settings."""
@@ -267,9 +261,7 @@ class DaytonaBaseImagePreflight:
                     sandbox_id=sandbox_id,
                     checks=checks,
                     errors=errors,
-                    remediation=None
-                    if all_passed
-                    else self._generate_remediation(checks, errors),
+                    remediation=None if all_passed else self._generate_remediation(checks, errors),
                     duration_seconds=duration,
                 )
 
@@ -330,9 +322,7 @@ class DaytonaBaseImagePreflight:
                 return gateway_url
 
         # Strategy 2: Derive from preview URL
-        preview_url = getattr(sandbox, "preview_url", None) or getattr(
-            sandbox, "url", None
-        )
+        preview_url = getattr(sandbox, "preview_url", None) or getattr(sandbox, "url", None)
         # Only try to parse if preview_url is a real string (not MagicMock)
         if preview_url and isinstance(preview_url, str):
             from urllib.parse import urlparse, urlunparse
@@ -350,9 +340,7 @@ class DaytonaBaseImagePreflight:
                 )
 
         # Strategy 3: Construct from ID
-        is_cloud = (
-            not self._api_url or self._api_url == "" or "daytona.io" in self._api_url
-        )
+        is_cloud = not self._api_url or self._api_url == "" or "daytona.io" in self._api_url
         if is_cloud:
             return f"https://gateway-{sandbox_id}.{self._target}.daytona.run:18790"
         else:
@@ -364,9 +352,7 @@ class DaytonaBaseImagePreflight:
 
         if checks.get("provision", {}).get("status") == "failed":
             remediations.append("1. Verify Daytona API credentials (DAYTONA_API_KEY)")
-            remediations.append(
-                "2. Confirm image is accessible to Daytona (registry credentials)"
-            )
+            remediations.append("2. Confirm image is accessible to Daytona (registry credentials)")
             remediations.append("3. Check Daytona infrastructure status")
 
         if checks.get("identity_files", {}).get("status") == "failed":

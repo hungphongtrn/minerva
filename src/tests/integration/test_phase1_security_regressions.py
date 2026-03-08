@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 from fastapi import status
 
 
-
 # ============================================================================
 # Regression: Revoked Key Staleness
 # ============================================================================
@@ -27,9 +26,7 @@ class TestRevokedKeyStaleness:
     Ensures revoked keys remain rejected without cache staleness bugs.
     """
 
-    def test_revoked_key_fails_immediately(
-        self, client: TestClient, revoked_headers: dict
-    ):
+    def test_revoked_key_fails_immediately(self, client: TestClient, revoked_headers: dict):
         """Regression: Revoked key must fail immediately, not cached as valid."""
         # First request with revoked key
         response1 = client.get("/api/v1/whoami", headers=revoked_headers)
@@ -466,9 +463,7 @@ class TestAuthorizationConsistency:
     Ensures auth checks are consistent across endpoints.
     """
 
-    def test_auth_required_consistently_on_all_sensitive_endpoints(
-        self, client: TestClient
-    ):
+    def test_auth_required_consistently_on_all_sensitive_endpoints(self, client: TestClient):
         """Regression: All sensitive endpoints require authentication."""
         sensitive_endpoints = [
             ("GET", "/api/v1/api-keys"),

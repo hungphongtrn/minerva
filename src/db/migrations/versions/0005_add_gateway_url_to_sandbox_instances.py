@@ -26,9 +26,7 @@ def upgrade() -> None:
 
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     if "gateway_url" not in existing_columns:
         op.add_column(
@@ -42,9 +40,7 @@ def downgrade() -> None:
 
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     if "gateway_url" in existing_columns:
         op.drop_column("sandbox_instances", "gateway_url")

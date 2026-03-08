@@ -124,9 +124,7 @@ class TestProviderFactory:
 
     def test_get_provider_daytona_remaps_legacy_snapshot_name(self):
         """Factory remaps legacy snapshot aliases to zeroclaw-base."""
-        with patch(
-            "src.infrastructure.sandbox.providers.factory.settings"
-        ) as mock_settings:
+        with patch("src.infrastructure.sandbox.providers.factory.settings") as mock_settings:
             mock_settings.SANDBOX_PROFILE = "daytona"
             mock_settings.DAYTONA_API_KEY = "test-key"
             mock_settings.DAYTONA_API_TOKEN = ""
@@ -147,9 +145,7 @@ class TestProviderFactory:
 
     def test_get_provider_daytona_requires_api_key_for_self_hosted(self):
         """Factory fails closed for self-hosted Daytona without API key."""
-        with patch(
-            "src.infrastructure.sandbox.providers.factory.settings"
-        ) as mock_settings:
+        with patch("src.infrastructure.sandbox.providers.factory.settings") as mock_settings:
             mock_settings.SANDBOX_PROFILE = "daytona"
             mock_settings.DAYTONA_API_KEY = ""
             mock_settings.DAYTONA_API_TOKEN = ""
@@ -161,15 +157,11 @@ class TestProviderFactory:
             with pytest.raises(SandboxConfigurationError) as exc_info:
                 get_provider("daytona")
 
-            assert "api_key" in str(exc_info.value).lower() or "API" in str(
-                exc_info.value
-            )
+            assert "api_key" in str(exc_info.value).lower() or "API" in str(exc_info.value)
 
     def test_get_provider_daytona_cloud_allows_no_key(self):
         """Factory allows Daytona Cloud without explicit API key (SDK uses env)."""
-        with patch(
-            "src.infrastructure.sandbox.providers.factory.settings"
-        ) as mock_settings:
+        with patch("src.infrastructure.sandbox.providers.factory.settings") as mock_settings:
             mock_settings.SANDBOX_PROFILE = "daytona"
             mock_settings.DAYTONA_API_KEY = ""
             mock_settings.DAYTONA_API_TOKEN = ""
@@ -212,9 +204,7 @@ def mock_daytona_sdk():
     Yields a context manager that patches AsyncDaytona with a mock.
     """
 
-    def _create_mock_sandbox(
-        sandbox_id="test-sandbox-id", state="started", status="healthy"
-    ):
+    def _create_mock_sandbox(sandbox_id="test-sandbox-id", state="started", status="healthy"):
         mock = MagicMock()
         mock.id = sandbox_id
         mock.state = state
@@ -234,9 +224,7 @@ def mock_daytona_sdk():
         return mock
 
     with (
-        patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class,
+        patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class,
         patch(
             "src.infrastructure.sandbox.providers.daytona.DaytonaSandboxProvider.verify_identity_files",
             new_callable=AsyncMock,
@@ -255,9 +243,7 @@ def mock_daytona_sdk():
         mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
         # Auto-mock identity verification to succeed
-        mock_verify.return_value = IdentityVerificationResult(
-            ready=True, missing_files=[]
-        )
+        mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
         # Auto-mock gateway resolution
         mock_gateway.return_value = "https://gateway-test.daytona.run:18790"
 
@@ -343,9 +329,7 @@ class TestSemanticParityLifecycle:
                 daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
             ) as mock_gateway,
         ):
-            mock_verify.return_value = IdentityVerificationResult(
-                ready=True, missing_files=[]
-            )
+            mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
             mock_gateway.return_value = (
                 f"https://gateway-{test_config.workspace_id}.daytona.run:18790"
             )
@@ -362,9 +346,7 @@ class TestSemanticParityLifecycle:
         mock_daytona.create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_active_sandbox_returns_none_when_not_exists_local(
-        self, local_provider
-    ):
+    async def test_get_active_sandbox_returns_none_when_not_exists_local(self, local_provider):
         """Local provider returns None for non-existent workspaces."""
         workspace_id = uuid4()
 
@@ -393,9 +375,7 @@ class TestSemanticParityLifecycle:
         assert result is None, "Expected None for non-existent workspace"
 
     @pytest.mark.asyncio
-    async def test_get_active_sandbox_returns_info_when_exists_local(
-        self, local_provider
-    ):
+    async def test_get_active_sandbox_returns_info_when_exists_local(self, local_provider):
         """Local provider returns SandboxInfo for active workspaces."""
         workspace_id = uuid4()
         config = SandboxConfig(workspace_id=workspace_id)
@@ -490,9 +470,7 @@ class TestSemanticParityLifecycle:
         assert stop3.state == SandboxState.STOPPED
 
     @pytest.mark.asyncio
-    async def test_stop_sandbox_is_idempotent_daytona(
-        self, daytona_provider, mock_daytona_sdk
-    ):
+    async def test_stop_sandbox_is_idempotent_daytona(self, daytona_provider, mock_daytona_sdk):
         """Daytona provider supports idempotent stop operations (SDK-backed)."""
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
         workspace_id = uuid4()
@@ -530,9 +508,7 @@ class TestSemanticParityLifecycle:
 
         result = await local_provider.stop_sandbox(fake_ref)
 
-        assert result.state == SandboxState.STOPPED, (
-            "Expected STOPPED for non-existent sandbox"
-        )
+        assert result.state == SandboxState.STOPPED, "Expected STOPPED for non-existent sandbox"
 
     @pytest.mark.asyncio
     async def test_stop_nonexistent_returns_stopped_state_daytona(
@@ -552,9 +528,7 @@ class TestSemanticParityLifecycle:
 
         result = await daytona_provider.stop_sandbox(fake_ref)
 
-        assert result.state == SandboxState.STOPPED, (
-            "Expected STOPPED for non-existent sandbox"
-        )
+        assert result.state == SandboxState.STOPPED, "Expected STOPPED for non-existent sandbox"
 
     @pytest.mark.asyncio
     async def test_get_health_returns_current_state_local(self, local_provider):
@@ -648,9 +622,7 @@ class TestSemanticParityLifecycle:
         # Update activity
         updated = await local_provider.update_activity(info.ref)
 
-        assert updated.last_activity_at > original_time, (
-            "Activity timestamp not updated"
-        )
+        assert updated.last_activity_at > original_time, "Activity timestamp not updated"
 
     @pytest.mark.asyncio
     async def test_update_activity_refreshes_timestamp_daytona(
@@ -717,9 +689,7 @@ class TestSemanticParityLifecycle:
         assert attached.workspace_id == workspace_id
 
     @pytest.mark.asyncio
-    async def test_unhealthy_sandbox_returns_unhealthy_state_local(
-        self, local_provider
-    ):
+    async def test_unhealthy_sandbox_returns_unhealthy_state_local(self, local_provider):
         """Local provider exposes unhealthy state when health fails."""
         workspace_id = uuid4()
         config = SandboxConfig(workspace_id=workspace_id)
@@ -809,19 +779,13 @@ class TestSemanticParityLifecycle:
 
         # Patch identity verification and gateway resolution
         with (
-            patch.object(
-                provider, "verify_identity_files", new_callable=AsyncMock
-            ) as mock_verify,
+            patch.object(provider, "verify_identity_files", new_callable=AsyncMock) as mock_verify,
             patch.object(
                 provider, "resolve_gateway_endpoint", new_callable=AsyncMock
             ) as mock_gateway,
         ):
-            mock_verify.return_value = IdentityVerificationResult(
-                ready=True, missing_files=[]
-            )
-            mock_gateway.return_value = (
-                f"https://gateway-{workspace_id}.daytona.run:18790"
-            )
+            mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+            mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
 
             info = await provider.provision_sandbox(config)
 
@@ -994,9 +958,7 @@ class TestSemanticStateTransitions:
         assert info.state == SandboxState.READY, "Should reach READY state"
 
     @pytest.mark.asyncio
-    async def test_hydrating_to_ready_transition_daytona(
-        self, daytona_provider, mock_daytona_sdk
-    ):
+    async def test_hydrating_to_ready_transition_daytona(self, daytona_provider, mock_daytona_sdk):
         """Daytona provider transitions through HYDRATING to READY (SDK-backed)."""
         mock_daytona, create_mock_sandbox = mock_daytona_sdk
         workspace_id = uuid4()
@@ -1056,12 +1018,8 @@ class TestSemanticStateTransitions:
                 daytona_provider, "resolve_gateway_endpoint", new_callable=AsyncMock
             ) as mock_gateway,
         ):
-            mock_verify.return_value = IdentityVerificationResult(
-                ready=True, missing_files=[]
-            )
-            mock_gateway.return_value = (
-                f"https://gateway-{workspace_id}.daytona.run:18790"
-            )
+            mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+            mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
 
             info = await daytona_provider.provision_sandbox(config)
             assert info.state == SandboxState.READY
@@ -1134,12 +1092,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Patch identity verification, gateway resolution, and internal helpers
@@ -1157,12 +1111,8 @@ class TestDaytonaSdkBackedProvider:
                     provider, "_start_bridge_runtime", new_callable=AsyncMock
                 ) as mock_start_bridge,
             ):
-                mock_verify.return_value = IdentityVerificationResult(
-                    ready=True, missing_files=[]
-                )
-                mock_gateway.return_value = (
-                    f"https://gateway-{workspace_id}.daytona.run:18790"
-                )
+                mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+                mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
                 mock_start_bridge.return_value = True
 
                 result = await provider.provision_sandbox(config)
@@ -1188,12 +1138,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.get_active_sandbox(workspace_id)
@@ -1217,12 +1163,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.get_active_sandbox(workspace_id)
@@ -1240,12 +1182,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(side_effect=DaytonaError("Sandbox not found"))
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.get_active_sandbox(workspace_id)
@@ -1270,12 +1208,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
         mock_daytona.stop = AsyncMock()
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.stop_sandbox(ref)
@@ -1298,12 +1232,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.stop_sandbox(ref)
@@ -1328,12 +1258,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.get_health(ref)
@@ -1356,12 +1282,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(side_effect=DaytonaError("Not found"))
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with pytest.raises(SandboxNotFoundError):
@@ -1383,12 +1305,8 @@ class TestDaytonaSdkBackedProvider:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.get_health(ref)
@@ -1432,12 +1350,8 @@ class TestDaytonaSdkBackPackBinding:
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Patch identity verification, gateway resolution, and internal helpers
@@ -1455,12 +1369,8 @@ class TestDaytonaSdkBackPackBinding:
                     provider, "_start_bridge_runtime", new_callable=AsyncMock
                 ) as mock_start_bridge,
             ):
-                mock_verify.return_value = IdentityVerificationResult(
-                    ready=True, missing_files=[]
-                )
-                mock_gateway.return_value = (
-                    f"https://gateway-{workspace_id}.daytona.run:18790"
-                )
+                mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+                mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
                 mock_start_bridge.return_value = True
 
                 info = await provider.provision_sandbox(config)
@@ -1492,12 +1402,8 @@ class TestDaytonaSdkBackPackBinding:
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Patch identity verification, gateway resolution, and internal helpers
@@ -1515,12 +1421,8 @@ class TestDaytonaSdkBackPackBinding:
                     provider, "_start_bridge_runtime", new_callable=AsyncMock
                 ) as mock_start_bridge,
             ):
-                mock_verify.return_value = IdentityVerificationResult(
-                    ready=True, missing_files=[]
-                )
-                mock_gateway.return_value = (
-                    f"https://gateway-{workspace_id}.daytona.run:18790"
-                )
+                mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+                mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
                 mock_start_bridge.return_value = True
 
                 info = await provider.provision_sandbox(config)
@@ -1657,9 +1559,7 @@ class TestDaytonaFailClosedBehavior:
         workspace_id = uuid4()
 
         # Simulate unexpected exception
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
             mock_sdk_class.side_effect = RuntimeError("Unexpected error")
 
             result = await provider.get_active_sandbox(workspace_id)
@@ -1678,12 +1578,8 @@ class TestDaytonaFailClosedBehavior:
         mock_daytona = AsyncMock()
         mock_daytona.create = AsyncMock(side_effect=DaytonaError("Creation failed"))
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with pytest.raises(SandboxProvisionError) as exc_info:
@@ -1703,16 +1599,10 @@ class TestDaytonaFailClosedBehavior:
         from daytona import DaytonaError
 
         mock_daytona = AsyncMock()
-        mock_daytona.create = AsyncMock(
-            side_effect=DaytonaError("Sandbox failed to start")
-        )
+        mock_daytona.create = AsyncMock(side_effect=DaytonaError("Sandbox failed to start"))
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.object(
@@ -1726,9 +1616,7 @@ class TestDaytonaFailClosedBehavior:
                 cleanup_mock.assert_called_once_with(mock_daytona, config)
 
     @pytest.mark.asyncio
-    async def test_provision_stops_partial_sandbox_on_post_create_failure(
-        self, provider
-    ):
+    async def test_provision_stops_partial_sandbox_on_post_create_failure(self, provider):
         """Post-create failures trigger best-effort sandbox stop cleanup."""
         workspace_id = uuid4()
         config = SandboxConfig(workspace_id=workspace_id)
@@ -1741,12 +1629,8 @@ class TestDaytonaFailClosedBehavior:
         mock_daytona.create = AsyncMock(return_value=mock_sandbox)
         mock_daytona.stop = AsyncMock()
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with patch.object(
@@ -1900,9 +1784,7 @@ class TestPackMaterialization:
         )
 
     @pytest.mark.asyncio
-    async def test_daytona_materializes_pack_snapshot(
-        self, daytona_provider, mock_daytona_sdk
-    ):
+    async def test_daytona_materializes_pack_snapshot(self, daytona_provider, mock_daytona_sdk):
         """Daytona materializes pack with snapshot copy, not live bind."""
         from src.infrastructure.sandbox.providers.daytona import (
             IdentityVerificationResult,
@@ -1947,12 +1829,8 @@ class TestPackMaterialization:
                 daytona_provider, "_start_bridge_runtime", new_callable=AsyncMock
             ) as mock_start_bridge,
         ):
-            mock_verify.return_value = IdentityVerificationResult(
-                ready=True, missing_files=[]
-            )
-            mock_gateway.return_value = (
-                f"https://gateway-{workspace_id}.daytona.run:18790"
-            )
+            mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+            mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
             mock_start_bridge.return_value = True
 
             info = await daytona_provider.provision_sandbox(config)
@@ -2202,12 +2080,8 @@ class TestDaytonaProductionReadiness:
 
         mock_daytona.create = capture_create
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Patch identity verification, gateway resolution, and internal helpers
@@ -2225,12 +2099,8 @@ class TestDaytonaProductionReadiness:
                     provider, "_start_bridge_runtime", new_callable=AsyncMock
                 ) as mock_start_bridge,
             ):
-                mock_verify.return_value = IdentityVerificationResult(
-                    ready=True, missing_files=[]
-                )
-                mock_gateway.return_value = (
-                    f"https://gateway-{workspace_id}.daytona.run:18790"
-                )
+                mock_verify.return_value = IdentityVerificationResult(ready=True, missing_files=[])
+                mock_gateway.return_value = f"https://gateway-{workspace_id}.daytona.run:18790"
                 mock_start_bridge.return_value = True
 
                 await provider.provision_sandbox(config)
@@ -2239,9 +2109,7 @@ class TestDaytonaProductionReadiness:
         params = captured_create_params.get("params")
         assert params is not None, "CreateSandboxFromSnapshotParams should be passed"
         assert hasattr(params, "snapshot"), "Params should have snapshot attribute"
-        assert params.snapshot == "picoclaw-snapshot", (
-            "Should use configured snapshot name"
-        )
+        assert params.snapshot == "picoclaw-snapshot", "Should use configured snapshot name"
 
     @pytest.mark.asyncio
     async def test_daytona_identity_verification_required_files(self, provider):
@@ -2269,12 +2137,8 @@ class TestDaytonaProductionReadiness:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.verify_identity_files("test-sandbox")
@@ -2296,12 +2160,8 @@ class TestDaytonaProductionReadiness:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.verify_identity_files("test-sandbox")
@@ -2340,12 +2200,8 @@ class TestDaytonaProductionReadiness:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             result = await provider.verify_identity_files("test-sandbox")
@@ -2360,19 +2216,13 @@ class TestDaytonaProductionReadiness:
         mock_sandbox = MagicMock()
         mock_sandbox.id = "test-sandbox"
         mock_sandbox.preview_url = "https://abc123.daytona.run"
-        mock_sandbox.metadata = (
-            None  # No metadata, so it won't use metadata.get("gateway_url")
-        )
+        mock_sandbox.metadata = None  # No metadata, so it won't use metadata.get("gateway_url")
 
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             gateway_url = await provider.resolve_gateway_endpoint("test-sandbox")
@@ -2392,12 +2242,8 @@ class TestDaytonaProductionReadiness:
         mock_daytona = AsyncMock()
         mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             with pytest.raises(SandboxGatewayError):
@@ -2461,9 +2307,7 @@ class TestOrchestratorBoundedReprovision:
         # Should fail with identity error (not retried - identity failures are terminal)
         assert result.success is False
         assert result.result == RoutingResult.IDENTITY_CHECK_FAILED
-        assert (
-            result.reprovision_attempts == 1
-        )  # Single attempt, identity errors not retried
+        assert result.reprovision_attempts == 1  # Single attempt, identity errors not retried
         # Identity errors don't set reprovision_exhausted because they're not retryable
 
         # Should have called provision once (identity errors are not retried)

@@ -71,10 +71,7 @@ class TestOssSseEventBuilder:
 
     def test_provisioning_event(self, builder):
         """Test provisioning event creation."""
-        event = builder.provisioning(
-            step="sandbox_create",
-            message="Creating sandbox..."
-        )
+        event = builder.provisioning(step="sandbox_create", message="Creating sandbox...")
 
         assert event.type == OssEventType.PROVISIONING
         assert event.data["step"] == "sandbox_create"
@@ -96,10 +93,7 @@ class TestOssSseEventBuilder:
 
     def test_failed_event(self, builder):
         """Test failed event creation."""
-        event = builder.failed(
-            error="Something went wrong",
-            error_category="provisioning_failed"
-        )
+        event = builder.failed(error="Something went wrong", error_category="provisioning_failed")
 
         assert event.type == OssEventType.FAILED
         assert event.data["error"] == "Something went wrong"
@@ -107,10 +101,7 @@ class TestOssSseEventBuilder:
 
     def test_message_event(self, builder):
         """Test message event creation."""
-        event = builder.message(
-            role="assistant",
-            content="Hello, world!"
-        )
+        event = builder.message(role="assistant", content="Hello, world!")
 
         assert event.type == OssEventType.MESSAGE
         assert event.data["role"] == "assistant"
@@ -118,11 +109,7 @@ class TestOssSseEventBuilder:
 
     def test_tool_call_event(self, builder):
         """Test tool_call event creation."""
-        event = builder.tool_call(
-            tool_id="call-1",
-            name="search",
-            arguments={"query": "test"}
-        )
+        event = builder.tool_call(tool_id="call-1", name="search", arguments={"query": "test"})
 
         assert event.type == OssEventType.TOOL_CALL
         assert event.data["tool_id"] == "call-1"
@@ -131,10 +118,7 @@ class TestOssSseEventBuilder:
 
     def test_tool_result_event(self, builder):
         """Test tool_result event creation."""
-        event = builder.tool_result(
-            tool_id="call-1",
-            result={"status": "ok"}
-        )
+        event = builder.tool_result(tool_id="call-1", result={"status": "ok"})
 
         assert event.type == OssEventType.TOOL_RESULT
         assert event.data["tool_id"] == "call-1"
@@ -142,18 +126,14 @@ class TestOssSseEventBuilder:
 
     def test_ui_patch_event(self, builder):
         """Test ui_patch event creation."""
-        event = builder.ui_patch(
-            patch={"action": "update", "target": "header"}
-        )
+        event = builder.ui_patch(patch={"action": "update", "target": "header"})
 
         assert event.type == OssEventType.UI_PATCH
         assert event.data["patch"]["action"] == "update"
 
     def test_state_update_event(self, builder):
         """Test state_update event creation."""
-        event = builder.state_update(
-            state={"counter": 42}
-        )
+        event = builder.state_update(state={"counter": 42})
 
         assert event.type == OssEventType.STATE_UPDATE
         assert event.data["state"]["counter"] == 42
@@ -161,9 +141,7 @@ class TestOssSseEventBuilder:
     def test_error_event(self, builder):
         """Test error event creation."""
         event = builder.error(
-            message="Rate limit exceeded",
-            category="rate_limited",
-            retryable=True
+            message="Rate limit exceeded", category="rate_limited", retryable=True
         )
 
         assert event.type == OssEventType.ERROR
@@ -185,6 +163,7 @@ class TestOssSseEventBuilder:
     def test_timestamps_set(self, builder):
         """Test that timestamps are set."""
         import time
+
         before = time.time()
         event = builder.queued()
         after = time.time()

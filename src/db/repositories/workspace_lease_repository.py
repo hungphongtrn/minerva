@@ -76,9 +76,7 @@ class WorkspaceLeaseRepository:
 
             # Check if there's already an active (non-expired, non-released) lease
             # Use FOR UPDATE locking if available to prevent race conditions
-            existing = self._get_active_lease_for_update(
-                workspace_id, use_locking=use_locking
-            )
+            existing = self._get_active_lease_for_update(workspace_id, use_locking=use_locking)
             if existing:
                 return None
 
@@ -101,10 +99,7 @@ class WorkspaceLeaseRepository:
         except OperationalError as e:
             # Handle lock timeout/contention errors
             error_str = str(e).lower()
-            if any(
-                keyword in error_str
-                for keyword in ["lock", "timeout", "busy", "deadlock"]
-            ):
+            if any(keyword in error_str for keyword in ["lock", "timeout", "busy", "deadlock"]):
                 raise LeaseAcquisitionError(
                     f"Lock timeout acquiring lease for workspace {workspace_id}: {e}",
                     workspace_id=workspace_id,

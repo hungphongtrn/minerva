@@ -152,9 +152,7 @@ def upgrade() -> None:
         ),
         sa.Column("manifest_json", sa.Text(), nullable=True),
         sa.Column("created_by_run_id", sa.String(length=255), nullable=True),
-        sa.Column(
-            "previous_checkpoint_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
+        sa.Column("previous_checkpoint_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("started_at", sa.DateTime(), nullable=True),
         sa.Column("completed_at", sa.DateTime(), nullable=True),
         sa.Column("expires_at", sa.DateTime(), nullable=True),
@@ -183,9 +181,7 @@ def upgrade() -> None:
             ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "checkpoint_id", name="uq_workspace_checkpoints_checkpoint_id"
-        ),
+        sa.UniqueConstraint("checkpoint_id", name="uq_workspace_checkpoints_checkpoint_id"),
     )
 
     # Create workspace_active_checkpoints table
@@ -215,9 +211,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "workspace_id", name="uq_workspace_active_checkpoints_workspace"
-        ),
+        sa.UniqueConstraint("workspace_id", name="uq_workspace_active_checkpoints_workspace"),
     )
 
     # Create audit_events table

@@ -420,9 +420,7 @@ class TestTTLStopAndReplaceBehavior:
 
         # Initial state: one expired active sandbox
         repo = SandboxInstanceRepository(db_session)
-        initial_sandboxes = repo.list_by_workspace(
-            workspace_alpha.id, include_inactive=False
-        )
+        initial_sandboxes = repo.list_by_workspace(workspace_alpha.id, include_inactive=False)
         assert len(initial_sandboxes) == 1
         assert str(initial_sandboxes[0].id) == expired_id
 
@@ -455,8 +453,6 @@ class TestTTLStopAndReplaceBehavior:
         assert new_sandbox.workspace_id == workspace_alpha.id
 
         # Active sandbox count is back to 1 (replacement created)
-        final_active = repo.list_by_workspace(
-            workspace_alpha.id, include_inactive=False
-        )
+        final_active = repo.list_by_workspace(workspace_alpha.id, include_inactive=False)
         assert len(final_active) == 1
         assert str(final_active[0].id) == data["sandbox_id"]

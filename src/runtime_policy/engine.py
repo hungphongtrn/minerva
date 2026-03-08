@@ -41,9 +41,7 @@ class RuntimePolicyEngine:
             parsed = urlparse(url)
             hostname = parsed.hostname
             if not hostname:
-                return PolicyDecision(
-                    allowed=False, reason=f"Egress denied: invalid URL '{url}'"
-                )
+                return PolicyDecision(allowed=False, reason=f"Egress denied: invalid URL '{url}'")
         except Exception:
             return PolicyDecision(
                 allowed=False, reason=f"Egress denied: could not parse URL '{url}'"
@@ -113,9 +111,7 @@ class RuntimePolicyEngine:
             reason=f"Tool access denied: '{tool_id}' not in allowed tools list",
         )
 
-    def evaluate_secret(
-        self, secret_name: str, allowed_secrets: list[str]
-    ) -> PolicyDecision:
+    def evaluate_secret(self, secret_name: str, allowed_secrets: list[str]) -> PolicyDecision:
         """Evaluate if a secret can be accessed.
 
         Args:

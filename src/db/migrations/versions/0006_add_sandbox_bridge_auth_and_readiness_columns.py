@@ -25,9 +25,7 @@ def upgrade() -> None:
 
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     # Create enum type first for PostgreSQL
     if bind.dialect.name == "postgresql":
@@ -57,18 +55,14 @@ def upgrade() -> None:
     if "bridge_auth_token_prev_expires_at" not in existing_columns:
         op.add_column(
             "sandbox_instances",
-            sa.Column(
-                "bridge_auth_token_prev_expires_at", sa.DateTime(), nullable=True
-            ),
+            sa.Column("bridge_auth_token_prev_expires_at", sa.DateTime(), nullable=True),
         )
 
     # Readiness and hydration tracking fields
     if "identity_ready" not in existing_columns:
         op.add_column(
             "sandbox_instances",
-            sa.Column(
-                "identity_ready", sa.Boolean(), nullable=False, server_default="false"
-            ),
+            sa.Column("identity_ready", sa.Boolean(), nullable=False, server_default="false"),
         )
 
     if "hydration_status" not in existing_columns:
@@ -112,9 +106,7 @@ def downgrade() -> None:
 
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     # Remove columns in reverse order
     columns_to_remove = [

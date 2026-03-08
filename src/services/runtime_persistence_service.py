@@ -427,9 +427,7 @@ class RuntimePersistenceService:
         Returns:
             List of runtime event data as dicts.
         """
-        events = self._event_repo.list_by_run_session(
-            run_session_id=run_session_id, limit=limit
-        )
+        events = self._event_repo.list_by_run_session(run_session_id=run_session_id, limit=limit)
         return [self._serialize_runtime_event(e) for e in events]
 
     def _serialize_run_session(self, run_session: Any) -> dict[str, Any]:
@@ -454,26 +452,18 @@ class RuntimePersistenceService:
             "state": state,
             "principal_id": run_session.principal_id,
             "principal_type": run_session.principal_type,
-            "sandbox_id": str(run_session.sandbox_id)
-            if run_session.sandbox_id
-            else None,
-            "checkpoint_id": str(run_session.checkpoint_id)
-            if run_session.checkpoint_id
-            else None,
+            "sandbox_id": str(run_session.sandbox_id) if run_session.sandbox_id else None,
+            "checkpoint_id": str(run_session.checkpoint_id) if run_session.checkpoint_id else None,
             "request_payload": run_session.request_payload_json,
             "result_payload": run_session.result_payload_json,
             "error_message": run_session.error_message,
             "error_code": run_session.error_code,
-            "started_at": run_session.started_at.isoformat()
-            if run_session.started_at
-            else None,
+            "started_at": run_session.started_at.isoformat() if run_session.started_at else None,
             "completed_at": run_session.completed_at.isoformat()
             if run_session.completed_at
             else None,
             "duration_ms": run_session.duration_ms,
-            "created_at": run_session.created_at.isoformat()
-            if run_session.created_at
-            else None,
+            "created_at": run_session.created_at.isoformat() if run_session.created_at else None,
         }
 
     def _serialize_runtime_event(self, event: Any) -> dict[str, Any]:

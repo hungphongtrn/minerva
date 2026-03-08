@@ -30,9 +30,7 @@ class CreateApiKeyRequest(BaseModel):
         ..., min_length=1, max_length=255, description="Human-readable name for the key"
     )
     scopes: List[str] = Field(default=[], description="Permission scopes for this key")
-    expires_at: datetime | None = Field(
-        default=None, description="Optional expiration timestamp"
-    )
+    expires_at: datetime | None = Field(default=None, description="Optional expiration timestamp")
 
     class Config:
         json_schema_extra = {
@@ -298,9 +296,7 @@ async def revoke_api_key(
     service = ApiKeyService(db)
 
     try:
-        key_info = service.revoke_key(
-            key_id=key_id, workspace_id=UUID(principal.workspace_id)
-        )
+        key_info = service.revoke_key(key_id=key_id, workspace_id=UUID(principal.workspace_id))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

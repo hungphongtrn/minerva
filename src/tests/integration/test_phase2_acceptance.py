@@ -48,9 +48,7 @@ class TestWorkspaceContinuity:
         assert "workspace_id" in data
         assert data["name"] is not None
 
-    def test_bootstrap_reuses_existing_workspace(
-        self, client, owner_headers, db_session
-    ):
+    def test_bootstrap_reuses_existing_workspace(self, client, owner_headers, db_session):
         """POST /workspaces/bootstrap returns existing workspace on subsequent calls."""
         # First bootstrap - creates workspace
         response1 = client.post("/api/v1/workspaces/bootstrap", headers=owner_headers)
@@ -166,9 +164,7 @@ class TestAgentPackScaffoldFlow:
             assert "pack_id" in data
             assert data["validation"]["is_valid"] is True
 
-    def test_register_returns_checklist_on_invalid_scaffold(
-        self, client, owner_headers
-    ):
+    def test_register_returns_checklist_on_invalid_scaffold(self, client, owner_headers):
         """POST /agent-packs/register returns checklist when validation fails."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Don't create scaffold - leave directory empty
@@ -201,9 +197,7 @@ class TestAgentPackScaffoldFlow:
 class TestSandboxRouting:
     """WORK-02: Route to healthy active sandbox or hydrate/create replacement."""
 
-    def test_resolve_sandbox_returns_routing_target(
-        self, client, owner_headers, db_session
-    ):
+    def test_resolve_sandbox_returns_routing_target(self, client, owner_headers, db_session):
         """POST /workspaces/{id}/sandbox/resolve returns sandbox routing target."""
         # Bootstrap workspace
         response = client.post("/api/v1/workspaces/bootstrap", headers=owner_headers)
@@ -256,9 +250,7 @@ class TestSandboxRouting:
 
         assert len(healthy_sandboxes) > 0
 
-    def test_routing_exclude_unhealthy(
-        self, client, owner_headers, db_session, workspace_alpha
-    ):
+    def test_routing_exclude_unhealthy(self, client, owner_headers, db_session, workspace_alpha):
         """WORK-05: Unhealthy sandboxes are excluded from routing."""
         # Create an unhealthy sandbox
         unhealthy = SandboxInstance(
@@ -295,9 +287,7 @@ class TestSandboxRouting:
 class TestWorkspaceLeaseSerialization:
     """WORK-04: Concurrent write attempts for same workspace are serialized."""
 
-    def test_lease_service_acquire_prevents_concurrent_access(
-        self, db_session, workspace_alpha
-    ):
+    def test_lease_service_acquire_prevents_concurrent_access(self, db_session, workspace_alpha):
         """TEST-15: Lease acquisition serializes same-workspace write attempts."""
         from src.services.workspace_lease_service import LeaseResult
 
@@ -391,9 +381,7 @@ class TestIdleTTLBehavior:
         assert eligibility.eligible is True
         assert eligibility.idle_seconds > eligibility.ttl_seconds
 
-    def test_stop_eligibility_respects_configured_ttl(
-        self, db_session, workspace_alpha
-    ):
+    def test_stop_eligibility_respects_configured_ttl(self, db_session, workspace_alpha):
         """Non-default TTL produces different stop eligibility."""
         recent_time = datetime.now(timezone.utc) - timedelta(minutes=30)
 
@@ -525,9 +513,7 @@ class TestRegisteredPackBindingParity:
     """
 
     @pytest.fixture
-    def registered_pack_for_workspace(
-        self, db_session, workspace_alpha, workspace_owner
-    ):
+    def registered_pack_for_workspace(self, db_session, workspace_alpha, workspace_owner):
         """Create and register a real agent pack for workspace_alpha."""
         import tempfile
         from src.db.repositories.agent_pack_repository import AgentPackRepository
@@ -661,13 +647,9 @@ class TestRegisteredPackBindingParity:
         db_session.commit()
 
         # Mock AsyncDaytona SDK
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
             mock_daytona = AsyncMock()
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Mock sandbox with pack binding metadata
@@ -684,9 +666,7 @@ class TestRegisteredPackBindingParity:
             mock_daytona.get = AsyncMock(return_value=mock_sandbox)
 
             # Create orchestrator with Daytona provider
-            orchestrator = SandboxOrchestratorService(
-                db_session, provider=daytona_provider
-            )
+            orchestrator = SandboxOrchestratorService(db_session, provider=daytona_provider)
             lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
 
             # Resolve with agent_pack_id (auto_create=False so it checks existing first)
@@ -737,12 +717,8 @@ class TestRegisteredPackBindingParity:
 
         # Create orchestrator for local_compose (no mocking needed)
         local_provider = get_provider("local_compose")
-        local_orchestrator = SandboxOrchestratorService(
-            db_session, provider=local_provider
-        )
-        local_lifecycle = WorkspaceLifecycleService(
-            db_session, orchestrator=local_orchestrator
-        )
+        local_orchestrator = SandboxOrchestratorService(db_session, provider=local_provider)
+        local_lifecycle = WorkspaceLifecycleService(db_session, orchestrator=local_orchestrator)
 
         # Resolve with local_compose
         local_result = await local_lifecycle.resolve_target(
@@ -756,13 +732,9 @@ class TestRegisteredPackBindingParity:
 
         # Resolve with daytona - must mock SDK
         daytona_provider = get_provider("daytona")
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
             mock_daytona = AsyncMock()
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Create an existing sandbox record for Daytona profile
@@ -816,12 +788,8 @@ class TestRegisteredPackBindingParity:
             )
 
             # Both should succeed
-            assert local_result.error is None, (
-                f"Local compose failed: {local_result.error}"
-            )
-            assert daytona_result.error is None, (
-                f"Daytona failed: {daytona_result.error}"
-            )
+            assert local_result.error is None, f"Local compose failed: {local_result.error}"
+            assert daytona_result.error is None, f"Daytona failed: {daytona_result.error}"
 
             # Both should have routing results with provider info
             assert local_result.routing_result is not None
@@ -845,9 +813,7 @@ class TestRegisteredPackBindingParity:
 
             assert local_path is not None, "Local compose should have pack_source_path"
             assert daytona_path is not None, "Daytona should have pack_source_path"
-            assert local_path == daytona_path, (
-                "Both profiles should resolve same pack source path"
-            )
+            assert local_path == daytona_path, "Both profiles should resolve same pack source path"
 
     @pytest.mark.asyncio
     async def test_daytona_sdk_backed_sandbox_lifecycle(
@@ -881,13 +847,9 @@ class TestRegisteredPackBindingParity:
         assert isinstance(daytona_provider, DaytonaSandboxProvider)
 
         # Mock AsyncDaytona SDK for full lifecycle test
-        with patch(
-            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
-        ) as mock_sdk_class:
+        with patch("src.infrastructure.sandbox.providers.daytona.AsyncDaytona") as mock_sdk_class:
             mock_daytona = AsyncMock()
-            mock_sdk_class.return_value.__aenter__ = AsyncMock(
-                return_value=mock_daytona
-            )
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(return_value=mock_daytona)
             mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
 
             # Mock sandbox in "started" state (ready to use)
@@ -908,9 +870,7 @@ class TestRegisteredPackBindingParity:
             mock_daytona.create = AsyncMock(return_value=mock_sandbox)
 
             # Create orchestrator with Daytona provider
-            orchestrator = SandboxOrchestratorService(
-                db_session, provider=daytona_provider
-            )
+            orchestrator = SandboxOrchestratorService(db_session, provider=daytona_provider)
             lifecycle = WorkspaceLifecycleService(db_session, orchestrator=orchestrator)
 
             # Resolve with auto_create=True (should provision)
@@ -926,9 +886,7 @@ class TestRegisteredPackBindingParity:
             # Verify SDK create was called for provisioning
             mock_daytona.create.assert_called_once()
             call_args = mock_daytona.create.call_args
-            assert call_args.kwargs.get("timeout") == 60, (
-                "Should use 60s timeout for provisioning"
-            )
+            assert call_args.kwargs.get("timeout") == 60, "Should use 60s timeout for provisioning"
 
             # Verify result state - check routing_result provider_info for semantic state
             assert result.error is None, f"Resolution failed: {result.error}"
@@ -938,15 +896,12 @@ class TestRegisteredPackBindingParity:
             assert result.routing_result.provider_info.state == SandboxState.READY, (
                 "SDK 'started' state should map to READY"
             )
-            assert (
-                result.routing_result.provider_info.health == SandboxHealth.HEALTHY
-            ), "SDK 'healthy' status should map to HEALTHY"
+            assert result.routing_result.provider_info.health == SandboxHealth.HEALTHY, (
+                "SDK 'healthy' status should map to HEALTHY"
+            )
 
             # Verify pack binding in provider metadata
-            assert (
-                result.routing_result.provider_info.ref.metadata.get("pack_bound")
-                is True
-            )
+            assert result.routing_result.provider_info.ref.metadata.get("pack_bound") is True
             assert (
                 result.routing_result.provider_info.ref.metadata.get("pack_source_path")
                 == pack_path

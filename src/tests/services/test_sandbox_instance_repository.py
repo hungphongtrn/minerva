@@ -107,9 +107,7 @@ class TestBridgeTokenRotation:
         new_token = "new-token-456"
 
         # Act
-        result = repository.rotate_bridge_token(
-            test_sandbox.id, new_token, grace_seconds=30
-        )
+        result = repository.rotate_bridge_token(test_sandbox.id, new_token, grace_seconds=30)
 
         # Assert
         assert result is not None
@@ -131,21 +129,15 @@ class TestBridgeTokenRotation:
         before_rotate = datetime.utcnow()
 
         # Act
-        result = repository.rotate_bridge_token(
-            test_sandbox.id, new_token, grace_seconds=30
-        )
+        result = repository.rotate_bridge_token(test_sandbox.id, new_token, grace_seconds=30)
 
         # Assert
         assert result is not None
         assert result.bridge_auth_token_prev == old_token
         assert result.bridge_auth_token_prev_expires_at is not None
         # Expiry should be ~30 seconds from now
-        assert result.bridge_auth_token_prev_expires_at > before_rotate + timedelta(
-            seconds=29
-        )
-        assert result.bridge_auth_token_prev_expires_at < before_rotate + timedelta(
-            seconds=31
-        )
+        assert result.bridge_auth_token_prev_expires_at > before_rotate + timedelta(seconds=29)
+        assert result.bridge_auth_token_prev_expires_at < before_rotate + timedelta(seconds=31)
 
     def test_rotate_bridge_token_multiple_rotations(
         self,
@@ -202,9 +194,7 @@ class TestBridgeTokenRotation:
         # Arrange
         test_sandbox.bridge_auth_token = "new-token"
         test_sandbox.bridge_auth_token_prev = "old-token"
-        test_sandbox.bridge_auth_token_prev_expires_at = datetime.utcnow() + timedelta(
-            seconds=30
-        )
+        test_sandbox.bridge_auth_token_prev_expires_at = datetime.utcnow() + timedelta(seconds=30)
         db_session.commit()
 
         # Act
@@ -225,9 +215,7 @@ class TestBridgeTokenRotation:
         # Arrange
         test_sandbox.bridge_auth_token = "new-token"
         test_sandbox.bridge_auth_token_prev = "old-token"
-        test_sandbox.bridge_auth_token_prev_expires_at = datetime.utcnow() - timedelta(
-            seconds=1
-        )
+        test_sandbox.bridge_auth_token_prev_expires_at = datetime.utcnow() - timedelta(seconds=1)
         db_session.commit()
 
         # Act
@@ -277,9 +265,7 @@ class TestGatewayUrlAuthority:
         authoritative_url = "https://gateway.daytona.example.com/sandbox-123"
 
         # Act
-        result = repository.set_gateway_url_authoritative(
-            test_sandbox.id, authoritative_url
-        )
+        result = repository.set_gateway_url_authoritative(test_sandbox.id, authoritative_url)
 
         # Assert
         assert result is not None
@@ -303,9 +289,7 @@ class TestGatewayUrlAuthority:
         authoritative_url = "https://gateway.daytona.example.com/sandbox-123"
 
         # Act
-        result = repository.set_gateway_url_authoritative(
-            test_sandbox.id, authoritative_url
-        )
+        result = repository.set_gateway_url_authoritative(test_sandbox.id, authoritative_url)
 
         # Assert
         assert result is not None
@@ -317,9 +301,7 @@ class TestGatewayUrlAuthority:
     ):
         """Test that authority method returns None for non-existent sandbox."""
         # Act
-        result = repository.set_gateway_url_authoritative(
-            uuid4(), "https://example.com"
-        )
+        result = repository.set_gateway_url_authoritative(uuid4(), "https://example.com")
 
         # Assert
         assert result is None
@@ -515,9 +497,7 @@ class TestHydrationStatus:
     ):
         """Test that setting hydration status returns None for non-existent sandbox."""
         # Act
-        result = repository.set_hydration_status(
-            uuid4(), status=SandboxHydrationStatus.COMPLETED
-        )
+        result = repository.set_hydration_status(uuid4(), status=SandboxHydrationStatus.COMPLETED)
 
         # Assert
         assert result is None

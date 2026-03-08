@@ -87,9 +87,7 @@ def mock_provider():
 
 
 @pytest.fixture
-def orchestrator_service(
-    db_session: Session, mock_provider
-) -> SandboxOrchestratorService:
+def orchestrator_service(db_session: Session, mock_provider) -> SandboxOrchestratorService:
     """Create an orchestrator service with mock provider."""
     return SandboxOrchestratorService(
         session=db_session,
@@ -179,9 +177,7 @@ class TestTTLConfiguration:
         db_session.commit()
 
         eligibility_long = service_long_ttl.check_stop_eligibility(sandbox_long)
-        assert eligibility_long.eligible is False, (
-            "30 min idle should NOT stop with 1 hour TTL"
-        )
+        assert eligibility_long.eligible is False, "30 min idle should NOT stop with 1 hour TTL"
 
         # Clean up
         db_session.delete(sandbox_long)
@@ -208,9 +204,7 @@ class TestTTLConfiguration:
         db_session.commit()
 
         eligibility_short = service_short_ttl.check_stop_eligibility(sandbox_short)
-        assert eligibility_short.eligible is True, (
-            "30 min idle SHOULD stop with 15 min TTL"
-        )
+        assert eligibility_short.eligible is True, "30 min idle SHOULD stop with 15 min TTL"
 
 
 class TestStopEligibility:
@@ -691,9 +685,7 @@ class TestIdempotentStop:
         db_session.commit()
 
         # Mock stop to raise NotFound (idempotent case)
-        mock_provider.stop_sandbox.side_effect = SandboxNotFoundError(
-            "Sandbox not found"
-        )
+        mock_provider.stop_sandbox.side_effect = SandboxNotFoundError("Sandbox not found")
 
         # Stop should succeed even if provider raises NotFound
         stopped = await orchestrator_service._stop_sandbox(sandbox)

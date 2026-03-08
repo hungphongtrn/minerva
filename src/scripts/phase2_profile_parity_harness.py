@@ -283,9 +283,7 @@ def run_ci_mode(args) -> int:
     print("PHASE 2 PROFILE PARITY HARNESS - CI MODE")
     print("=" * 70)
     print("[HARNESS] CI mode requires both local_compose and daytona profiles")
-    print(
-        "[HARNESS] Truth 11: Valid pack runs with equivalent semantics across profiles"
-    )
+    print("[HARNESS] Truth 11: Valid pack runs with equivalent semantics across profiles")
     print()
 
     report = ParityReport()
@@ -298,15 +296,11 @@ def run_ci_mode(args) -> int:
     )
 
     # Check if Daytona credentials are available (REQUIRED in CI mode)
-    daytona_api_key = os.environ.get("DAYTONA_API_KEY") or os.environ.get(
-        "DAYTONA_API_TOKEN"
-    )
+    daytona_api_key = os.environ.get("DAYTONA_API_KEY") or os.environ.get("DAYTONA_API_TOKEN")
 
     if not daytona_api_key:
         print("\n[HARNESS] ERROR: DAYTONA_API_KEY not set")
-        print(
-            "[HARNESS] CI mode requires Daytona credentials for profile parity verification"
-        )
+        print("[HARNESS] CI mode requires Daytona credentials for profile parity verification")
         print("[HARNESS] Set DAYTONA_API_KEY environment variable")
         report.overall_success = False
         report.parity_check_passed = False
@@ -321,9 +315,7 @@ def run_ci_mode(args) -> int:
     )
 
     # Check parity between profiles
-    report.parity_check_passed = check_parity(
-        report.local_result, report.daytona_result
-    )
+    report.parity_check_passed = check_parity(report.local_result, report.daytona_result)
 
     # Overall success: BOTH profiles must pass AND parity must pass
     report.overall_success = (

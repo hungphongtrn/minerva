@@ -144,9 +144,7 @@ class OssSseEventBuilder:
             data=data,
         )
 
-    def provisioning(
-        self, step: str, message: Optional[str] = None, **extra
-    ) -> OssSseEvent:
+    def provisioning(self, step: str, message: Optional[str] = None, **extra) -> OssSseEvent:
         """Create provisioning status event.
 
         Args:
@@ -206,9 +204,7 @@ class OssSseEventBuilder:
             data=extra,
         )
 
-    def failed(
-        self, error: str, error_category: Optional[str] = None, **extra
-    ) -> OssSseEvent:
+    def failed(self, error: str, error_category: Optional[str] = None, **extra) -> OssSseEvent:
         """Create failed event.
 
         Args:
@@ -432,11 +428,7 @@ def map_zeroclaw_event_to_oss_event(
             return builder.tool_result(
                 tool_id=tool_id,
                 result=result,
-                **{
-                    k: v
-                    for k, v in event_data.items()
-                    if k not in ("tool_id", "result")
-                },
+                **{k: v for k, v in event_data.items() if k not in ("tool_id", "result")},
             )
 
         # UI patch events
@@ -482,11 +474,7 @@ def map_zeroclaw_event_to_oss_event(
             return builder.failed(
                 error=error_msg,
                 error_category=error_category,
-                **{
-                    k: v
-                    for k, v in event_data.items()
-                    if k not in ("error", "category")
-                },
+                **{k: v for k, v in event_data.items() if k not in ("error", "category")},
             )
 
         # Unknown event type - safely ignore

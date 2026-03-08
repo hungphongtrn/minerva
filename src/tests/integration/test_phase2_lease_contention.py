@@ -221,9 +221,7 @@ class TestConcurrentResolveContention:
         assert result2.result in [LeaseResult.CONFLICT, LeaseResult.CONFLICT_RETRYABLE]
         assert elapsed_ms < 15000, f"Conflict response took too long: {elapsed_ms}ms"
 
-    def test_service_responsive_after_contention(
-        self, db_session: Session, workspace_owner: User
-    ):
+    def test_service_responsive_after_contention(self, db_session: Session, workspace_owner: User):
         """Verify API remains responsive after contention events.
 
         After concurrent contention resolves, subsequent requests should
@@ -267,9 +265,7 @@ class TestConcurrentResolveContention:
         assert result2.result == LeaseResult.ACQUIRED
         assert elapsed_ms < 1000, f"Service not responsive: took {elapsed_ms}ms"
 
-    def test_repository_explicit_row_locking(
-        self, db_session: Session, workspace_owner: User
-    ):
+    def test_repository_explicit_row_locking(self, db_session: Session, workspace_owner: User):
         """Verify repository uses FOR UPDATE locking when requested.
 
         The _get_active_lease_for_update method should support explicit

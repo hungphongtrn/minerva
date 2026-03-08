@@ -66,9 +66,7 @@ class TestDeprecatedBridgeRecoverability:
         result = run_service._is_recoverable_bridge_error(error)
         assert result is False, f"Expected False for {error_type.value}"
 
-    def test_is_recoverable_bridge_error_consistency_with_gateway_method(
-        self, run_service
-    ):
+    def test_is_recoverable_bridge_error_consistency_with_gateway_method(self, run_service):
         """Test that deprecated method returns same results as new method."""
         # Test with recoverable type
         recoverable_error = GatewayError(
@@ -87,9 +85,7 @@ class TestDeprecatedBridgeRecoverability:
             remediation="Check token",
         )
         bridge_result = run_service._is_recoverable_bridge_error(non_recoverable_error)
-        gateway_result = run_service._is_recoverable_gateway_error(
-            non_recoverable_error
-        )
+        gateway_result = run_service._is_recoverable_gateway_error(non_recoverable_error)
         assert bridge_result == gateway_result
 
         # Test with None

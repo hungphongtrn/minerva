@@ -283,9 +283,7 @@ class TestSandboxResolveReuse:
         workspace_id_str = bootstrap_response.json()["workspace_id"]
         workspace_uuid = UUID(workspace_id_str)  # Convert string to UUID
 
-        workspace = (
-            db_session.query(Workspace).filter(Workspace.id == workspace_uuid).first()
-        )
+        workspace = db_session.query(Workspace).filter(Workspace.id == workspace_uuid).first()
         assert workspace is not None
 
         # Create healthy sandbox record
@@ -398,15 +396,11 @@ class TestTransactionBoundaryBehavior:
 
             # No pack with this name should exist
             pack_names = {p["name"] for p in packs}
-            assert "Invalid Pack" not in pack_names, (
-                "Invalid pack should not be persisted"
-            )
+            assert "Invalid Pack" not in pack_names, "Invalid pack should not be persisted"
 
             # Verify in database directly
             invalid_packs = (
-                db_session.query(AgentPack)
-                .filter(AgentPack.name == "Invalid Pack")
-                .all()
+                db_session.query(AgentPack).filter(AgentPack.name == "Invalid Pack").all()
             )
             assert len(invalid_packs) == 0, "Invalid pack should not exist in database"
 
@@ -433,11 +427,7 @@ class TestTransactionBoundaryBehavior:
 
         # Verify workspace was persisted by querying it directly
         # This requires the transaction to have been committed
-        workspace = (
-            db_session.query(Workspace)
-            .filter(Workspace.id == UUID(workspace_id))
-            .first()
-        )
+        workspace = db_session.query(Workspace).filter(Workspace.id == UUID(workspace_id)).first()
         assert workspace is not None, (
             f"Workspace {workspace_id} should be persisted after successful bootstrap. "
             "If this fails, the transaction was not committed (possible flush-only)."

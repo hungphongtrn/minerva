@@ -34,9 +34,7 @@ def db_engine(tmp_path):
 @pytest.fixture(scope="function")
 def db_session(db_engine) -> Generator[Session, None, None]:
     """Create a fresh database session for each test."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=db_engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
     session = TestingSessionLocal()
 
     # Enable foreign key support for SQLite

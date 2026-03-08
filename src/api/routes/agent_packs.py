@@ -52,9 +52,7 @@ class ScaffoldResponse(BaseModel):
 
     success: bool = Field(..., description="Whether scaffolding succeeded")
     pack_path: str = Field(..., description="Resolved absolute path")
-    entries: List[ScaffoldEntry] = Field(
-        ..., description="List of created/verified entries"
-    )
+    entries: List[ScaffoldEntry] = Field(..., description="List of created/verified entries")
     message: str = Field(..., description="Status message")
 
 
@@ -88,9 +86,7 @@ class ValidationReport(BaseModel):
 
     is_valid: bool = Field(..., description="True if pack passed validation")
     checklist: List[ChecklistEntry] = Field(..., description="All validation entries")
-    source_digest: Optional[str] = Field(
-        None, description="SHA-256 digest of pack content"
-    )
+    source_digest: Optional[str] = Field(None, description="SHA-256 digest of pack content")
     error_count: int = Field(..., description="Number of error entries")
     warning_count: int = Field(..., description="Number of warning entries")
 
@@ -131,9 +127,7 @@ class PackStatusResponse(BaseModel):
     source_path: str = Field(..., description="Filesystem path")
     validation_status: str = Field(..., description="pending/valid/invalid/stale")
     is_active: bool = Field(..., description="Whether pack is active")
-    last_validated_at: Optional[str] = Field(
-        None, description="Last validation timestamp"
-    )
+    last_validated_at: Optional[str] = Field(None, description="Last validation timestamp")
 
 
 # Endpoints
@@ -188,24 +182,18 @@ async def scaffold_agent_pack(
         ]
 
         # Get the resolved path (first entry is the pack directory)
-        resolved_path = (
-            response_entries[0].path if response_entries else request.pack_path
-        )
+        resolved_path = response_entries[0].path if response_entries else request.pack_path
 
         # Determine message
         created_count = sum(1 for e in entries if e.created)
         existed_count = sum(1 for e in entries if not e.created and e.already_existed)
 
         if created_count > 0 and existed_count > 0:
-            message = (
-                f"Created {created_count} new entries, {existed_count} already existed"
-            )
+            message = f"Created {created_count} new entries, {existed_count} already existed"
         elif created_count > 0:
             message = f"Created {created_count} scaffold entries successfully"
         else:
-            message = (
-                "All scaffold entries already exist (use overwrite=True to replace)"
-            )
+            message = "All scaffold entries already exist (use overwrite=True to replace)"
 
         return ScaffoldResponse(
             success=True,
@@ -597,9 +585,7 @@ async def get_pack(
         source_path=pack.source_path,
         validation_status=validation_status,
         is_active=pack.is_active,
-        last_validated_at=pack.last_validated_at.isoformat()
-        if pack.last_validated_at
-        else None,
+        last_validated_at=pack.last_validated_at.isoformat() if pack.last_validated_at else None,
     )
 
 

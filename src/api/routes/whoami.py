@@ -18,19 +18,11 @@ router = APIRouter(prefix="/whoami", tags=["Identity"])
 class WhoamiResponse(BaseModel):
     """Response containing the authenticated principal information."""
 
-    workspace_id: str = Field(
-        ..., description="The workspace ID associated with the API key"
-    )
-    key_id: str = Field(
-        ..., description="The unique identifier of the API key being used"
-    )
-    scopes: List[str] = Field(
-        ..., description="Permission scopes granted to this API key"
-    )
+    workspace_id: str = Field(..., description="The workspace ID associated with the API key")
+    key_id: str = Field(..., description="The unique identifier of the API key being used")
+    scopes: List[str] = Field(..., description="Permission scopes granted to this API key")
     is_active: bool = Field(..., description="Whether the API key is currently active")
-    authentication_status: str = Field(
-        "authenticated", description="Status of the authentication"
-    )
+    authentication_status: str = Field("authenticated", description="Status of the authentication")
 
     class Config:
         json_schema_extra = {
@@ -50,9 +42,7 @@ class WhoamiErrorResponse(BaseModel):
     authentication_status: str = Field(
         "unauthenticated", description="Status indicating authentication failure"
     )
-    error: str = Field(
-        ..., description="Error message explaining why authentication failed"
-    )
+    error: str = Field(..., description="Error message explaining why authentication failed")
 
     class Config:
         json_schema_extra = {

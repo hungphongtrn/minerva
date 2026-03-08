@@ -112,9 +112,7 @@ class TestAlembicConfiguration:
             "versions",
             "0001_identity_policy_baseline.py",
         )
-        assert os.path.exists(migration_path), (
-            f"Migration file not found: {migration_path}"
-        )
+        assert os.path.exists(migration_path), f"Migration file not found: {migration_path}"
 
     def test_migration_contains_rls_statements(self):
         """Migration contains RLS ENABLE and FORCE statements."""
@@ -129,26 +127,18 @@ class TestAlembicConfiguration:
         source = inspect.getsource(migration.upgrade)
 
         # Check for ENABLE ROW LEVEL SECURITY
-        assert "ENABLE ROW LEVEL SECURITY" in source, (
-            "Migration missing ENABLE ROW LEVEL SECURITY"
-        )
+        assert "ENABLE ROW LEVEL SECURITY" in source, "Migration missing ENABLE ROW LEVEL SECURITY"
 
         # Check for FORCE ROW LEVEL SECURITY
-        assert "FORCE ROW LEVEL SECURITY" in source, (
-            "Migration missing FORCE ROW LEVEL SECURITY"
-        )
+        assert "FORCE ROW LEVEL SECURITY" in source, "Migration missing FORCE ROW LEVEL SECURITY"
 
         source = inspect.getsource(migration.upgrade)
 
         # Check for ENABLE ROW LEVEL SECURITY
-        assert "ENABLE ROW LEVEL SECURITY" in source, (
-            "Migration missing ENABLE ROW LEVEL SECURITY"
-        )
+        assert "ENABLE ROW LEVEL SECURITY" in source, "Migration missing ENABLE ROW LEVEL SECURITY"
 
         # Check for FORCE ROW LEVEL SECURITY
-        assert "FORCE ROW LEVEL SECURITY" in source, (
-            "Migration missing FORCE ROW LEVEL SECURITY"
-        )
+        assert "FORCE ROW LEVEL SECURITY" in source, "Migration missing FORCE ROW LEVEL SECURITY"
 
 
 class TestConfiguration:

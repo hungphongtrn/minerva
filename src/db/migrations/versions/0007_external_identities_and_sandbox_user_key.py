@@ -36,9 +36,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("external_user_id", sa.String(255), nullable=False),
-        sa.Column(
-            "created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("now()")),
         sa.PrimaryKeyConstraint("workspace_id", "external_user_id"),
         sa.UniqueConstraint(
             "workspace_id",
@@ -49,9 +47,7 @@ def upgrade() -> None:
 
     # Add external_user_id column to sandbox_instances if not exists
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     if "external_user_id" not in existing_columns:
         op.add_column(
@@ -65,9 +61,7 @@ def downgrade() -> None:
 
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    existing_columns = {
-        column["name"] for column in inspector.get_columns("sandbox_instances")
-    }
+    existing_columns = {column["name"] for column in inspector.get_columns("sandbox_instances")}
 
     # Remove external_user_id column from sandbox_instances
     if "external_user_id" in existing_columns:

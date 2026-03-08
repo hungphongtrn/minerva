@@ -66,8 +66,7 @@ def get_provider(profile: str | None = None) -> SandboxProvider:
     if profile_key not in _PROVIDER_REGISTRY:
         available = ", ".join(sorted(_PROVIDER_REGISTRY.keys()))
         raise SandboxProfileError(
-            f"Unsupported sandbox profile: '{profile_key}'. "
-            f"Available profiles: {available}"
+            f"Unsupported sandbox profile: '{profile_key}'. Available profiles: {available}"
         )
 
     _PROVIDER_REGISTRY[profile_key]
@@ -79,9 +78,7 @@ def get_provider(profile: str | None = None) -> SandboxProvider:
         return _create_daytona_provider()
     else:
         # This should never happen due to the registry check above
-        raise SandboxProfileError(
-            f"Provider factory not implemented for: {profile_key}"
-        )
+        raise SandboxProfileError(f"Provider factory not implemented for: {profile_key}")
 
 
 def _create_local_compose_provider() -> LocalComposeSandboxProvider:

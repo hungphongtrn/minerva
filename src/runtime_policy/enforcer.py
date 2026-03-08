@@ -54,9 +54,7 @@ class RuntimeEnforcer:
         decision = self.engine.evaluate_egress_policy(url, policy)
 
         if not decision.allowed:
-            raise PolicyViolationError(
-                action="egress", resource=url, reason=decision.reason
-            )
+            raise PolicyViolationError(action="egress", resource=url, reason=decision.reason)
 
     def authorize_tool(self, tool_id: str, policy: ToolPolicy) -> None:
         """Authorize a tool execution, raising on denial.
@@ -71,9 +69,7 @@ class RuntimeEnforcer:
         decision = self.engine.evaluate_tool_policy(tool_id, policy)
 
         if not decision.allowed:
-            raise PolicyViolationError(
-                action="tool", resource=tool_id, reason=decision.reason
-            )
+            raise PolicyViolationError(action="tool", resource=tool_id, reason=decision.reason)
 
     def authorize_secret(self, secret_name: str, allowed_secrets: list[str]) -> None:
         """Authorize a secret access, raising on denial.

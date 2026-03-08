@@ -74,9 +74,7 @@ def test_workspace(db_session):
 class TestAgentPackService:
     """Test suite for AgentPackService."""
 
-    def test_uses_repository_for_registration(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_uses_repository_for_registration(self, db_session, test_workspace, temp_dir):
         """Test that service uses repository for pack registration."""
         # Create valid pack
         pack_path = temp_dir / "test_pack"
@@ -104,9 +102,7 @@ class TestAgentPackService:
         assert found_pack is not None
         assert found_pack.name == "Test Pack"
 
-    def test_blocks_invalid_pack_registration(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_blocks_invalid_pack_registration(self, db_session, test_workspace, temp_dir):
         """Test that invalid packs are blocked and return checklist."""
         # Create incomplete pack (missing files)
         pack_path = temp_dir / "invalid_pack"
@@ -162,9 +158,7 @@ class TestAgentPackService:
         assert result2.pack.id == pack_id  # Same pack ID
         assert result2.pack.name == "Updated Name"
 
-    def test_stores_source_digest_via_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_stores_source_digest_via_repository(self, db_session, test_workspace, temp_dir):
         """Test that source digest is stored through repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -189,9 +183,7 @@ class TestAgentPackService:
         found_pack = repo.get_by_id(result.pack.id)
         assert found_pack.source_digest == result.pack.source_digest
 
-    def test_stores_validation_status_via_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_stores_validation_status_via_repository(self, db_session, test_workspace, temp_dir):
         """Test that validation status is stored through repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -249,9 +241,7 @@ class TestAgentPackService:
         assert stale_result.stored_digest == original_digest
         assert stale_result.current_digest != original_digest
 
-    def test_check_stale_updates_status_via_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_check_stale_updates_status_via_repository(self, db_session, test_workspace, temp_dir):
         """Test that check_stale updates status through repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -306,9 +296,7 @@ class TestAgentPackService:
         assert reval_result.success is True
         assert reval_result.pack.validation_status == AgentPackValidationStatus.VALID
 
-    def test_revalidate_updates_digest_via_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_revalidate_updates_digest_via_repository(self, db_session, test_workspace, temp_dir):
         """Test that revalidate updates digest through repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -338,9 +326,7 @@ class TestAgentPackService:
         found_pack = repo.get_by_id(pack_id)
         assert found_pack.source_digest != original_digest
 
-    def test_revalidate_reports_invalid_packs(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_revalidate_reports_invalid_packs(self, db_session, test_workspace, temp_dir):
         """Test that revalidate reports invalid packs."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -392,9 +378,7 @@ class TestAgentPackService:
         assert found_pack is not None
         assert found_pack.id == pack_id
 
-    def test_get_pack_by_path_normalizes_path(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_get_pack_by_path_normalizes_path(self, db_session, test_workspace, temp_dir):
         """Test that get_pack_by_path normalizes the source path."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -446,9 +430,7 @@ class TestAgentPackService:
 
         assert len(packs) == 3
 
-    def test_list_stale_packs_delegates_to_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_list_stale_packs_delegates_to_repository(self, db_session, test_workspace, temp_dir):
         """Test that list_stale_packs delegates to repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -476,9 +458,7 @@ class TestAgentPackService:
         assert len(stale_packs) == 1
         assert stale_packs[0].id == pack_id
 
-    def test_set_pack_active_delegates_to_repository(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_set_pack_active_delegates_to_repository(self, db_session, test_workspace, temp_dir):
         """Test that set_pack_active delegates to repository."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -546,9 +526,7 @@ class TestAgentPackService:
         assert result.success is True
         assert result.pack is not None
 
-    def test_uses_injected_validation_service(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_uses_injected_validation_service(self, db_session, test_workspace, temp_dir):
         """Test that service uses injected validation service."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()
@@ -572,9 +550,7 @@ class TestAgentPackService:
 
         assert result.success is True
 
-    def test_normalize_path_handles_relative_paths(
-        self, db_session, test_workspace, temp_dir
-    ):
+    def test_normalize_path_handles_relative_paths(self, db_session, test_workspace, temp_dir):
         """Test that relative paths are normalized to absolute."""
         pack_path = temp_dir / "test_pack"
         pack_path.mkdir()

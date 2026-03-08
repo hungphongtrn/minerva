@@ -241,9 +241,7 @@ class RunSessionRepository:
         run_session.completed_at = now
 
         if run_session.started_at:
-            run_session.duration_ms = int(
-                (now - run_session.started_at).total_seconds() * 1000
-            )
+            run_session.duration_ms = int((now - run_session.started_at).total_seconds() * 1000)
 
         if result_payload_json:
             run_session.result_payload_json = result_payload_json
@@ -279,9 +277,7 @@ class RunSessionRepository:
         run_session.error_code = error_code
 
         if run_session.started_at:
-            run_session.duration_ms = int(
-                (now - run_session.started_at).total_seconds() * 1000
-            )
+            run_session.duration_ms = int((now - run_session.started_at).total_seconds() * 1000)
 
         self._session.flush()
 
@@ -310,9 +306,7 @@ class RunSessionRepository:
         run_session.completed_at = now
 
         if run_session.started_at:
-            run_session.duration_ms = int(
-                (now - run_session.started_at).total_seconds() * 1000
-            )
+            run_session.duration_ms = int((now - run_session.started_at).total_seconds() * 1000)
 
         if reason:
             run_session.error_message = reason

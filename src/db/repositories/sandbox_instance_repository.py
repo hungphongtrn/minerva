@@ -93,9 +93,7 @@ class SandboxInstanceRepository:
         Returns:
             SandboxInstance if found, None otherwise.
         """
-        stmt = select(SandboxInstance).where(
-            SandboxInstance.provider_ref == provider_ref
-        )
+        stmt = select(SandboxInstance).where(SandboxInstance.provider_ref == provider_ref)
         return self._session.execute(stmt).scalar_one_or_none()
 
     def list_by_workspace(
@@ -232,9 +230,7 @@ class SandboxInstanceRepository:
 
         if idle_threshold_seconds:
             # Use global threshold
-            threshold_time = now - __import__("datetime").timedelta(
-                seconds=idle_threshold_seconds
-            )
+            threshold_time = now - __import__("datetime").timedelta(seconds=idle_threshold_seconds)
             conditions.append(SandboxInstance.last_activity_at < threshold_time)
         else:
             # Use per-sandbox TTL with timestamp comparison
@@ -442,9 +438,7 @@ class SandboxInstanceRepository:
         if sandbox.bridge_auth_token_prev and sandbox.bridge_auth_token_prev_expires_at:
             if sandbox.bridge_auth_token_prev_expires_at > now:
                 result["previous"] = sandbox.bridge_auth_token_prev
-                result["previous_expires_at"] = (
-                    sandbox.bridge_auth_token_prev_expires_at
-                )
+                result["previous_expires_at"] = sandbox.bridge_auth_token_prev_expires_at
 
         return result
 

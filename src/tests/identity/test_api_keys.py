@@ -159,9 +159,7 @@ class TestKeyValidation:
         assert result.is_valid is False
         assert "No API key provided" in result.error
 
-    def test_validate_key_fails_with_revoked_key(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_validate_key_fails_with_revoked_key(self, api_key_service, sample_workspace_id):
         """AUTH-02: Revoked key fails validation immediately."""
         # Create key
         key_pair, key_info = api_key_service.create_key(
@@ -173,18 +171,14 @@ class TestKeyValidation:
         assert result.is_valid is True
 
         # Revoke it
-        api_key_service.revoke_key(
-            key_id=UUID(key_info.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(key_info.id), workspace_id=sample_workspace_id)
 
         # Verify it no longer works
         result = api_key_service.validate_key(key_pair.full_key)
         assert result.is_valid is False
         assert "revoked" in result.error.lower()
 
-    def test_validate_key_fails_with_expired_key(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_validate_key_fails_with_expired_key(self, api_key_service, sample_workspace_id):
         """Expired key fails validation."""
         # Create expired key
         expired = datetime.utcnow() - timedelta(hours=1)
@@ -197,9 +191,7 @@ class TestKeyValidation:
         assert result.is_valid is False
         assert "expired" in result.error.lower()
 
-    def test_validate_key_updates_last_used_timestamp(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_validate_key_updates_last_used_timestamp(self, api_key_service, sample_workspace_id):
         """Successful validation updates last_used timestamp."""
         key_pair, key_info = api_key_service.create_key(
             workspace_id=sample_workspace_id, name="Test Key"
@@ -287,15 +279,11 @@ class TestKeyRotation:
         )
 
         # Revoke it
-        api_key_service.revoke_key(
-            key_id=UUID(key_info.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(key_info.id), workspace_id=sample_workspace_id)
 
         # Try to rotate - should fail
         with pytest.raises(ValueError) as exc_info:
-            api_key_service.rotate_key(
-                key_id=UUID(key_info.id), workspace_id=sample_workspace_id
-            )
+            api_key_service.rotate_key(key_id=UUID(key_info.id), workspace_id=sample_workspace_id)
 
         assert "revoked" in str(exc_info.value).lower()
 
@@ -310,9 +298,7 @@ class TestKeyRotation:
         )
 
         with pytest.raises(ValueError) as exc_info:
-            api_key_service.rotate_key(
-                key_id=UUID(key_info.id), workspace_id=other_workspace_id
-            )
+            api_key_service.rotate_key(key_id=UUID(key_info.id), workspace_id=other_workspace_id)
 
         assert "does not belong" in str(exc_info.value).lower()
 
@@ -325,9 +311,7 @@ class TestKeyRotation:
 class TestKeyRevocation:
     """Tests for API key revocation functionality."""
 
-    def test_revoke_key_blocks_subsequent_requests(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_revoke_key_blocks_subsequent_requests(self, api_key_service, sample_workspace_id):
         """AUTH-02: Revoked key blocks subsequent authentication attempts."""
         key_pair, key_info = api_key_service.create_key(
             workspace_id=sample_workspace_id, name="Key to Revoke"
@@ -357,9 +341,7 @@ class TestKeyRevocation:
         )
 
         # Revoke twice
-        api_key_service.revoke_key(
-            key_id=UUID(key_info.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(key_info.id), workspace_id=sample_workspace_id)
 
         revoked_again = api_key_service.revoke_key(
             key_id=UUID(key_info.id), workspace_id=sample_workspace_id
@@ -378,9 +360,7 @@ class TestKeyRevocation:
         )
 
         with pytest.raises(ValueError) as exc_info:
-            api_key_service.revoke_key(
-                key_id=UUID(key_info.id), workspace_id=other_workspace_id
-            )
+            api_key_service.revoke_key(key_id=UUID(key_info.id), workspace_id=other_workspace_id)
 
         assert "does not belong" in str(exc_info.value).lower()
 
@@ -506,9 +486,7 @@ class TestAuthDependencies:
     @pytest.mark.asyncio
     async def test_optional_principal_returns_none_without_key(self, in_memory_db):
         """Optional auth returns None when no key provided."""
-        principal = await optional_principal(
-            x_api_key=None, authorization=None, db=in_memory_db
-        )
+        principal = await optional_principal(x_api_key=None, authorization=None, db=in_memory_db)
 
         assert principal is None
 
@@ -570,9 +548,7 @@ class TestPrincipalScopes:
 class TestKeyListing:
     """Tests for key listing and retrieval."""
 
-    def test_list_keys_returns_only_active_by_default(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_list_keys_returns_only_active_by_default(self, api_key_service, sample_workspace_id):
         """List keys returns only active keys by default."""
         # Create two keys
         key1, info1 = api_key_service.create_key(
@@ -583,21 +559,15 @@ class TestKeyListing:
         )
 
         # Revoke one
-        api_key_service.revoke_key(
-            key_id=UUID(info2.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(info2.id), workspace_id=sample_workspace_id)
 
         # List should only return active
-        keys = api_key_service.list_keys(
-            workspace_id=sample_workspace_id, active_only=True
-        )
+        keys = api_key_service.list_keys(workspace_id=sample_workspace_id, active_only=True)
 
         assert len(keys) == 1
         assert keys[0].name == "Active Key"
 
-    def test_list_keys_includes_revoked_when_requested(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_list_keys_includes_revoked_when_requested(self, api_key_service, sample_workspace_id):
         """List keys can include revoked keys when requested."""
         # Create and revoke a key
         key1, info1 = api_key_service.create_key(
@@ -606,20 +576,14 @@ class TestKeyListing:
         key2, info2 = api_key_service.create_key(
             workspace_id=sample_workspace_id, name="Revoked Key"
         )
-        api_key_service.revoke_key(
-            key_id=UUID(info2.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(info2.id), workspace_id=sample_workspace_id)
 
         # List with active_only=False
-        keys = api_key_service.list_keys(
-            workspace_id=sample_workspace_id, active_only=False
-        )
+        keys = api_key_service.list_keys(workspace_id=sample_workspace_id, active_only=False)
 
         assert len(keys) == 2
 
-    def test_get_key_returns_none_for_wrong_workspace(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_get_key_returns_none_for_wrong_workspace(self, api_key_service, sample_workspace_id):
         """Get key returns None for keys not in workspace."""
         other_workspace = uuid4()
 
@@ -627,9 +591,7 @@ class TestKeyListing:
             workspace_id=sample_workspace_id, name="Workspace Key"
         )
 
-        result = api_key_service.get_key(
-            key_id=UUID(key_info.id), workspace_id=other_workspace
-        )
+        result = api_key_service.get_key(key_id=UUID(key_info.id), workspace_id=other_workspace)
 
         assert result is None
 
@@ -666,9 +628,7 @@ class TestEdgeCases:
 
         assert key_info.name == long_name
 
-    def test_validate_key_handles_special_characters(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_validate_key_handles_special_characters(self, api_key_service, sample_workspace_id):
         """Key validation handles special characters correctly."""
         # Create and validate normally
         key_pair, key_info = api_key_service.create_key(
@@ -678,9 +638,7 @@ class TestEdgeCases:
         result = api_key_service.validate_key(key_pair.full_key)
         assert result.is_valid is True
 
-    def test_key_hash_not_exposed_in_listings(
-        self, api_key_service, sample_workspace_id
-    ):
+    def test_key_hash_not_exposed_in_listings(self, api_key_service, sample_workspace_id):
         """Key listings never expose the hash."""
         key_pair, key_info = api_key_service.create_key(
             workspace_id=sample_workspace_id, name="Test Key"

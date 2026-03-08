@@ -55,9 +55,7 @@ class RunSessionSummary(BaseModel):
     state: str = Field(..., description="Run session state")
     workspace_id: str = Field(..., description="Workspace ID")
     principal_id: Optional[str] = Field(None, description="Principal ID who ran")
-    principal_type: Optional[str] = Field(
-        None, description="Principal type (user/guest)"
-    )
+    principal_type: Optional[str] = Field(None, description="Principal type (user/guest)")
     parent_run_id: Optional[str] = Field(None, description="Parent run ID if nested")
     sandbox_id: Optional[str] = Field(None, description="Associated sandbox ID")
     checkpoint_id: Optional[str] = Field(None, description="Restored checkpoint ID")
@@ -112,9 +110,7 @@ class CheckpointSummary(BaseModel):
     state: str = Field(..., description="Checkpoint state")
     storage_key: str = Field(..., description="Storage location key")
     storage_size_bytes: Optional[int] = Field(None, description="Archive size")
-    manifest: Optional[CheckpointManifestInfo] = Field(
-        None, description="Manifest info"
-    )
+    manifest: Optional[CheckpointManifestInfo] = Field(None, description="Manifest info")
     created_by_run_id: Optional[str] = Field(None, description="Run that created it")
     previous_checkpoint_id: Optional[str] = Field(None, description="Previous in chain")
     started_at: Optional[str] = Field(None, description="When creation started")
@@ -127,16 +123,12 @@ class ActiveCheckpointResponse(BaseModel):
     """Response containing active checkpoint pointer."""
 
     workspace_id: str = Field(..., description="Workspace ID")
-    active_checkpoint_id: Optional[str] = Field(
-        None, description="Active checkpoint ID"
-    )
+    active_checkpoint_id: Optional[str] = Field(None, description="Active checkpoint ID")
     checkpoint_db_id: Optional[str] = Field(None, description="Active checkpoint DB ID")
     changed_by: Optional[str] = Field(None, description="Who last changed pointer")
     changed_reason: Optional[str] = Field(None, description="Reason for change")
     updated_at: Optional[str] = Field(None, description="When pointer was last updated")
-    checkpoint: Optional[CheckpointSummary] = Field(
-        None, description="Checkpoint details"
-    )
+    checkpoint: Optional[CheckpointSummary] = Field(None, description="Checkpoint details")
 
 
 class CheckpointListResponse(BaseModel):
@@ -220,9 +212,7 @@ def _serialize_run_session(session: Any) -> dict:
         "sandbox_id": str(session.sandbox_id) if session.sandbox_id else None,
         "checkpoint_id": str(session.checkpoint_id) if session.checkpoint_id else None,
         "started_at": session.started_at.isoformat() if session.started_at else None,
-        "completed_at": session.completed_at.isoformat()
-        if session.completed_at
-        else None,
+        "completed_at": session.completed_at.isoformat() if session.completed_at else None,
         "duration_ms": session.duration_ms,
         "error_code": session.error_code,
         "created_at": session.created_at.isoformat() if session.created_at else None,
@@ -274,18 +264,12 @@ def _serialize_checkpoint(checkpoint: Any) -> dict:
             manifest_data = json.loads(checkpoint.manifest_json)
             manifest = {
                 "format_version": manifest_data.get("format_version", "unknown"),
-                "checkpoint_id": manifest_data.get(
-                    "checkpoint_id", checkpoint.checkpoint_id
-                ),
-                "workspace_id": manifest_data.get(
-                    "workspace_id", str(checkpoint.workspace_id)
-                ),
+                "checkpoint_id": manifest_data.get("checkpoint_id", checkpoint.checkpoint_id),
+                "workspace_id": manifest_data.get("workspace_id", str(checkpoint.workspace_id)),
                 "agent_pack_id": manifest_data.get("agent_pack_id", "unknown"),
                 "created_at": manifest_data.get(
                     "created_at",
-                    checkpoint.created_at.isoformat()
-                    if checkpoint.created_at
-                    else None,
+                    checkpoint.created_at.isoformat() if checkpoint.created_at else None,
                 ),
                 "file_count": len(manifest_data.get("files", [])),
                 "files": manifest_data.get("files", []),
@@ -306,18 +290,10 @@ def _serialize_checkpoint(checkpoint: Any) -> dict:
         "previous_checkpoint_id": str(checkpoint.previous_checkpoint_id)
         if checkpoint.previous_checkpoint_id
         else None,
-        "started_at": checkpoint.started_at.isoformat()
-        if checkpoint.started_at
-        else None,
-        "completed_at": checkpoint.completed_at.isoformat()
-        if checkpoint.completed_at
-        else None,
-        "expires_at": checkpoint.expires_at.isoformat()
-        if checkpoint.expires_at
-        else None,
-        "created_at": checkpoint.created_at.isoformat()
-        if checkpoint.created_at
-        else None,
+        "started_at": checkpoint.started_at.isoformat() if checkpoint.started_at else None,
+        "completed_at": checkpoint.completed_at.isoformat() if checkpoint.completed_at else None,
+        "expires_at": checkpoint.expires_at.isoformat() if checkpoint.expires_at else None,
+        "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
     }
 
 
@@ -439,9 +415,7 @@ async def get_run_events(
 )
 async def list_checkpoints(
     workspace_id: UUID,
-    state: Optional[str] = Query(
-        None, description="Filter by state (pending/completed/failed)"
-    ),
+    state: Optional[str] = Query(None, description="Filter by state (pending/completed/failed)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
     db: Session = Depends(get_db),
     principal: AnyPrincipal = Depends(resolve_principal_or_guest),
@@ -479,9 +453,7 @@ async def list_checkpoints(
 
     return CheckpointListResponse(
         workspace_id=str(workspace_id),
-        checkpoints=[
-            CheckpointSummary(**_serialize_checkpoint(c)) for c in checkpoints
-        ],
+        checkpoints=[CheckpointSummary(**_serialize_checkpoint(c)) for c in checkpoints],
         count=len(checkpoints),
     )
 
@@ -526,9 +498,7 @@ async def get_checkpoint(
 )
 async def get_active_checkpoint(
     workspace_id: UUID,
-    include_checkpoint: bool = Query(
-        True, description="Include full checkpoint details"
-    ),
+    include_checkpoint: bool = Query(True, description="Include full checkpoint details"),
     db: Session = Depends(get_db),
     principal: AnyPrincipal = Depends(resolve_principal_or_guest),
 ) -> ActiveCheckpointResponse:
@@ -597,9 +567,7 @@ async def get_active_checkpoint(
 async def get_workspace_audit(
     workspace_id: UUID,
     category: Optional[str] = Query(None, description="Filter by category"),
-    since: Optional[datetime] = Query(
-        None, description="Start time filter (ISO format)"
-    ),
+    since: Optional[datetime] = Query(None, description="Start time filter (ISO format)"),
     until: Optional[datetime] = Query(None, description="End time filter (ISO format)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
     db: Session = Depends(get_db),

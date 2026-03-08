@@ -83,9 +83,7 @@ class PreflightService:
         """
         self._db_engine = db_engine
 
-    def run_all_checks(
-        self, include_workspace_db_validation: bool = True
-    ) -> PreflightResult:
+    def run_all_checks(self, include_workspace_db_validation: bool = True) -> PreflightResult:
         """Run all preflight checks and return aggregated result.
 
         Args:
@@ -303,9 +301,7 @@ class PreflightService:
             details={"api_url": settings.DAYTONA_API_URL or "Daytona Cloud"},
         )
 
-    def _check_workspace_configured(
-        self, include_db_validation: bool = True
-    ) -> PreflightCheck:
+    def _check_workspace_configured(self, include_db_validation: bool = True) -> PreflightCheck:
         """Check MINERVA_WORKSPACE_ID is configured and workspace has registered packs.
 
         This is required for OSS mode where end-user requests are resolved
@@ -609,9 +605,7 @@ def format_checklist(result: PreflightResult, verbose: bool = False) -> str:
         severity_str = f"[{check.severity.value}]"
         status_str = f"[{check.status.value}]"
 
-        lines.append(
-            f"\n{status_icon} {check.code:<25} {severity_str:<12} {status_str}"
-        )
+        lines.append(f"\n{status_icon} {check.code:<25} {severity_str:<12} {status_str}")
         lines.append(f"  {check.message}")
 
         if check.status == CheckStatus.FAIL and check.remediation:
@@ -622,9 +616,7 @@ def format_checklist(result: PreflightResult, verbose: bool = False) -> str:
                 lines.append(f"    {key}: {value}")
 
     lines.append("\n" + "=" * 60)
-    lines.append(
-        f"SUMMARY: {result.blocking_failures} blocking, {result.warnings} warnings"
-    )
+    lines.append(f"SUMMARY: {result.blocking_failures} blocking, {result.warnings} warnings")
     lines.append("=" * 60)
 
     return "\n".join(lines)

@@ -129,10 +129,7 @@ async def readiness_check(response: Response) -> ReadinessResponse:
         )
 
         # Track blocking failures
-        if (
-            check.severity == CheckSeverity.BLOCKING
-            and check.status == CheckStatus.FAIL
-        ):
+        if check.severity == CheckSeverity.BLOCKING and check.status == CheckStatus.FAIL:
             blocking_failures.append(check.code)
             if check.remediation:
                 remediation_messages.append(check.remediation)

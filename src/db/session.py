@@ -53,9 +53,7 @@ def get_engine():
             def set_pg_lock_timeout(dbapi_conn, connection_record):
                 """Set lock timeout on PostgreSQL connections."""
                 with dbapi_conn.cursor() as cursor:
-                    cursor.execute(
-                        f"SET lock_timeout = '{DEFAULT_LOCK_TIMEOUT_SECONDS}s'"
-                    )
+                    cursor.execute(f"SET lock_timeout = '{DEFAULT_LOCK_TIMEOUT_SECONDS}s'")
 
     return _engine
 

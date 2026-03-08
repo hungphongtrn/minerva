@@ -342,9 +342,7 @@ class TestAuditImmutability:
         assert not hasattr(repo, "delete")
         assert not hasattr(repo, "remove")
 
-    def test_database_prevents_audit_update(
-        self, db_session: Session, workspace_alpha: Any
-    ):
+    def test_database_prevents_audit_update(self, db_session: Session, workspace_alpha: Any):
         """SECU-04: Database-level trigger prevents audit updates.
 
         Attempting to update an audit event at the DB level should fail.
@@ -504,9 +502,7 @@ class TestServiceLevelPointerGuardrails:
         )
 
         checkpoint = (
-            db_session.query(WorkspaceCheckpoint)
-            .filter_by(checkpoint_id="svc-guard-chk")
-            .first()
+            db_session.query(WorkspaceCheckpoint).filter_by(checkpoint_id="svc-guard-chk").first()
         )
 
         db_session.commit()

@@ -285,9 +285,7 @@ class TestLeaseExpirationRecovery:
 
         # Exactly one should succeed
         successful = [r for r in results if r is not None]
-        assert len(successful) == 1, (
-            f"Expected 1 successful acquisition, got {len(successful)}"
-        )
+        assert len(successful) == 1, f"Expected 1 successful acquisition, got {len(successful)}"
 
 
 class TestLeaseRelease:
@@ -507,9 +505,7 @@ class TestConcurrentSameWorkspaceSerialization:
         assert len(successful) == 1, f"Expected 1 success, got {len(successful)}"
 
         # All others should be CONFLICT
-        conflicts = [
-            r for r in results if not r.success and r.result == LeaseResult.CONFLICT
-        ]
+        conflicts = [r for r in results if not r.success and r.result == LeaseResult.CONFLICT]
         assert len(conflicts) == 9, f"Expected 9 conflicts, got {len(conflicts)}"
 
     def test_concurrent_after_release_allows_new_acquisition(

@@ -42,9 +42,7 @@ router = APIRouter()
 class OssRunError(Exception):
     """Error during OSS run execution."""
 
-    def __init__(
-        self, message: str, category: str = "agent_error", retryable: bool = False
-    ):
+    def __init__(self, message: str, category: str = "agent_error", retryable: bool = False):
         self.message = message
         self.category = category
         self.retryable = retryable
@@ -188,9 +186,7 @@ async def _execute_run_with_events(
                     if not isinstance(upstream_event, dict):
                         continue
 
-                    mapped_event = map_zeroclaw_event_to_oss_event(
-                        event_builder, upstream_event
-                    )
+                    mapped_event = map_zeroclaw_event_to_oss_event(event_builder, upstream_event)
                     if mapped_event:
                         yield mapped_event.to_sse_lines()
 
@@ -209,9 +205,7 @@ async def _execute_run_with_events(
                     ).to_sse_lines()
                 elif outputs.get("bridge", {}).get("success"):
                     bridge_output = outputs["bridge"].get("output", {})
-                    message = bridge_output.get("message") or bridge_output.get(
-                        "content"
-                    )
+                    message = bridge_output.get("message") or bridge_output.get("content")
                     if message:
                         yield event_builder.message(
                             role="assistant", content=str(message)

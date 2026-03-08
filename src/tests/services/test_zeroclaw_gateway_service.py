@@ -88,9 +88,7 @@ class TestHealthCheck:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok", "uptime": 100}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
@@ -108,9 +106,7 @@ class TestHealthCheck:
         mock_response.status_code = 500
         mock_response.json.return_value = {"error": "internal error"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
@@ -127,9 +123,7 @@ class TestHealthCheck:
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             status = await service.check_health(SANDBOX_URL)
@@ -143,9 +137,7 @@ class TestHealthCheck:
         spec = create_test_spec()
         service = ZeroclawGatewayService(spec=spec)
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = httpx.TimeoutException("timeout")
 
             status = await service.check_health(SANDBOX_URL)
@@ -165,9 +157,7 @@ class TestHealthCheck:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL)
@@ -184,17 +174,13 @@ class TestHealthPolling:
     async def test_poll_health_succeeds_on_first_attempt(self):
         """Poll returns healthy on first successful health check."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=3, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=3, health_backoff=0.01)
 
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             status = await service.poll_health(SANDBOX_URL)
@@ -206,9 +192,7 @@ class TestHealthPolling:
     async def test_poll_health_retries_on_failure(self):
         """Poll retries on health check failures."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=3, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=3, health_backoff=0.01)
 
         # First two calls fail, third succeeds
         mock_response_fail = AsyncMock(spec=httpx.Response)
@@ -218,9 +202,7 @@ class TestHealthPolling:
         mock_response_success.status_code = 200
         mock_response_success.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_response_fail,
                 mock_response_fail,
@@ -236,16 +218,12 @@ class TestHealthPolling:
     async def test_poll_health_fails_closed_after_retries_exhausted(self):
         """Poll returns unhealthy after exhausting retries."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=2, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=2, health_backoff=0.01)
 
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 500
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             status = await service.poll_health(SANDBOX_URL)
@@ -268,9 +246,7 @@ class TestAuthentication:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL, token_bundle=TEST_TOKEN_BUNDLE)
@@ -291,9 +267,7 @@ class TestAuthentication:
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             await service.check_health(SANDBOX_URL, token_bundle=TEST_TOKEN_BUNDLE)
@@ -319,9 +293,7 @@ class TestAuthentication:
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             # First call is health check (GET), second is execute (POST)
             mock_request.side_effect = [mock_health_response, mock_execute_response]
 
@@ -365,17 +337,13 @@ class TestFailClosed:
     async def test_execute_blocked_when_health_fails(self):
         """Execute is blocked when health check fails."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=1, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=1, health_backoff=0.01)
 
         # Health check always fails
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 500
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_response
 
             result = await service.execute(
@@ -393,17 +361,13 @@ class TestFailClosed:
     async def test_execute_blocked_on_auth_failure(self):
         """Execute is blocked when authentication fails."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=1, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=1, health_backoff=0.01)
 
         # Health check returns 401
         mock_health_response = AsyncMock(spec=httpx.Response)
         mock_health_response.status_code = 401
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = mock_health_response
 
             result = await service.execute(
@@ -421,17 +385,13 @@ class TestFailClosed:
     async def test_no_execute_attempted_when_health_fails(self):
         """Verify execute endpoint is never called when health fails."""
         spec = create_test_spec()
-        service = ZeroclawGatewayService(
-            spec=spec, health_retries=1, health_backoff=0.01
-        )
+        service = ZeroclawGatewayService(spec=spec, health_retries=1, health_backoff=0.01)
 
         mock_response = AsyncMock(spec=httpx.Response)
         mock_response.status_code = 500
 
         with (
-            patch.object(
-                httpx.AsyncClient, "request", new_callable=AsyncMock
-            ) as mock_request,
+            patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request,
         ):
             mock_request.return_value = mock_response
 
@@ -464,9 +424,7 @@ class TestTimeout:
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             # First call is health check, second raises timeout
             mock_request.side_effect = [
                 mock_health_response,
@@ -491,9 +449,7 @@ class TestTimeout:
         spec = create_test_spec()
         service = ZeroclawGatewayService(spec=spec, health_timeout=5)
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = httpx.TimeoutException("Health check timeout")
 
             status = await service.check_health(SANDBOX_URL)
@@ -527,9 +483,7 @@ class TestRetry:
         mock_success_response.status_code = 200
         mock_success_response.json.return_value = {"output": "success"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             # 1 health check + 3 execute attempts (fail, fail, success)
             mock_request.side_effect = [
                 mock_health_response,  # health check
@@ -567,9 +521,7 @@ class TestRetry:
         mock_response.status_code = 400
         mock_response.json.return_value = {"error": "bad request"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,  # health check
                 mock_response,  # execute attempt (no retry on 4xx)
@@ -604,9 +556,7 @@ class TestErrorTyping:
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,  # health check
                 httpx.RequestError("Connection refused"),  # execute fails
@@ -639,9 +589,7 @@ class TestErrorTyping:
         mock_response.status_code = 200
         mock_response.json.side_effect = ValueError("Invalid JSON")
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,  # health check
                 mock_response,  # execute with malformed response
@@ -669,9 +617,7 @@ class TestErrorTyping:
         mock_health_response.status_code = 200
         mock_health_response.json.return_value = {"status": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,  # health check
                 httpx.TimeoutException("timeout"),  # execute times out
@@ -863,9 +809,7 @@ class TestSpecDrivenRequest:
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_execute_response,
@@ -907,9 +851,7 @@ class TestSpecDrivenRequest:
         mock_execute_response.status_code = 200
         mock_execute_response.json.return_value = {"output": "test"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_execute_response,
@@ -947,9 +889,7 @@ class TestSpecDrivenRequest:
         mock_webhook_success_response.status_code = 200
         mock_webhook_success_response.json.return_value = {"output": "via-webhook"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             # Health + 2 execute calls (404 then 200)
             mock_request.side_effect = [
                 mock_health_response,
@@ -993,9 +933,7 @@ class TestSpecDrivenRequest:
         mock_execute_success_response.status_code = 200
         mock_execute_success_response.json.return_value = {"output": "via-execute"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             # Health + 2 execute calls (404 then 200)
             mock_request.side_effect = [
                 mock_health_response,
@@ -1037,9 +975,7 @@ class TestSpecDrivenRequest:
         mock_webhook_success_response.status_code = 200
         mock_webhook_success_response.json.return_value = {"output": "ok"}
 
-        with patch.object(
-            httpx.AsyncClient, "request", new_callable=AsyncMock
-        ) as mock_request:
+        with patch.object(httpx.AsyncClient, "request", new_callable=AsyncMock) as mock_request:
             mock_request.side_effect = [
                 mock_health_response,
                 mock_webhook_success_response,

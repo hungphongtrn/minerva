@@ -51,9 +51,7 @@ def db_engine(tmp_path):
 @pytest.fixture(scope="function")
 def db_session(db_engine) -> Generator[Session, None, None]:
     """Create a fresh database session for each test."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=db_engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
     session = TestingSessionLocal()
 
     # Enable foreign key support for SQLite
@@ -69,9 +67,7 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 @pytest.fixture(scope="function")
 def client(db_engine, provider_singleton) -> Generator[TestClient, None, None]:
     """Create a test client with database override using shared engine."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=db_engine
-    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
 
     def override_get_db():
         """Production-equivalent DB dependency for integration tests.
@@ -402,9 +398,7 @@ def member_principal(member_api_key: Tuple[KeyPair, Any]) -> Principal:
 
 
 @pytest.fixture
-def sample_resource(
-    db_session: Session, workspace_alpha: Workspace
-) -> WorkspaceResource:
+def sample_resource(db_session: Session, workspace_alpha: Workspace) -> WorkspaceResource:
     """Create a sample workspace resource."""
     resource = WorkspaceResource(
         id=uuid4(),

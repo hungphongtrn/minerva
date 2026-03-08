@@ -238,9 +238,7 @@ class ZeroclawWebhookE2EProbe:
                         "external_user_id": row.external_user_id,
                         "provider_ref": row.provider_ref,
                         "status": row.status,
-                        "created_at": row.created_at.isoformat()
-                        if row.created_at
-                        else None,
+                        "created_at": row.created_at.isoformat() if row.created_at else None,
                     }
                 )
 
@@ -541,9 +539,7 @@ Examples:
         print()
         print("Sandboxes Created:")
         if result.sandbox_ids:
-            for i, (sid, pref) in enumerate(
-                zip(result.sandbox_ids, result.provider_refs)
-            ):
+            for i, (sid, pref) in enumerate(zip(result.sandbox_ids, result.provider_refs)):
                 print(f"  {i + 1}. ID: {sid}")
                 print(f"     Provider Ref: {pref}")
         else:

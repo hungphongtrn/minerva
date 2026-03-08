@@ -326,9 +326,7 @@ class TestCheckpointRestoreRetry:
             call_count[0] += 1
             if call_count[0] == 1:
                 raise Exception("Transient error")
-            return await CheckpointRestoreService._do_restore(
-                restore_service, *args, **kwargs
-            )
+            return await CheckpointRestoreService._do_restore(restore_service, *args, **kwargs)
 
         restore_service._do_restore = mock_do_restore
 
@@ -487,9 +485,7 @@ class TestCheckpointRestoreLifecycleIntegration:
 
         # Now restore is in progress
         assert lifecycle.is_restore_in_progress(workspace_alpha.id) is True
-        assert (
-            lifecycle.get_restore_checkpoint_id(workspace_alpha.id) == "checkpoint-001"
-        )
+        assert lifecycle.get_restore_checkpoint_id(workspace_alpha.id) == "checkpoint-001"
 
         # Mark restore completed
         lifecycle.mark_restore_completed(workspace_alpha.id)
@@ -640,9 +636,7 @@ class TestCheckpointRestoreArchiveValidation:
         data = b"test data for checksum"
 
         with pytest.raises(Exception) as exc_info:
-            restore_service.validate_archive_checksum(
-                "test-checkpoint", "invalid-checksum", data
-            )
+            restore_service.validate_archive_checksum("test-checkpoint", "invalid-checksum", data)
 
         assert "Checksum mismatch" in str(exc_info.value)
 

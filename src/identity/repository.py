@@ -44,9 +44,7 @@ class ApiKeyRepository:
         stmt = select(ApiKey).where(ApiKey.id == key_id)
         return self.db.execute(stmt).scalar_one_or_none()
 
-    def get_by_workspace(
-        self, workspace_id: UUID, active_only: bool = True
-    ) -> List[ApiKey]:
+    def get_by_workspace(self, workspace_id: UUID, active_only: bool = True) -> List[ApiKey]:
         """Get all API keys for a workspace.
 
         Args:
@@ -117,9 +115,7 @@ class ApiKeyRepository:
         stmt = (
             update(ApiKey)
             .where(ApiKey.id == key_id)
-            .values(
-                key_hash=new_hash, key_prefix=new_prefix, updated_at=datetime.utcnow()
-            )
+            .values(key_hash=new_hash, key_prefix=new_prefix, updated_at=datetime.utcnow())
             .returning(ApiKey)
         )
         result = self.db.execute(stmt).scalar_one_or_none()
@@ -150,11 +146,7 @@ class ApiKeyRepository:
         Args:
             key_id: The API key ID
         """
-        stmt = (
-            update(ApiKey)
-            .where(ApiKey.id == key_id)
-            .values(last_used_at=datetime.utcnow())
-        )
+        stmt = update(ApiKey).where(ApiKey.id == key_id).values(last_used_at=datetime.utcnow())
         self.db.execute(stmt)
 
     def delete_permanently(self, key_id: UUID) -> bool:

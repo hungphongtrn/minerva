@@ -58,22 +58,16 @@ class TestServePreflightWorkspaceGate:
         # Configure mock service
         mock_service.check_database_schema_current.return_value = schema_check
         mock_service.check_workspace_configured.return_value = workspace_check
-        mock_service._get_picoclaw_snapshot_name.return_value = (
-            None  # Skip snapshot check
-        )
+        mock_service._get_picoclaw_snapshot_name.return_value = None  # Skip snapshot check
 
         # Act & Assert
         # Patch at the location where it's used (inside handle function)
-        with patch(
-            "src.services.preflight_service.PreflightService", return_value=mock_service
-        ):
+        with patch("src.services.preflight_service.PreflightService", return_value=mock_service):
             with patch("src.cli.commands.serve.uvicorn.run") as mock_uvicorn:
                 result = serve.handle(args)
 
                 # Server should fail closed (return 1)
-                assert result == 1, (
-                    "Expected serve to return 1 when workspace check fails"
-                )
+                assert result == 1, "Expected serve to return 1 when workspace check fails"
                 # Uvicorn should NOT have been called
                 mock_uvicorn.assert_not_called()
 
@@ -100,21 +94,15 @@ class TestServePreflightWorkspaceGate:
 
         workspace_check = MagicMock()
         workspace_check.status = CheckStatus.PASS
-        workspace_check.message = (
-            "Workspace 'test-workspace' configured with 1 agent pack(s)"
-        )
+        workspace_check.message = "Workspace 'test-workspace' configured with 1 agent pack(s)"
 
         # Configure mock service
         mock_service.check_database_schema_current.return_value = schema_check
         mock_service.check_workspace_configured.return_value = workspace_check
-        mock_service._get_picoclaw_snapshot_name.return_value = (
-            None  # Skip snapshot check
-        )
+        mock_service._get_picoclaw_snapshot_name.return_value = None  # Skip snapshot check
 
         # Act & Assert
-        with patch(
-            "src.services.preflight_service.PreflightService", return_value=mock_service
-        ):
+        with patch("src.services.preflight_service.PreflightService", return_value=mock_service):
             with patch("src.cli.commands.serve.uvicorn.run") as mock_uvicorn:
                 # Since uvicorn.run blocks, we need to simulate it returning
                 # In actual test, we'll let it be called and verify the call
@@ -141,9 +129,7 @@ class TestServePreflightWorkspaceGate:
         )
 
         # Act & Assert
-        with patch(
-            "src.services.preflight_service.PreflightService"
-        ) as mock_service_class:
+        with patch("src.services.preflight_service.PreflightService") as mock_service_class:
             with patch("src.cli.commands.serve.uvicorn.run") as mock_uvicorn:
                 serve.handle(args)
 
@@ -180,9 +166,7 @@ class TestServePreflightWorkspaceGate:
         mock_service.check_workspace_configured.return_value = workspace_check
         mock_service._get_picoclaw_snapshot_name.return_value = None
 
-        with patch(
-            "src.services.preflight_service.PreflightService", return_value=mock_service
-        ):
+        with patch("src.services.preflight_service.PreflightService", return_value=mock_service):
             with patch("src.cli.commands.serve.uvicorn.run") as mock_uvicorn:
                 result = serve.handle(args)
 
@@ -211,17 +195,13 @@ class TestServePreflightWorkspaceGate:
         workspace_check = MagicMock()
         workspace_check.status = CheckStatus.FAIL
         workspace_check.message = "Workspace has no registered agent packs"
-        workspace_check.remediation = (
-            "Run `minerva register` first to register an agent pack."
-        )
+        workspace_check.remediation = "Run `minerva register` first to register an agent pack."
 
         mock_service.check_database_schema_current.return_value = schema_check
         mock_service.check_workspace_configured.return_value = workspace_check
         mock_service._get_picoclaw_snapshot_name.return_value = None
 
-        with patch(
-            "src.services.preflight_service.PreflightService", return_value=mock_service
-        ):
+        with patch("src.services.preflight_service.PreflightService", return_value=mock_service):
             with patch("src.cli.commands.serve.uvicorn.run") as mock_uvicorn:
                 result = serve.handle(args)
 

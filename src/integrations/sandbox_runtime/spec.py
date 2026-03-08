@@ -14,12 +14,8 @@ class GatewaySpec(BaseModel):
     """Gateway endpoint configuration."""
 
     port: int = Field(..., ge=1, le=65535, description="Gateway port (1-65535)")
-    health_path: str = Field(
-        ..., description="Health check endpoint path (must start with /)"
-    )
-    execute_path: str = Field(
-        ..., description="Execute endpoint path (must start with /)"
-    )
+    health_path: str = Field(..., description="Health check endpoint path (must start with /)")
+    execute_path: str = Field(..., description="Execute endpoint path (must start with /)")
     stream_mode: Literal["none", "sse", "ws"] = Field(..., description="Streaming mode")
 
     @field_validator("health_path", "execute_path")
@@ -43,9 +39,7 @@ class RuntimePathsSpec(BaseModel):
         ...,
         description="Absolute path to runtime config in sandbox (must start with /)",
     )
-    start_command: str = Field(
-        ..., description="Shell command to start the gateway runtime"
-    )
+    start_command: str = Field(..., description="Shell command to start the gateway runtime")
 
     @field_validator("config_path")
     @classmethod
@@ -62,12 +56,8 @@ class RuntimePathsSpec(BaseModel):
 class ExamplesSpec(BaseModel):
     """Example request/response payloads."""
 
-    execute_request: dict[str, Any] = Field(
-        ..., description="Example execute request payload"
-    )
-    execute_response: dict[str, Any] = Field(
-        ..., description="Example execute response payload"
-    )
+    execute_request: dict[str, Any] = Field(..., description="Example execute request payload")
+    execute_response: dict[str, Any] = Field(..., description="Example execute response payload")
 
 
 class SandboxRuntimeSpec(BaseModel):

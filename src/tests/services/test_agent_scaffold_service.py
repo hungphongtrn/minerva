@@ -33,9 +33,7 @@ class TestAgentScaffoldService:
         """Create scaffold service with temp base path."""
         return AgentScaffoldService(base_path=temp_dir)
 
-    def test_generate_creates_all_required_files_and_directories(
-        self, service, temp_dir
-    ):
+    def test_generate_creates_all_required_files_and_directories(self, service, temp_dir):
         """Test that generate creates all required scaffold entries."""
         pack_path = "test_pack"
 
@@ -148,18 +146,14 @@ class TestAgentScaffoldService:
         with pytest.raises(ScaffoldError):
             service.generate("   ")
 
-    def test_validate_exists_returns_true_for_complete_scaffold(
-        self, service, temp_dir
-    ):
+    def test_validate_exists_returns_true_for_complete_scaffold(self, service, temp_dir):
         """Test validate_exists returns True when all entries exist."""
         pack_path = "test_pack"
         service.generate(pack_path)
 
         assert service.validate_exists(pack_path) is True
 
-    def test_validate_exists_returns_false_for_incomplete_scaffold(
-        self, service, temp_dir
-    ):
+    def test_validate_exists_returns_false_for_incomplete_scaffold(self, service, temp_dir):
         """Test validate_exists returns False when entries are missing."""
         pack_path = "test_pack"
 
@@ -179,9 +173,7 @@ class TestAgentScaffoldService:
         """Test validate_exists returns False for invalid paths."""
         assert service.validate_exists("../etc") is False
 
-    def test_get_missing_entries_returns_all_for_empty_directory(
-        self, service, temp_dir
-    ):
+    def test_get_missing_entries_returns_all_for_empty_directory(self, service, temp_dir):
         """Test get_missing_entries returns all requirements for empty dir."""
         pack_path = "empty_pack"
         (temp_dir / pack_path).mkdir()
@@ -193,9 +185,7 @@ class TestAgentScaffoldService:
         assert "IDENTITY.md" in missing
         assert "skills" in missing
 
-    def test_get_missing_entries_returns_empty_for_complete_scaffold(
-        self, service, temp_dir
-    ):
+    def test_get_missing_entries_returns_empty_for_complete_scaffold(self, service, temp_dir):
         """Test get_missing_entries returns empty list for complete scaffold."""
         pack_path = "test_pack"
         service.generate(pack_path)

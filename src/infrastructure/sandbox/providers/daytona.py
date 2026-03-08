@@ -558,9 +558,7 @@ class DaytonaSandboxProvider:
 
                     if hasattr(preview, "url"):
                         preview_url = getattr(preview, "url")
-                        if isinstance(preview_url, str) and preview_url.startswith(
-                            "http"
-                        ):
+                        if isinstance(preview_url, str) and preview_url.startswith("http"):
                             return preview_url.rstrip("/")
 
                 # Strategy 3: Fallback to explicit preview_url fields.
@@ -1025,9 +1023,7 @@ class DaytonaSandboxProvider:
         start_cmd = spec.runtime.start_command
         effective_config_path = config_path or spec.runtime.config_path
         if effective_config_path != spec.runtime.config_path:
-            start_cmd = start_cmd.replace(
-                spec.runtime.config_path, effective_config_path
-            )
+            start_cmd = start_cmd.replace(spec.runtime.config_path, effective_config_path)
 
         max_attempts = self.BRIDGE_START_MAX_ATTEMPTS if strict else 1
         listen_timeout = self.BRIDGE_LISTEN_TIMEOUT_SECONDS if strict else 1.0
@@ -1054,9 +1050,7 @@ class DaytonaSandboxProvider:
                 await asyncio.sleep(self.BRIDGE_START_BACKOFF_SECONDS * attempt)
 
         if strict:
-            raise SandboxProvisionError(
-                f"Failed to start Zeroclaw bridge runtime: {last_error}"
-            )
+            raise SandboxProvisionError(f"Failed to start Zeroclaw bridge runtime: {last_error}")
 
         return False
 
@@ -1290,9 +1284,7 @@ class DaytonaSandboxProvider:
                 )
 
             # Compute volume name and add mount
-            volume_name = self._compute_volume_name(
-                config.agent_pack_id, config.pack_digest
-            )
+            volume_name = self._compute_volume_name(config.agent_pack_id, config.pack_digest)
             resolved_volume_id = pack_volume_id or volume_name
             volume_mounts.append(
                 VolumeMount(
@@ -1318,10 +1310,7 @@ class DaytonaSandboxProvider:
         # Image contract metadata labels
         labels["picoclaw.base_image"] = self._base_image
         labels["picoclaw.base_image_strict"] = str(
-            bool(
-                getattr(self, "_strict_mode", False)
-                or getattr(self, "_digest_required", False)
-            )
+            bool(getattr(self, "_strict_mode", False) or getattr(self, "_digest_required", False))
         )
 
         # Build CreateSandboxFromSnapshotParams
@@ -1551,9 +1540,7 @@ class DaytonaSandboxProvider:
                 if sandbox is not None:
                     await self._best_effort_stop_failed_sandbox(daytona_client, sandbox)
                 else:
-                    await self._best_effort_cleanup_failed_create(
-                        daytona_client, config
-                    )
+                    await self._best_effort_cleanup_failed_create(daytona_client, config)
             raise SandboxProvisionError(
                 f"Failed to provision Daytona sandbox: {e}",
                 provider_ref=ref,
@@ -1564,9 +1551,7 @@ class DaytonaSandboxProvider:
                 if sandbox is not None:
                     await self._best_effort_stop_failed_sandbox(daytona_client, sandbox)
                 else:
-                    await self._best_effort_cleanup_failed_create(
-                        daytona_client, config
-                    )
+                    await self._best_effort_cleanup_failed_create(daytona_client, config)
             raise SandboxProvisionError(
                 f"Unexpected error provisioning Daytona sandbox: {e}",
                 provider_ref=ref,

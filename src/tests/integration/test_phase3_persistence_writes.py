@@ -467,9 +467,7 @@ class TestAuditEventRepository:
 class TestRuntimePersistenceService:
     """Tests for RuntimePersistenceService."""
 
-    def test_create_run_session_non_guest(
-        self, db_session: Session, workspace_alpha: Any
-    ):
+    def test_create_run_session_non_guest(self, db_session: Session, workspace_alpha: Any):
         """Test creating run session for non-guest user."""
         service = RuntimePersistenceService(db_session)
 
@@ -566,9 +564,7 @@ class TestRuntimePersistenceService:
 class TestWorkspaceCheckpointService:
     """Tests for WorkspaceCheckpointService."""
 
-    def test_create_checkpoint_metadata_only(
-        self, db_session: Session, workspace_alpha: Any
-    ):
+    def test_create_checkpoint_metadata_only(self, db_session: Session, workspace_alpha: Any):
         """Test creating checkpoint metadata without S3 storage."""
         service = WorkspaceCheckpointService(db_session)
 
@@ -742,9 +738,7 @@ class TestEndToEndPersistence:
         assert retrieved is not None
         assert retrieved.action == "created"
 
-    def test_checkpoint_auto_advance_pointer(
-        self, db_session: Session, workspace_alpha: Any
-    ):
+    def test_checkpoint_auto_advance_pointer(self, db_session: Session, workspace_alpha: Any):
         """Test that checkpoint creation auto-advances active pointer."""
         service = WorkspaceCheckpointService(db_session)
 

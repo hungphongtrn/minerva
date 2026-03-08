@@ -93,9 +93,7 @@ class TestAuthoritativeUrlEnforcement:
 
         assert result is None
 
-    def test_returns_none_when_lifecycle_target_has_no_routing_result(
-        self, run_service
-    ):
+    def test_returns_none_when_lifecycle_target_has_no_routing_result(self, run_service):
         """Test: When lifecycle target exists but has no routing result, return None."""
         mock_lifecycle_target = MockLifecycleTarget(routing_result=None)
 

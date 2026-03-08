@@ -199,9 +199,7 @@ class TestBridgeErrorMapping:
         """Test bridge auth failure returns 503."""
         from src.api.routes.runs import _map_routing_error
 
-        result = _map_routing_error(
-            RoutingErrorType.BRIDGE_AUTH_FAILED, "Authentication failed"
-        )
+        result = _map_routing_error(RoutingErrorType.BRIDGE_AUTH_FAILED, "Authentication failed")
 
         assert result["status_code"] == 503
         assert result["detail"]["error_type"] == "bridge_auth_failed"
@@ -504,9 +502,7 @@ class TestBoundedRecovery:
         service = RunService()
 
         # Mock bridge service to return auth failure
-        with patch.object(
-            service, "_execute_via_bridge", new_callable=AsyncMock
-        ) as mock_execute:
+        with patch.object(service, "_execute_via_bridge", new_callable=AsyncMock) as mock_execute:
             mock_execute.return_value = BridgeResult(
                 success=False,
                 error=BridgeError(
@@ -537,23 +533,17 @@ class TestTypedRemediation:
         from fastapi import status
 
         # Test bridge auth failure includes remediation
-        result = _map_routing_error(
-            RoutingErrorType.BRIDGE_AUTH_FAILED, "Authentication failed"
-        )
+        result = _map_routing_error(RoutingErrorType.BRIDGE_AUTH_FAILED, "Authentication failed")
         assert result["status_code"] == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "remediation" in result["detail"]
         assert "token" in result["detail"]["remediation"].lower()
 
         # Test bridge timeout includes remediation
-        result = _map_routing_error(
-            RoutingErrorType.BRIDGE_TIMEOUT, "Request timed out"
-        )
+        result = _map_routing_error(RoutingErrorType.BRIDGE_TIMEOUT, "Request timed out")
         assert result["status_code"] == status.HTTP_504_GATEWAY_TIMEOUT
         assert "remediation" in result["detail"]
 
         # Test transport error includes remediation
-        result = _map_routing_error(
-            RoutingErrorType.BRIDGE_TRANSPORT_ERROR, "Connection refused"
-        )
+        result = _map_routing_error(RoutingErrorType.BRIDGE_TRANSPORT_ERROR, "Connection refused")
         assert result["status_code"] == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "remediation" in result["detail"]

@@ -124,9 +124,7 @@ def other_workspace_pack(db_session: Session, workspace_beta: Workspace) -> Agen
 class TestFailFastRouting:
     """Tests for fail-fast routing contract."""
 
-    def test_run_fails_fast_when_pack_not_found(
-        self, client: TestClient, owner_headers: dict
-    ):
+    def test_run_fails_fast_when_pack_not_found(self, client: TestClient, owner_headers: dict):
         """Run should fail immediately with pack_not_found error."""
         nonexistent_pack_id = str(uuid4())
 

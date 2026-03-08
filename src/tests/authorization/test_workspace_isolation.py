@@ -77,65 +77,32 @@ class TestRoleAuthorizationMatrix:
         AUTH-05 requires deterministic role divergence: members should not be
         able to mutate workspace resources.
         """
-        assert (
-            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
-            is False
-        )
+        assert can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE) is False
 
     def test_member_cannot_update_workspace_resource(self):
         """Member cannot UPDATE workspace resources - regression test for UAT gap."""
-        assert (
-            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
-            is False
-        )
+        assert can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE) is False
 
     def test_member_cannot_delete_workspace_resource(self):
         """Member cannot DELETE workspace resources - regression test for UAT gap."""
-        assert (
-            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
-            is False
-        )
+        assert can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE) is False
 
     def test_member_can_read_workspace_resource(self):
         """Member CAN read workspace resources - positive assertion."""
-        assert (
-            can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.READ)
-            is True
-        )
+        assert can_perform(Role.MEMBER, ResourceType.WORKSPACE_RESOURCE, Action.READ) is True
 
     def test_owner_can_mutate_workspace_resource(self):
         """Owner retains full mutation permissions on workspace resources."""
-        assert (
-            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
-            is True
-        )
-        assert (
-            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
-            is True
-        )
-        assert (
-            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
-            is True
-        )
-        assert (
-            can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.READ)
-            is True
-        )
+        assert can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.CREATE) is True
+        assert can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE) is True
+        assert can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.DELETE) is True
+        assert can_perform(Role.OWNER, ResourceType.WORKSPACE_RESOURCE, Action.READ) is True
 
     def test_admin_can_mutate_workspace_resource(self):
         """Admin retains mutation permissions on workspace resources."""
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
-            is True
-        )
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
-            is True
-        )
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
-            is True
-        )
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.CREATE) is True
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE) is True
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.DELETE) is True
 
     def test_owner_can_admin_memberships(self):
         """Owner can manage all memberships."""
@@ -147,18 +114,9 @@ class TestRoleAuthorizationMatrix:
 
     def test_admin_can_manage_resources(self):
         """Admin can manage workspace resources."""
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.CREATE)
-            is True
-        )
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE)
-            is True
-        )
-        assert (
-            can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.DELETE)
-            is True
-        )
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.CREATE) is True
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.UPDATE) is True
+        assert can_perform(Role.ADMIN, ResourceType.WORKSPACE_RESOURCE, Action.DELETE) is True
 
 
 class TestAuthorizeAction:
@@ -175,9 +133,7 @@ class TestAuthorizeAction:
         )
 
         # Should not raise
-        authorize_action(
-            principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id
-        )
+        authorize_action(principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id)
 
     def test_cross_workspace_denied(self):
         """Cross-workspace access is denied (AUTH-03)."""
@@ -564,9 +520,7 @@ class TestWorkspaceResourceAccess:
         )
 
         # Should not raise for member reading workspace_resource
-        authorize_action(
-            principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id
-        )
+        authorize_action(principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id)
 
 
 # ============================================================================
@@ -620,9 +574,7 @@ class TestWorkspaceIsolationIntegration:
         )
 
         # Should not raise
-        authorize_action(
-            principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id
-        )
+        authorize_action(principal, ResourceType.WORKSPACE_RESOURCE, Action.READ, workspace_id)
 
 
 # ============================================================================
@@ -729,9 +681,7 @@ class TestRLSPolicyRegression:
         ), "Migration missing current_setting('app.workspace_id') predicate"
 
         # Should have WITH CHECK clauses for write protection
-        assert "WITH CHECK" in source, (
-            "Migration missing WITH CHECK clauses for write protection"
-        )
+        assert "WITH CHECK" in source, "Migration missing WITH CHECK clauses for write protection"
 
     def test_policies_are_not_placeholder_allow_all(self):
         """RLS policies are not placeholder USING (true) allow-all.
@@ -849,6 +799,4 @@ class TestWorkspaceIsolationRouteRegression:
                 Action.READ,
             )
 
-        assert exc_info.value.status_code == 403, (
-            "Inactive principals should be denied access"
-        )
+        assert exc_info.value.status_code == 403, "Inactive principals should be denied access"

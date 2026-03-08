@@ -248,12 +248,8 @@ class AgentPackValidationService:
             source_digest = self.compute_digest(pack_path)
 
         # Count errors and warnings
-        error_count = sum(
-            1 for e in checklist if e.severity == ValidationSeverity.ERROR.value
-        )
-        warning_count = sum(
-            1 for e in checklist if e.severity == ValidationSeverity.WARNING.value
-        )
+        error_count = sum(1 for e in checklist if e.severity == ValidationSeverity.ERROR.value)
+        warning_count = sum(1 for e in checklist if e.severity == ValidationSeverity.WARNING.value)
 
         return ValidationReport(
             is_valid=error_count == 0,

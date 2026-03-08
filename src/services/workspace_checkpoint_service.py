@@ -93,9 +93,7 @@ class WorkspaceCheckpointService:
             store: Optional S3 checkpoint store (required for full persistence).
         """
         self._session = session
-        self._checkpoint_repo = checkpoint_repo or WorkspaceCheckpointRepository(
-            session
-        )
+        self._checkpoint_repo = checkpoint_repo or WorkspaceCheckpointRepository(session)
         self._audit_repo = audit_repo or AuditEventRepository(session)
         self._archive_service = archive_service or CheckpointArchiveService(store)
         self._store = store
@@ -147,9 +145,7 @@ class WorkspaceCheckpointService:
         checkpoint_id = str(checkpoint_uuid)
 
         # Get previous checkpoint for fallback chain
-        previous_checkpoint = self._checkpoint_repo.get_previous_completed_checkpoint(
-            workspace_id
-        )
+        previous_checkpoint = self._checkpoint_repo.get_previous_completed_checkpoint(workspace_id)
         previous_checkpoint_id = previous_checkpoint.id if previous_checkpoint else None
 
         # Create archive
@@ -161,9 +157,7 @@ class WorkspaceCheckpointService:
                 checkpoint_id=checkpoint_uuid,
             )
         except Exception as e:
-            raise CheckpointPersistenceError(
-                f"Failed to create checkpoint archive: {e}"
-            ) from e
+            raise CheckpointPersistenceError(f"Failed to create checkpoint archive: {e}") from e
 
         # Store to S3
         try:
@@ -321,9 +315,7 @@ class WorkspaceCheckpointService:
 
         # Get the checkpoint for audit
         checkpoint = self._checkpoint_repo.get_by_id(checkpoint_db_id)
-        checkpoint_id = (
-            checkpoint.checkpoint_id if checkpoint else str(checkpoint_db_id)
-        )
+        checkpoint_id = checkpoint.checkpoint_id if checkpoint else str(checkpoint_db_id)
 
         # Audit log
         self._audit_repo.create(
@@ -381,9 +373,7 @@ class WorkspaceCheckpointService:
             # Audit the denied attempt
             target_checkpoint = self._checkpoint_repo.get_by_id(checkpoint_db_id)
             target_id = (
-                target_checkpoint.checkpoint_id
-                if target_checkpoint
-                else str(checkpoint_db_id)
+                target_checkpoint.checkpoint_id if target_checkpoint else str(checkpoint_db_id)
             )
 
             self._audit_repo.create(
@@ -588,16 +578,10 @@ class WorkspaceCheckpointService:
             "previous_checkpoint_id": str(checkpoint.previous_checkpoint_id)
             if checkpoint.previous_checkpoint_id
             else None,
-            "started_at": checkpoint.started_at.isoformat()
-            if checkpoint.started_at
-            else None,
+            "started_at": checkpoint.started_at.isoformat() if checkpoint.started_at else None,
             "completed_at": checkpoint.completed_at.isoformat()
             if checkpoint.completed_at
             else None,
-            "expires_at": checkpoint.expires_at.isoformat()
-            if checkpoint.expires_at
-            else None,
-            "created_at": checkpoint.created_at.isoformat()
-            if checkpoint.created_at
-            else None,
+            "expires_at": checkpoint.expires_at.isoformat() if checkpoint.expires_at else None,
+            "created_at": checkpoint.created_at.isoformat() if checkpoint.created_at else None,
         }

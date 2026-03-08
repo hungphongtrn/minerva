@@ -144,9 +144,7 @@ class TestGuestAuthDependencies:
     """Tests for guest-aware auth dependencies."""
 
     @pytest.mark.asyncio
-    async def test_resolve_principal_or_guest_creates_guest_when_no_key(
-        self, in_memory_db
-    ):
+    async def test_resolve_principal_or_guest_creates_guest_when_no_key(self, in_memory_db):
         """Anonymous requests resolve to guest principals."""
         principal = await resolve_principal_or_guest(
             x_api_key=None, authorization=None, db=in_memory_db
@@ -193,9 +191,7 @@ class TestGuestAuthDependencies:
         key_pair, key_info = api_key_service.create_key(
             workspace_id=sample_workspace_id, name="Test Key"
         )
-        api_key_service.revoke_key(
-            key_id=UUID(key_info.id), workspace_id=sample_workspace_id
-        )
+        api_key_service.revoke_key(key_id=UUID(key_info.id), workspace_id=sample_workspace_id)
 
         with pytest.raises(HTTPException) as exc_info:
             await resolve_principal_or_guest(
@@ -530,9 +526,7 @@ class TestErrorContracts:
 
     def test_policy_denial_error_format(self, policy_engine):
         """Policy denials have consistent error format."""
-        decision = policy_engine.evaluate_egress(
-            "https://example.com", allowed_hosts=[]
-        )
+        decision = policy_engine.evaluate_egress("https://example.com", allowed_hosts=[])
 
         assert decision.allowed is False
         assert decision.reason is not None

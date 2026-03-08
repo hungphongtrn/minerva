@@ -101,9 +101,7 @@ async def test_picoclaw_gateway_audit_daytona(
     # Required evidence categories must be present
     assert "health" in result.to_dict(), "Result must include 'health' evidence"
     assert "execute" in result.to_dict(), "Result must include 'execute' evidence"
-    assert "streaming_probe" in result.to_dict(), (
-        "Result must include 'streaming_probe' evidence"
-    )
+    assert "streaming_probe" in result.to_dict(), "Result must include 'streaming_probe' evidence"
     assert "continuity_wiring" in result.to_dict(), (
         "Result must include 'continuity_wiring' evidence"
     )
@@ -117,9 +115,7 @@ async def test_picoclaw_gateway_audit_daytona(
     # Execute evidence must have expected structure
     execute = result.execute
     assert isinstance(execute, dict), "Execute evidence must be a dict"
-    assert "status_code" in execute or "error" in execute, (
-        "Execute must have status_code or error"
-    )
+    assert "status_code" in execute or "error" in execute, "Execute must have status_code or error"
 
     # Streaming probe evidence must have expected structure
     streaming = result.streaming_probe
@@ -134,15 +130,9 @@ async def test_picoclaw_gateway_audit_daytona(
     continuity = result.continuity_wiring
     assert isinstance(continuity, dict), "Continuity wiring must be a dict"
     assert "original_sender_id" in continuity, "Continuity must have original_sender_id"
-    assert "original_session_id" in continuity, (
-        "Continuity must have original_session_id"
-    )
-    assert "sender_id_forwarded" in continuity, (
-        "Continuity must have sender_id_forwarded"
-    )
-    assert "session_id_forwarded" in continuity, (
-        "Continuity must have session_id_forwarded"
-    )
+    assert "original_session_id" in continuity, "Continuity must have original_session_id"
+    assert "sender_id_forwarded" in continuity, "Continuity must have sender_id_forwarded"
+    assert "session_id_forwarded" in continuity, "Continuity must have session_id_forwarded"
 
     # Verify sender/session IDs match what we provided
     assert continuity["original_sender_id"] == test_identifiers["sender_id"], (
@@ -166,9 +156,7 @@ async def test_picoclaw_gateway_audit_daytona(
     # just that it can be determined from the evidence)
     # meets_minimum_bar requires: health.accessible=True AND execute success
     can_determine_bar = True  # We have all the evidence needed
-    assert can_determine_bar, (
-        "Audit should provide enough evidence to determine minimum bar"
-    )
+    assert can_determine_bar, "Audit should provide enough evidence to determine minimum bar"
 
 
 @pytest.mark.asyncio
@@ -228,9 +216,7 @@ async def test_picoclaw_gateway_audit_evidence_structure(
     )
 
 
-@pytest.mark.skipif(
-    SKIP_REASON is None, reason="Test only runs when env vars are missing"
-)
+@pytest.mark.skipif(SKIP_REASON is None, reason="Test only runs when env vars are missing")
 def test_skip_reason_documented() -> None:
     """Verify skip reasons are properly documented when env vars are missing.
 

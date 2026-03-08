@@ -108,9 +108,7 @@ AUTHORIZATION_MATRIX: dict[Role, dict[ResourceType, Set[Action]]] = {
     },
     Role.MEMBER: {
         ResourceType.WORKSPACE: {Action.READ},
-        ResourceType.MEMBERSHIP: {
-            Action.READ
-        },  # Can see own membership only (filtered in query)
+        ResourceType.MEMBERSHIP: {Action.READ},  # Can see own membership only (filtered in query)
         ResourceType.API_KEY: {Action.READ, Action.CREATE},  # Can manage own keys
         ResourceType.AGENT_PACK: {
             Action.READ,
@@ -238,9 +236,7 @@ def get_role_from_string(role_str: str) -> Role:
     try:
         return Role(role_str.lower())
     except ValueError:
-        raise ValueError(
-            f"Invalid role: {role_str}. Must be one of: {[r.value for r in Role]}"
-        )
+        raise ValueError(f"Invalid role: {role_str}. Must be one of: {[r.value for r in Role]}")
 
 
 def requires_role(*roles: Role):

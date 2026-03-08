@@ -147,19 +147,13 @@ class SandboxGatewayService:
         gateway_config = getattr(settings, "SANDBOX_GATEWAY", None) or {}
 
         self.health_timeout = (
-            health_timeout
-            or gateway_config.get("HEALTH_TIMEOUT")
-            or self.DEFAULT_HEALTH_TIMEOUT
+            health_timeout or gateway_config.get("HEALTH_TIMEOUT") or self.DEFAULT_HEALTH_TIMEOUT
         )
         self.health_retries = (
-            health_retries
-            or gateway_config.get("HEALTH_RETRIES")
-            or self.DEFAULT_HEALTH_RETRIES
+            health_retries or gateway_config.get("HEALTH_RETRIES") or self.DEFAULT_HEALTH_RETRIES
         )
         self.health_backoff = (
-            health_backoff
-            or gateway_config.get("HEALTH_BACKOFF")
-            or self.DEFAULT_HEALTH_BACKOFF
+            health_backoff or gateway_config.get("HEALTH_BACKOFF") or self.DEFAULT_HEALTH_BACKOFF
         )
         self.execute_timeout = (
             execute_timeout
@@ -234,18 +228,12 @@ class SandboxGatewayService:
         response = await client.request(method, url, headers=base_headers, **kwargs)
 
         if response.status_code in (401, 403):
-            if (
-                token_bundle
-                and self._requires_auth()
-                and token_bundle.is_grace_token_valid()
-            ):
+            if token_bundle and self._requires_auth() and token_bundle.is_grace_token_valid():
                 grace_headers = {"Content-Type": "application/json"}
                 grace_headers.update(headers)
                 grace_auth = self._get_auth_headers(token_bundle, attempt=1)
                 grace_headers.update(grace_auth)
-                response = await client.request(
-                    method, url, headers=grace_headers, **kwargs
-                )
+                response = await client.request(method, url, headers=grace_headers, **kwargs)
 
         return response
 
@@ -289,9 +277,7 @@ class SandboxGatewayService:
             except httpx.TimeoutException:
                 return HealthStatus(healthy=False, status="timeout")
             except httpx.RequestError as e:
-                return HealthStatus(
-                    healthy=False, status="error", details={"error": str(e)}
-                )
+                return HealthStatus(healthy=False, status="error", details={"error": str(e)})
 
     async def poll_health(
         self,
@@ -408,11 +394,7 @@ class SandboxGatewayService:
                             json=runtime_request,
                         )
 
-                        if (
-                            response.status_code == 404
-                            and url_idx == 0
-                            and len(execute_urls) > 1
-                        ):
+                        if response.status_code == 404 and url_idx == 0 and len(execute_urls) > 1:
                             continue
 
                         if (
@@ -424,9 +406,7 @@ class SandboxGatewayService:
                         ):
                             auth_fallback_attempted = True
                             grace_headers = {"Content-Type": "application/json"}
-                            grace_headers.update(
-                                self._get_auth_headers(token_bundle, attempt=1)
-                            )
+                            grace_headers.update(self._get_auth_headers(token_bundle, attempt=1))
                             response = await client.post(
                                 execute_url,
                                 headers=grace_headers,

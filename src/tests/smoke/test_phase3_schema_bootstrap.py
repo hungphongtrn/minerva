@@ -58,9 +58,7 @@ class TestPhase3SchemaBootstrap:
         ]
 
         for table in expected_tables:
-            assert table in table_names, (
-                f"Expected table '{table}' not found in database"
-            )
+            assert table in table_names, f"Expected table '{table}' not found in database"
 
     def test_run_sessions_table_structure(self, db_session: Session):
         """Verify run_sessions table has expected columns."""
@@ -90,16 +88,12 @@ class TestPhase3SchemaBootstrap:
         ]
 
         for col_name in expected_columns:
-            assert col_name in columns, (
-                f"Expected column '{col_name}' not found in run_sessions"
-            )
+            assert col_name in columns, f"Expected column '{col_name}' not found in run_sessions"
 
         # Verify foreign key to workspaces
         fks = inspector.get_foreign_keys("run_sessions")
         workspace_fk = [fk for fk in fks if "workspace_id" in fk["constrained_columns"]]
-        assert len(workspace_fk) > 0, (
-            "Expected foreign key from run_sessions to workspaces"
-        )
+        assert len(workspace_fk) > 0, "Expected foreign key from run_sessions to workspaces"
 
     def test_runtime_events_table_structure(self, db_session: Session):
         """Verify runtime_events table has expected columns."""
@@ -120,17 +114,13 @@ class TestPhase3SchemaBootstrap:
         ]
 
         for col_name in expected_columns:
-            assert col_name in columns, (
-                f"Expected column '{col_name}' not found in runtime_events"
-            )
+            assert col_name in columns, f"Expected column '{col_name}' not found in runtime_events"
 
     def test_workspace_checkpoints_table_structure(self, db_session: Session):
         """Verify workspace_checkpoints table has expected columns."""
         engine = get_engine()
         inspector = inspect(engine)
-        columns = {
-            col["name"]: col for col in inspector.get_columns("workspace_checkpoints")
-        }
+        columns = {col["name"]: col for col in inspector.get_columns("workspace_checkpoints")}
 
         expected_columns = [
             "id",
@@ -167,8 +157,7 @@ class TestPhase3SchemaBootstrap:
         engine = get_engine()
         inspector = inspect(engine)
         columns = {
-            col["name"]: col
-            for col in inspector.get_columns("workspace_active_checkpoints")
+            col["name"]: col for col in inspector.get_columns("workspace_active_checkpoints")
         }
 
         expected_columns = [
@@ -216,9 +205,7 @@ class TestPhase3SchemaBootstrap:
         ]
 
         for col_name in expected_columns:
-            assert col_name in columns, (
-                f"Expected column '{col_name}' not found in audit_events"
-            )
+            assert col_name in columns, f"Expected column '{col_name}' not found in audit_events"
 
     def test_phase3_indexes_exist(self, db_session: Session):
         """Verify Phase 3 query indexes were created."""
@@ -320,9 +307,7 @@ class TestPhase3AuditImmutability:
             AND trigger_name = 'audit_events_immutable'
         """)
         )
-        assert result.scalar() is not None, (
-            "Expected audit_events_immutable trigger not found"
-        )
+        assert result.scalar() is not None, "Expected audit_events_immutable trigger not found"
 
     def test_audit_events_insert_succeeds(self, db_session: Session):
         """Verify audit events can be inserted."""
@@ -445,9 +430,7 @@ class TestPhase3ActiveCheckpointPointer:
         fks = inspector.get_foreign_keys("workspace_active_checkpoints")
 
         # Find the FK to workspace_checkpoints
-        checkpoint_fk = [
-            fk for fk in fks if fk.get("referred_table") == "workspace_checkpoints"
-        ]
+        checkpoint_fk = [fk for fk in fks if fk.get("referred_table") == "workspace_checkpoints"]
         assert len(checkpoint_fk) > 0, (
             "Expected foreign key from workspace_active_checkpoints to workspace_checkpoints"
         )
@@ -462,17 +445,11 @@ class TestPhase3ActiveCheckpointPointer:
         constraint_names = {c["name"] for c in constraints}
 
         indexes = inspector.get_indexes("workspace_active_checkpoints")
-        index_columns = {
-            idx["name"]: idx["column_names"] for idx in indexes if idx.get("unique")
-        }
+        index_columns = {idx["name"]: idx["column_names"] for idx in indexes if idx.get("unique")}
 
         # Should have unique constraint or unique index on workspace_id
-        has_unique_constraint = (
-            "uq_workspace_active_checkpoints_workspace" in constraint_names
-        )
-        has_unique_index = (
-            "ix_workspace_active_checkpoints_workspace_id" in index_columns
-        )
+        has_unique_constraint = "uq_workspace_active_checkpoints_workspace" in constraint_names
+        has_unique_index = "ix_workspace_active_checkpoints_workspace_id" in index_columns
 
         assert has_unique_constraint or has_unique_index, (
             "Expected unique constraint or index on workspace_id for singleton pattern"

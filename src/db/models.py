@@ -153,9 +153,7 @@ class ExternalIdentity(Base):
 
     __tablename__ = "external_identities"
 
-    workspace_id = Column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), primary_key=True
-    )
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), primary_key=True)
     external_user_id = Column(String(255), primary_key=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -192,9 +190,7 @@ class Membership(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    workspace_id = Column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
-    )
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
     role = Column(
         Enum("owner", "admin", "member", name="membership_role"),
         default="member",
@@ -212,9 +208,7 @@ class ApiKey(Base):
     __tablename__ = "api_keys"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    workspace_id = Column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
-    )
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     name = Column(String(255), nullable=False)
     key_hash = Column(String(255), nullable=False, index=True)
@@ -235,9 +229,7 @@ class WorkspaceResource(Base):
     __tablename__ = "workspace_resources"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    workspace_id = Column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
-    )
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
     resource_type = Column(String(100), nullable=False)
     name = Column(String(255), nullable=False)
     config = Column(Text, nullable=True)
@@ -722,9 +714,7 @@ class AuditEvent(Base):
     actor_type = Column(String(50), nullable=True)
 
     # Resource identification
-    resource_type = Column(
-        String(100), nullable=False
-    )  # "workspace", "run", "checkpoint"
+    resource_type = Column(String(100), nullable=False)  # "workspace", "run", "checkpoint"
     resource_id = Column(String(255), nullable=False, index=True)
 
     # Action and outcome

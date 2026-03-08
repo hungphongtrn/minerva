@@ -48,9 +48,7 @@ class AuthPrincipalFactory:
         )
 
 
-def get_membership_role(
-    db: Session, user_id: UUID, workspace_id: UUID
-) -> Optional[Role]:
+def get_membership_role(db: Session, user_id: UUID, workspace_id: UUID) -> Optional[Role]:
     """Get the membership role for a user in a workspace.
 
     Args:
@@ -237,11 +235,19 @@ def require_workspace_match_dep(workspace_id_param: str = "workspace_id"):
 # Convenience guards for common patterns
 def guard_read_resource():
     return guard_workspace_resource(Action.READ)
+
+
 def guard_create_resource():
     return guard_workspace_resource(Action.CREATE)
+
+
 def guard_update_resource():
     return guard_workspace_resource(Action.UPDATE)
+
+
 def guard_delete_resource():
     return guard_workspace_resource(Action.DELETE)
+
+
 def guard_admin_resource():
     return guard_workspace_resource(Action.ADMIN)

@@ -79,9 +79,7 @@ async def test_provision_time_token_consistency(
     This is the core fix for AUTH_FAILED cascades caused by token mismatch.
     """
     # Create orchestrator with capturing mock provider
-    orchestrator = SandboxOrchestratorService(
-        db_session, provider=mock_provider_with_capture
-    )
+    orchestrator = SandboxOrchestratorService(db_session, provider=mock_provider_with_capture)
 
     # Provision a sandbox
     result = await orchestrator.resolve_sandbox(
@@ -129,9 +127,7 @@ async def test_token_rotation_grace_period(
 ):
     """Token rotation preserves previous token with 30-second grace period."""
     # Create orchestrator
-    orchestrator = SandboxOrchestratorService(
-        db_session, provider=mock_provider_with_capture
-    )
+    orchestrator = SandboxOrchestratorService(db_session, provider=mock_provider_with_capture)
 
     # First provisioning
     result1 = await orchestrator.resolve_sandbox(
@@ -149,9 +145,7 @@ async def test_token_rotation_grace_period(
     )
 
     # Get first runtime token
-    first_runtime_token = captured_configs[0].runtime_bridge_config["bridge"][
-        "auth_token"
-    ]
+    first_runtime_token = captured_configs[0].runtime_bridge_config["bridge"]["auth_token"]
     assert first_runtime_token == first_token, "First provision token mismatch"
 
     # Clear captured configs for second provision
@@ -192,9 +186,7 @@ async def test_token_rotation_grace_period(
         assert len(captured_configs) == 1, (
             f"Expected 1 config for second provision, got {len(captured_configs)}"
         )
-        second_runtime_token = captured_configs[0].runtime_bridge_config["bridge"][
-            "auth_token"
-        ]
+        second_runtime_token = captured_configs[0].runtime_bridge_config["bridge"]["auth_token"]
 
         # Second runtime token should match second persisted token
         assert second_runtime_token == second_token, (
@@ -254,9 +246,7 @@ async def test_explicit_grace_seconds_in_rotation(
     if expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
 
-    assert expiry > now, (
-        f"Previous token expiry should be in the future: {expiry} <= {now}"
-    )
+    assert expiry > now, f"Previous token expiry should be in the future: {expiry} <= {now}"
 
     # Verify expiry is approximately grace_seconds from now (within tolerance)
     expected_min = now + timedelta(seconds=grace_seconds - 5)
@@ -281,9 +271,7 @@ async def test_runtime_config_token_structure(
     captured_configs,
 ):
     """Runtime bridge config has correct structure with auth token."""
-    orchestrator = SandboxOrchestratorService(
-        db_session, provider=mock_provider_with_capture
-    )
+    orchestrator = SandboxOrchestratorService(db_session, provider=mock_provider_with_capture)
 
     result = await orchestrator.resolve_sandbox(
         workspace_id=workspace_alpha.id,
@@ -301,9 +289,7 @@ async def test_runtime_config_token_structure(
     assert "bridge" in runtime_config, "Should have bridge section"
     assert "auth_token" in runtime_config["bridge"], "Should have auth_token in bridge"
     assert "auth_mode" in runtime_config["bridge"], "Should have auth_mode in bridge"
-    assert "gateway_port" in runtime_config["bridge"], (
-        "Should have gateway_port in bridge"
-    )
+    assert "gateway_port" in runtime_config["bridge"], "Should have gateway_port in bridge"
 
     # Verify auth_mode is bearer
     assert runtime_config["bridge"]["auth_mode"] == "bearer", (

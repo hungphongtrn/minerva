@@ -34,9 +34,7 @@ class Principal(NamedTuple):
     is_active: bool
 
 
-def generate_api_key(
-    prefix: str = "pk", key_length: int = 48, version: str = "v1"
-) -> KeyPair:
+def generate_api_key(prefix: str = "pk", key_length: int = 48, version: str = "v1") -> KeyPair:
     """Generate a new cryptographically secure API key.
 
     Args:
@@ -145,9 +143,7 @@ def generate_rotation_key(existing_key: "ApiKeyModel") -> KeyPair:
     """
     # Generate new key with same prefix pattern
     return generate_api_key(
-        prefix=existing_key.key_prefix.split("_")[0]
-        if existing_key.key_prefix
-        else "pk",
+        prefix=existing_key.key_prefix.split("_")[0] if existing_key.key_prefix else "pk",
         key_length=48,
         version="v1",
     )

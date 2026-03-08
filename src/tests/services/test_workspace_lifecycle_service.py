@@ -91,9 +91,7 @@ def mock_orchestrator():
 
 
 @pytest.fixture
-def lifecycle_service(
-    db_session: Session, mock_orchestrator
-) -> WorkspaceLifecycleService:
+def lifecycle_service(db_session: Session, mock_orchestrator) -> WorkspaceLifecycleService:
     """Create a lifecycle service with mock orchestrator."""
     return WorkspaceLifecycleService(
         session=db_session,
@@ -178,9 +176,7 @@ class TestWorkspaceResolution:
 
         assert target.workspace is None
         assert target.error is not None
-        assert (
-            "auto_create" in target.error.lower() or "not found" in target.error.lower()
-        )
+        assert "auto_create" in target.error.lower() or "not found" in target.error.lower()
 
 
 class TestLeaseIntegration:
@@ -637,9 +633,7 @@ class TestWorkspaceContinuity:
 class TestLifecycleContext:
     """Tests for lifecycle context management."""
 
-    def test_lifecycle_context_release(
-        self, db_session: Session, test_workspace: Workspace
-    ):
+    def test_lifecycle_context_release(self, db_session: Session, test_workspace: Workspace):
         """Test that lifecycle context properly releases lease."""
         lease_service = WorkspaceLeaseService(db_session)
 

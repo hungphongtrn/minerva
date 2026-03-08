@@ -30,9 +30,7 @@ from src.authorization.policy import (
     get_role_from_string,
 )
 
-router = APIRouter(
-    prefix="/workspaces/{workspace_id}/resources", tags=["workspace-resources"]
-)
+router = APIRouter(prefix="/workspaces/{workspace_id}/resources", tags=["workspace-resources"])
 
 
 # Pydantic schemas
@@ -158,12 +156,8 @@ async def list_resources(
     )
 
     # Set RLS context for tenant isolation
-    with with_rls_context(
-        db, workspace_id, auth_principal.user_id, auth_principal.role.value
-    ):
-        query = db.query(WorkspaceResource).filter(
-            WorkspaceResource.workspace_id == workspace_id
-        )
+    with with_rls_context(db, workspace_id, auth_principal.user_id, auth_principal.role.value):
+        query = db.query(WorkspaceResource).filter(WorkspaceResource.workspace_id == workspace_id)
 
         if resource_type:
             query = query.filter(WorkspaceResource.resource_type == resource_type)
@@ -177,9 +171,7 @@ async def list_resources(
     )
 
 
-@router.post(
-    "", response_model=WorkspaceResourceResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=WorkspaceResourceResponse, status_code=status.HTTP_201_CREATED)
 async def create_resource(
     workspace_id: UUID,
     data: WorkspaceResourceCreate,
@@ -216,9 +208,7 @@ async def create_resource(
     )
 
     # Create resource with RLS context
-    with with_rls_context(
-        db, workspace_id, auth_principal.user_id, auth_principal.role.value
-    ):
+    with with_rls_context(db, workspace_id, auth_principal.user_id, auth_principal.role.value):
         resource = WorkspaceResource(
             workspace_id=workspace_id,
             resource_type=data.resource_type,
@@ -268,9 +258,7 @@ async def get_resource(
     )
 
     # Query with RLS context
-    with with_rls_context(
-        db, workspace_id, auth_principal.user_id, auth_principal.role.value
-    ):
+    with with_rls_context(db, workspace_id, auth_principal.user_id, auth_principal.role.value):
         resource = (
             db.query(WorkspaceResource)
             .filter(
@@ -328,9 +316,7 @@ async def update_resource(
     )
 
     # Query and update with RLS context
-    with with_rls_context(
-        db, workspace_id, auth_principal.user_id, auth_principal.role.value
-    ):
+    with with_rls_context(db, workspace_id, auth_principal.user_id, auth_principal.role.value):
         resource = (
             db.query(WorkspaceResource)
             .filter(
@@ -394,9 +380,7 @@ async def delete_resource(
     )
 
     # Query and soft-delete with RLS context
-    with with_rls_context(
-        db, workspace_id, auth_principal.user_id, auth_principal.role.value
-    ):
+    with with_rls_context(db, workspace_id, auth_principal.user_id, auth_principal.role.value):
         resource = (
             db.query(WorkspaceResource)
             .filter(

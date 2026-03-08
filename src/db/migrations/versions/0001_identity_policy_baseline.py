@@ -79,9 +79,7 @@ def upgrade() -> None:
     op.create_index("ix_workspaces_slug", "workspaces", ["slug"], unique=False)
 
     # Create membership_role enum
-    membership_role = postgresql.ENUM(
-        "owner", "admin", "member", name="membership_role"
-    )
+    membership_role = postgresql.ENUM("owner", "admin", "member", name="membership_role")
     membership_role.create(op.get_bind(), checkfirst=True)
 
     # Create memberships table
@@ -123,9 +121,7 @@ def upgrade() -> None:
             ["workspaces.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "user_id", "workspace_id", name="uq_membership_user_workspace"
-        ),
+        sa.UniqueConstraint("user_id", "workspace_id", name="uq_membership_user_workspace"),
     )
 
     # Create api_keys table
@@ -266,9 +262,7 @@ def downgrade() -> None:
     """Drop all tables and remove RLS."""
 
     # Drop policies
-    op.execute(
-        "DROP POLICY IF EXISTS workspace_resource_isolation ON workspace_resources"
-    )
+    op.execute("DROP POLICY IF EXISTS workspace_resource_isolation ON workspace_resources")
     op.execute("DROP POLICY IF EXISTS api_key_isolation ON api_keys")
     op.execute("DROP POLICY IF EXISTS membership_isolation ON memberships")
     op.execute("DROP POLICY IF EXISTS workspace_isolation ON workspaces")
@@ -289,7 +283,5 @@ def downgrade() -> None:
     op.drop_table("users")
 
     # Drop enum type
-    membership_role = postgresql.ENUM(
-        "owner", "admin", "member", name="membership_role"
-    )
+    membership_role = postgresql.ENUM("owner", "admin", "member", name="membership_role")
     membership_role.drop(op.get_bind(), checkfirst=True)
