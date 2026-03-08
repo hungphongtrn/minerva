@@ -1,18 +1,18 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: picoclaw-postgres
+    container_name: minerva-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-picoclaw}
-      POSTGRES_USER: ${POSTGRES_USER:-picoclaw}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-picoclaw_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-minerva}
+      POSTGRES_USER: ${POSTGRES_USER:-minerva}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minerva_dev}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-picoclaw} -d ${POSTGRES_DB:-picoclaw}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minerva} -d ${POSTGRES_DB:-minerva}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -20,7 +20,7 @@ services:
 
   minio:
     image: minio/minio
-    container_name: picoclaw-minio
+    container_name: minerva-minio
     restart: unless-stopped
     ports:
       - "9000:9000"
@@ -39,14 +39,14 @@ services:
 
   createbuckets:
     image: minio/mc
-    container_name: picoclaw-minio-setup
+    container_name: minerva-minio-setup
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
       /usr/bin/mc alias set local http://minio:9000 ${CHECKPOINT_S3_ACCESS_KEY:-minioadmin} ${CHECKPOINT_S3_SECRET_KEY:-minioadmin};
-      /usr/bin/mc mb local/${CHECKPOINT_S3_BUCKET:-picoclaw-checkpoints};
+      /usr/bin/mc mb local/${CHECKPOINT_S3_BUCKET:-minerva-checkpoints};
       exit 0;
       "
 

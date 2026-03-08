@@ -1,1 +1,0 @@
-"""Minerva source package."""

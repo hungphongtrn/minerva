@@ -1,16 +1,5 @@
 # AGENTS.md
 
-## Documents
-
-### Project Documentation
-
-- **[Coding Standards](/Users/phong/Workspace/minerva/docs/CODING_STANDARDS.md)** - Code style and standards
-- **[Architecture Overview](/Users/phong/Workspace/minerva/docs/architecture/README.md)** - System architecture and components
-- **[State Machines](/Users/phong/Workspace/minerva/docs/architecture/state-machines.md)** - All state diagrams
-- **[Execution Flow](/Users/phong/Workspace/minerva/docs/architecture/execution-flow.md)** - Request flow documentation
-- **[Component Catalog](/Users/phong/Workspace/minerva/docs/architecture/component-catalog.md)** - Component reference
-- **[Dead Code & Legacy](/Users/phong/Workspace/minerva/docs/architecture/dead-code-legacy.md)** - Cleanup opportunities
-
 ## Documentation Guidelines
 
 **IMPORTANT**: All documentation MUST be placed in `/Users/phong/Workspace/minerva/docs/` directory.
