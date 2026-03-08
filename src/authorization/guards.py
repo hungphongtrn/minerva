@@ -10,16 +10,18 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.db.session import get_db
-from src.db.models import Membership
 from src.authorization.policy import (
     Action,
     ResourceType,
     Role,
-    Principal as AuthPrincipal,
     authorize_action,
     get_role_from_string,
 )
+from src.authorization.policy import (
+    Principal as AuthPrincipal,
+)
+from src.db.models import Membership
+from src.db.session import get_db
 from src.identity.key_material import Principal as IdentityPrincipal
 
 
