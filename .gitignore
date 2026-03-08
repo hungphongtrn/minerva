@@ -22,3 +22,7 @@ reference_repos/
 .agents/
 skills-lock.json
 *.log
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
