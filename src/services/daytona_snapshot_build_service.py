@@ -175,12 +175,30 @@ class DaytonaSnapshotBuildService:
                 remediation="Ensure PICOCLAW_REPO_URL points to a valid Picoclaw repository with a Dockerfile",
             )
 
-        self._normalize_dockerfile_for_builder(dockerfile_path)
-        self._ensure_rust_toolchain_file(repo_dir, dockerfile_path)
+        # Daytona builder infers build context from Dockerfile parent directory.
+        # Repositories that keep Dockerfile under `docker/` but COPY files from
+        # repo root (for example `COPY go.mod go.sum ./`) fail if context stays
+        # under `docker/`. Relocate Dockerfile into repo root to preserve COPY
+        # semantics in those layouts.
+        effective_dockerfile_path = dockerfile_path
+        if (
+            dockerfile_path.parent.name == "docker"
+            and (repo_dir / "go.mod").exists()
+            and not (dockerfile_path.parent / "go.mod").exists()
+        ):
+            relocated_path = repo_dir / ".daytona-builder.Dockerfile"
+            relocated_path.write_text(
+                dockerfile_path.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            effective_dockerfile_path = relocated_path
+
+        self._normalize_dockerfile_for_builder(effective_dockerfile_path)
+        self._ensure_rust_toolchain_file(repo_dir, effective_dockerfile_path)
 
         # Use repository Dockerfile path as-is to preserve monorepo-relative
         # COPY/ADD semantics and avoid accidental path breakage.
-        image = Image.from_dockerfile(str(dockerfile_path))
+        image = Image.from_dockerfile(str(effective_dockerfile_path))
 
         return image
 

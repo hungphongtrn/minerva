@@ -122,8 +122,8 @@ class TestProviderFactory:
         assert isinstance(provider, DaytonaSandboxProvider)
         assert provider.profile == "daytona"
 
-    def test_get_provider_daytona_uses_settings_snapshot_name(self):
-        """Factory passes settings snapshot name into Daytona provider."""
+    def test_get_provider_daytona_remaps_legacy_snapshot_name(self):
+        """Factory remaps legacy snapshot aliases to zeroclaw-base."""
         with patch(
             "src.infrastructure.sandbox.providers.factory.settings"
         ) as mock_settings:
@@ -143,7 +143,7 @@ class TestProviderFactory:
             provider = get_provider("daytona")
 
             assert isinstance(provider, DaytonaSandboxProvider)
-            assert provider._snapshot_name == "picoclaw-base"
+            assert provider._snapshot_name == "zeroclaw-base"
 
     def test_get_provider_daytona_requires_api_key_for_self_hosted(self):
         """Factory fails closed for self-hosted Daytona without API key."""

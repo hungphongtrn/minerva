@@ -133,6 +133,10 @@ def _create_daytona_provider() -> DaytonaSandboxProvider:
         snapshot_name = None
     if isinstance(snapshot_name, str) and not snapshot_name.strip():
         snapshot_name = None
+    if isinstance(snapshot_name, str):
+        normalized_snapshot = snapshot_name.strip().lower()
+        if normalized_snapshot in {"picoclaw-base", "picoclaw-snapshot"}:
+            snapshot_name = "zeroclaw-base"
 
     # Resolve base image - filter out MagicMock from test mocks
     base_image = getattr(settings, "DAYTONA_BASE_IMAGE", None)

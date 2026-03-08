@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     # Database - supports PostgreSQL (production) or SQLite (testing)
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/picoclaw"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/minerva"
 
     # Application
     DEBUG: bool = False
@@ -72,10 +72,10 @@ class Settings(BaseSettings):
     """Deprecated: Use DAYTONA_TARGET instead. Backward compatibility."""
 
     # Daytona Image Configuration (for production registry images)
-    DAYTONA_BASE_IMAGE: str = "daytonaio/workspace-picoclaw:latest"
-    """Base Docker image for Daytona sandboxes (default: daytonaio/workspace-picoclaw:latest).
+    DAYTONA_BASE_IMAGE: str = ""
+    """Base Docker image for Daytona sandboxes.
 
-    In production, this should point to a Picoclaw-specific image with
+    In production, this should point to a runtime-ready image with
     identity files (AGENT.md, SOUL.md, IDENTITY.md) and skills/ pre-installed.
     """
 
@@ -100,30 +100,29 @@ class Settings(BaseSettings):
 
     DAYTONA_AUTO_STOP_INTERVAL: int = 0
     """Auto-stop interval in seconds (default: 0).
-    
+
     0 disables auto-stop for runtime continuity. Set to positive value
     for automatic cleanup after inactivity (minimum: 60 seconds).
     """
 
-    # Picoclaw Snapshot Configuration
-    PICOCLAW_REPO_URL: str = ""
-    """Git repository URL for Picoclaw source code."""
+    # Sandbox Runtime Configuration
+    SANDBOX_RUNTIME_REPO_URL: str = ""
+    """Git repository URL for agent runtime source code."""
 
-    PICOCLAW_REPO_REF: str = "main"
-    """Git ref (branch/tag/sha) for Picoclaw source (default: main)."""
+    SANDBOX_RUNTIME_REPO_REF: str = "main"
+    """Git ref (branch/tag/sha) for agent runtime source (default: main)."""
 
-    DAYTONA_PICOCLAW_SNAPSHOT_NAME: str = ""
+    DAYTONA_SANDBOX_SNAPSHOT_NAME: str = ""
     """Name of the Daytona snapshot to use for sandbox provisioning."""
 
-    # Zeroclaw Gateway Configuration
-    ZER0CLAW_GATEWAY_TOKEN: str = ""
-    """Bearer token for Zeroclaw gateway authentication.
+    # Sandbox Gateway Configuration
+    SANDBOX_GATEWAY_TOKEN: str = ""
+    """Bearer token for sandbox gateway authentication.
 
     Set per-sandbox via environment variable. Leave empty for development.
     """
 
-    # Zeroclaw Gateway Configuration (accessed as ZER0CLAW_GATEWAY dict)
-    ZER0CLAW_GATEWAY: dict = {}
+    SANDBOX_GATEWAY: dict = {}
     """Gateway timeout/retry/auth configuration.
 
     Supports nested configuration:
@@ -134,7 +133,7 @@ class Settings(BaseSettings):
     - EXECUTE_RETRIES: count (default: 0)
 
     Example:
-        ZER0CLAW_GATEWAY='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
+        SANDBOX_GATEWAY='{"HEALTH_TIMEOUT": 5, "EXECUTE_TIMEOUT": 600}'
     """
 
     # LLM Configuration

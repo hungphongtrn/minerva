@@ -1,17 +1,17 @@
-"""Picoclaw FastAPI application entry point."""
+"""Minerva FastAPI application entry point."""
 
 from fastapi import FastAPI
 
-from src.api.router import api_router
 from src.api.oss.router import oss_router
 from src.api.oss.routes.metrics import setup_metrics
+from src.api.router import api_router
 from src.config.settings import settings
 
 
 def create_app() -> FastAPI:
-    """Application factory for Picoclaw API."""
+    """Application factory for Minerva API."""
     app = FastAPI(
-        title="Picoclaw API",
+        title="Minerva API",
         description="Multi-tenant OSS runtime for agent packs",
         version="0.1.0",
         docs_url="/docs" if settings.DEBUG else None,

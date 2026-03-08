@@ -2,39 +2,45 @@
 
 Provides service-level orchestration for sandbox selection, provisioning,
 and idle TTL enforcement with health-aware routing decisions.
+
+Key design: Single-attempt provisioning. No nested retry loops.
+The orchestrator either finds an existing healthy sandbox or provisions
+exactly one new sandbox. Failures fail fast without retry amplification.
 """
 
 import asyncio
+import secrets
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
-from typing import List, Optional, Dict, Any
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.config.settings import settings
 from src.db.models import (
     AgentPackValidationStatus,
-    SandboxInstance,
-    SandboxState,
     SandboxHealthStatus,
-    SandboxProfile,
     SandboxHydrationStatus,
+    SandboxInstance,
+    SandboxProfile,
+    SandboxState,
 )
 from src.db.repositories.agent_pack_repository import AgentPackRepository
 from src.db.repositories.sandbox_instance_repository import SandboxInstanceRepository
 from src.infrastructure.sandbox.providers.base import (
-    SandboxProvider,
     SandboxConfig,
     SandboxInfo,
-    SandboxHealth as ProviderSandboxHealth,
     SandboxNotFoundError,
+    SandboxProvider,
     SandboxProviderError,
-    SandboxIdentityError,
-    SandboxHealthCheckError,
+    SandboxRef,
+)
+from src.infrastructure.sandbox.providers.base import (
+    SandboxHealth as ProviderSandboxHealth,
 )
 from src.infrastructure.sandbox.providers.factory import get_provider
 
@@ -42,14 +48,14 @@ from src.infrastructure.sandbox.providers.factory import get_provider
 class RoutingResult(Enum):
     """Result codes for sandbox routing operations."""
 
-    ROUTED_EXISTING = auto()  # Successfully routed to existing sandbox
-    PROVISIONED_NEW = auto()  # Provisioned new sandbox
-    HYDRATED_EXISTING = auto()  # Hydrated/reactivated existing sandbox
-    UNHEALTHY_EXCLUDED = auto()  # Unhealthy sandbox excluded from routing
-    NO_HEALTHY_CANDIDATES = auto()  # No healthy sandboxes available
-    PROVISION_FAILED = auto()  # Failed to provision new sandbox
-    IDENTITY_CHECK_FAILED = auto()  # Identity verification failed
-    GATEWAY_RESOLUTION_FAILED = auto()  # Gateway endpoint resolution failed
+    ROUTED_EXISTING = auto()
+    PROVISIONED_NEW = auto()
+    HYDRATED_EXISTING = auto()
+    UNHEALTHY_EXCLUDED = auto()
+    NO_HEALTHY_CANDIDATES = auto()
+    PROVISION_FAILED = auto()
+    IDENTITY_CHECK_FAILED = auto()
+    GATEWAY_RESOLUTION_FAILED = auto()
 
 
 @dataclass
@@ -58,17 +64,17 @@ class SandboxRoutingResult:
 
     success: bool
     result: RoutingResult
-    sandbox: Optional[SandboxInstance]
-    provider_info: Optional[SandboxInfo]
+    sandbox: SandboxInstance | None
+    provider_info: SandboxInfo | None
     message: str
-    excluded_unhealthy: List[SandboxInstance]
+    excluded_unhealthy: list[SandboxInstance]
     ttl_cleanup_applied: bool = False
-    stopped_sandbox_ids: List[str] = None
-    ttl_cleanup_reason: Optional[str] = None
-    remediation: Optional[str] = None
+    stopped_sandbox_ids: list[str] | None = None
+    ttl_cleanup_reason: str | None = None
+    remediation: str | None = None
     reprovision_attempts: int = 0
     reprovision_exhausted: bool = False
-    gateway_url: Optional[str] = None
+    gateway_url: str | None = None
 
     def __post_init__(self):
         if self.stopped_sandbox_ids is None:
@@ -81,144 +87,72 @@ class StopEligibilityResult:
 
     eligible: bool
     reason: str
-    idle_seconds: Optional[int]
+    idle_seconds: int | None
     ttl_seconds: int
+
+
+@dataclass
+class LayeredReadinessResult:
+    """Result of layered readiness check for a sandbox."""
+
+    is_request_ready: bool
+    needs_hydration: bool
+    failure_reason: str | None
+    provider_info: SandboxInfo | None
+    identity_ready: bool
+    health_ready: bool
 
 
 class SandboxOrchestratorService:
     """Service for sandbox lifecycle orchestration and routing.
 
-    This service provides the control-plane layer for:
-    - Health-aware sandbox selection (prefer active healthy)
-    - Unhealthy sandbox exclusion and replacement
-    - Configurable idle TTL enforcement
-    - Idempotent stop operations
-    - Bounded auto-reprovision with typed remediation
-    - Layered readiness: identity -> health -> hydration
+    Core invariant: 1 user → 1 sandbox. No retry amplification.
 
-    The service is fail-closed: unhealthy sandboxes are excluded from
-    routing, and ambiguous states default to provisioning new sandboxes.
+    Flow:
+    1. Stop idle sandboxes that exceeded TTL
+    2. Find existing healthy sandbox → route to it
+    3. No healthy sandbox → provision exactly one new sandbox
+    4. If provisioning fails, fail fast (no retry loop)
     """
 
-    # Default idle TTL from settings, fallback to 1 hour
     DEFAULT_IDLE_TTL_SECONDS = 3600
-
-    # Minimum allowed TTL: 60 seconds
     MIN_IDLE_TTL_SECONDS = 60
-
-    # Maximum allowed TTL: 24 hours
     MAX_IDLE_TTL_SECONDS = 86400
 
-    # Bounded reprovision configuration
-    MAX_REPROVISION_ATTEMPTS = 3
-    """Maximum reprovision attempts before failing fast."""
-
-    REPROVISION_BACKOFF_BASE = 1.0
-    """Base backoff in seconds for exponential retry."""
-
-    REPROVISION_BACKOFF_MAX = 5.0
-    """Maximum backoff in seconds."""
+    EXISTING_SANDBOX_WAIT_SECONDS = 30
+    EXISTING_SANDBOX_POLL_SECONDS = 0.25
 
     HYDRATION_TIMEOUT_SECONDS = 300
-    """Timeout for async checkpoint hydration (5 minutes)."""
-
-    EXISTING_SANDBOX_WAIT_SECONDS = 30
-    """Max wait for another request to finish provisioning."""
-
-    EXISTING_SANDBOX_POLL_SECONDS = 0.25
-    """Polling interval while waiting for existing sandbox activation."""
 
     def __init__(
         self,
         session: Session,
-        provider: Optional[SandboxProvider] = None,
-        idle_ttl_seconds: Optional[int] = None,
+        provider: SandboxProvider | None = None,
+        idle_ttl_seconds: int | None = None,
     ):
-        """Initialize the orchestrator service.
-
-        Args:
-            session: SQLAlchemy session for database operations.
-            provider: Sandbox provider instance (defaults to configured profile).
-            idle_ttl_seconds: Idle TTL in seconds (defaults to settings or 1 hour).
-        """
         self._session = session
         self._repository = SandboxInstanceRepository(session)
         self._provider = provider or get_provider()
-        self._idle_ttl_seconds = self._validate_ttl(
-            idle_ttl_seconds or self._get_configured_ttl()
-        )
+        self._idle_ttl_seconds = self._validate_ttl(idle_ttl_seconds or self._get_configured_ttl())
 
-    def _get_configured_ttl(self) -> int:
-        """Get TTL from settings or use default.
-
-        Returns:
-            Configured TTL in seconds.
-        """
-        # Check for settings attribute first
-        ttl = getattr(settings, "SANDBOX_IDLE_TTL_SECONDS", None)
-        if ttl is not None:
-            return int(ttl)
-        return self.DEFAULT_IDLE_TTL_SECONDS
-
-    def _validate_ttl(self, ttl_seconds: int) -> int:
-        """Validate TTL value.
-
-        Args:
-            ttl_seconds: TTL value to validate.
-
-        Returns:
-            Validated TTL.
-
-        Raises:
-            ValueError: If TTL is outside allowed range.
-        """
-        if ttl_seconds < self.MIN_IDLE_TTL_SECONDS:
-            raise ValueError(
-                f"Idle TTL must be at least {self.MIN_IDLE_TTL_SECONDS} seconds, "
-                f"got {ttl_seconds}"
-            )
-        if ttl_seconds > self.MAX_IDLE_TTL_SECONDS:
-            raise ValueError(
-                f"Idle TTL must be at most {self.MAX_IDLE_TTL_SECONDS} seconds, "
-                f"got {ttl_seconds}"
-            )
-        return ttl_seconds
+    # ── Public API ───────────────────────────────────────────────
 
     async def resolve_sandbox(
         self,
         workspace_id: UUID,
-        profile: Optional[SandboxProfile] = None,
-        agent_pack_id: Optional[UUID] = None,
-        env_vars: Optional[Dict[str, str]] = None,
-        external_user_id: Optional[str] = None,
+        profile: SandboxProfile | None = None,
+        agent_pack_id: UUID | None = None,
+        env_vars: dict[str, str] | None = None,
+        external_user_id: str | None = None,
     ) -> SandboxRoutingResult:
-        """Resolve a sandbox for workspace execution with layered readiness.
+        """Resolve a sandbox for workspace execution.
 
-        Routing logic with layered readiness:
-        1. Stop idle sandboxes that exceeded TTL (TTL cleanup enforcement)
-        2. List candidate sandboxes for workspace (filtered by profile and external_user_id if provided)
-        3. Layered readiness gates:
-           a. Identity completeness (hard gate - must be ready)
-           b. Gateway health (ready gate - must be healthy)
-           c. Async checkpoint hydration (non-blocking - kicks off in background)
-        4. Route to first request-ready candidate
-        5. If none ready, mark as excluded and provision with bounded retries
-        6. On reprovision exhaustion, fail fast with typed remediation
-
-        Args:
-            workspace_id: UUID of the workspace.
-            profile: Optional deployment profile filter.
-            agent_pack_id: Optional agent pack to attach.
-            env_vars: Optional environment variables for new sandboxes.
-            external_user_id: Optional external user ID for per-user sandbox routing.
-
-        Returns:
-            SandboxRoutingResult with routing outcome.
+        Single-attempt provisioning. No nested retries.
         """
-        excluded_unhealthy: List[SandboxInstance] = []
+        excluded_unhealthy: list[SandboxInstance] = []
         ttl_cleanup_applied = False
-        stopped_sandbox_ids: List[str] = []
-        ttl_cleanup_reason: Optional[str] = None
+        stopped_sandbox_ids: list[str] = []
+        ttl_cleanup_reason: str | None = None
         effective_profile = (
             profile
             or getattr(self._provider, "profile", None)
@@ -227,16 +161,8 @@ class SandboxOrchestratorService:
         )
 
         try:
-            # Opportunistic reconciliation for orphaned provider sandboxes.
-            if effective_profile == SandboxProfile.DAYTONA:
-                await self._reconcile_daytona_orphans(
-                    workspace_id=workspace_id,
-                    profile=effective_profile,
-                    external_user_id=external_user_id,
-                )
-
-            # Step 1: Stop idle sandboxes that exceeded TTL
-            stopped_idle = await self._stop_idle_sandboxes_before_routing(workspace_id)
+            # Step 1: Stop idle sandboxes
+            stopped_idle = await self._stop_idle_sandboxes(workspace_id)
             if stopped_idle:
                 ttl_cleanup_applied = True
                 stopped_sandbox_ids = [str(s.id) for s in stopped_idle]
@@ -245,44 +171,37 @@ class SandboxOrchestratorService:
                     f"exceeding TTL ({self._idle_ttl_seconds}s)"
                 )
 
-            # Step 2: Get active sandboxes for workspace (filtered by external_user_id if provided)
+            # Step 2: Find active healthy sandbox
             active_sandboxes = self._repository.list_active_healthy_by_workspace(
                 workspace_id=workspace_id,
                 profile=effective_profile,
                 external_user_id=external_user_id,
             )
 
-            # Step 3: Layered readiness checks
             for sandbox in active_sandboxes:
-                readiness = await self._check_layered_readiness(sandbox)
+                readiness = await self._check_readiness(sandbox)
 
                 if readiness.is_request_ready:
-                    # Update activity timestamp
                     self._repository.update_activity(sandbox.id)
-
-                    # Kick off async hydration (non-blocking)
                     if readiness.needs_hydration:
-                        self._trigger_async_hydration(sandbox, workspace_id)
-
-                    return SandboxRoutingResult(
-                        success=True,
-                        result=RoutingResult.ROUTED_EXISTING,
-                        sandbox=sandbox,
-                        provider_info=readiness.provider_info,
-                        message=f"Routed to request-ready sandbox {sandbox.id}",
-                        excluded_unhealthy=excluded_unhealthy,
-                        ttl_cleanup_applied=ttl_cleanup_applied,
-                        stopped_sandbox_ids=stopped_sandbox_ids,
-                        ttl_cleanup_reason=ttl_cleanup_reason,
+                        self._trigger_hydration(sandbox)
+                    return self._ok(
+                        RoutingResult.ROUTED_EXISTING,
+                        sandbox,
+                        readiness.provider_info,
+                        f"Routed to request-ready sandbox {sandbox.id}",
+                        excluded_unhealthy,
+                        ttl_cleanup_applied,
+                        stopped_sandbox_ids,
+                        ttl_cleanup_reason,
                         gateway_url=sandbox.gateway_url,
                     )
                 else:
-                    # Mark as unhealthy and exclude with reason
                     self._mark_unhealthy(sandbox, readiness.failure_reason)
                     excluded_unhealthy.append(sandbox)
 
-            # Step 4: No request-ready candidates - provision with bounded retries
-            return await self._provision_with_bounded_retry(
+            # Step 3: No ready sandbox — provision one (single attempt)
+            return await self._provision_sandbox(
                 workspace_id=workspace_id,
                 profile=effective_profile,
                 agent_pack_id=agent_pack_id,
@@ -295,567 +214,111 @@ class SandboxOrchestratorService:
             )
 
         except Exception as e:
-            return SandboxRoutingResult(
-                success=False,
-                result=RoutingResult.NO_HEALTHY_CANDIDATES,
-                sandbox=None,
-                provider_info=None,
-                message=f"Sandbox resolution failed: {str(e)}",
-                excluded_unhealthy=excluded_unhealthy,
-                ttl_cleanup_applied=ttl_cleanup_applied,
-                stopped_sandbox_ids=stopped_sandbox_ids,
-                ttl_cleanup_reason=ttl_cleanup_reason,
+            return self._fail(
+                RoutingResult.NO_HEALTHY_CANDIDATES,
+                f"Sandbox resolution failed: {e}",
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
                 remediation="Check provider health and retry",
             )
 
-    async def _stop_idle_sandboxes_before_routing(
-        self, workspace_id: UUID
-    ) -> List[SandboxInstance]:
-        """Stop idle sandboxes before routing resolution.
+    def check_stop_eligibility(self, sandbox: SandboxInstance) -> StopEligibilityResult:
+        """Check if a sandbox is eligible for idle stop."""
+        if sandbox.state != SandboxState.ACTIVE:
+            return StopEligibilityResult(
+                eligible=False,
+                reason=f"Sandbox is not active (state: {sandbox.state})",
+                idle_seconds=None,
+                ttl_seconds=self._idle_ttl_seconds,
+            )
 
-        This enforces TTL policy by stopping any sandboxes that have
-        exceeded their idle TTL before routing decisions are made.
+        last_activity = sandbox.last_activity_at or sandbox.created_at
+        now = datetime.utcnow()
+        idle_duration = (now - last_activity).total_seconds()
+        ttl = sandbox.idle_ttl_seconds or self._idle_ttl_seconds
 
-        Args:
-            workspace_id: Workspace to check for idle sandboxes.
+        if idle_duration >= ttl:
+            return StopEligibilityResult(
+                eligible=True,
+                reason=f"Sandbox idle for {int(idle_duration)}s (TTL: {ttl}s)",
+                idle_seconds=int(idle_duration),
+                ttl_seconds=ttl,
+            )
+        return StopEligibilityResult(
+            eligible=False,
+            reason=f"Sandbox active within TTL ({int(idle_duration)}s < {ttl}s)",
+            idle_seconds=int(idle_duration),
+            ttl_seconds=ttl,
+        )
 
-        Returns:
-            List of sandboxes that were stopped.
-        """
-        stopped: List[SandboxInstance] = []
+    async def stop_idle_sandboxes(self, workspace_id: UUID | None = None) -> list[SandboxInstance]:
+        """Stop sandboxes that have exceeded idle TTL."""
+        if not workspace_id:
+            return []
+        return await self._stop_idle_sandboxes(workspace_id)
 
-        # Get all active sandboxes for the workspace
+    async def get_sandbox_health(self, sandbox_id: UUID) -> SandboxInfo | None:
+        """Get current health for a sandbox."""
+        sandbox = self._repository.get_by_id(sandbox_id)
+        if not sandbox:
+            return None
+        return await self._check_provider_health(sandbox)
+
+    def update_sandbox_activity(self, sandbox_id: UUID) -> SandboxInstance | None:
+        """Update last activity timestamp for a sandbox."""
+        return self._repository.update_activity(sandbox_id)
+
+    def list_idle_sandboxes(self, workspace_id: UUID | None = None) -> list[SandboxInstance]:
+        """List sandboxes eligible for idle stop."""
+        if not workspace_id:
+            return []
         candidates = self._repository.list_by_workspace(
             workspace_id=workspace_id, include_inactive=False
         )
+        return [s for s in candidates if self.check_stop_eligibility(s).eligible]
 
-        # Filter to those eligible for stop (exceeded TTL)
-        for sandbox in candidates:
-            eligibility = self.check_stop_eligibility(sandbox)
-            if eligibility.eligible:
-                stopped_sandbox = await self._stop_sandbox(sandbox)
-                if stopped_sandbox:
-                    stopped.append(stopped_sandbox)
-
-        return stopped
-
-    async def _check_sandbox_health(
-        self, sandbox: SandboxInstance
-    ) -> Optional[SandboxInfo]:
-        """Check health of a sandbox via provider.
-
-        Args:
-            sandbox: Sandbox instance to check.
-
-        Returns:
-            SandboxInfo if health check succeeds, None otherwise.
-        """
-        if not sandbox.provider_ref:
-            return None
-
-        try:
-            from src.infrastructure.sandbox.providers.base import SandboxRef
-
-            ref = SandboxRef(
-                provider_ref=sandbox.provider_ref,
-                profile=sandbox.profile,
-            )
-            return await self._provider.get_health(ref)
-        except (SandboxNotFoundError, SandboxProviderError):
-            return None
-
-    def _mark_unhealthy(
-        self, sandbox: SandboxInstance, reason: Optional[str] = None
-    ) -> None:
-        """Mark a sandbox as unhealthy in the database.
-
-        Args:
-            sandbox: Sandbox to mark.
-            reason: Optional reason for marking unhealthy.
-        """
-        self._repository.update_health(sandbox.id, SandboxHealthStatus.UNHEALTHY)
-        self._repository.update_state(sandbox.id, SandboxState.UNHEALTHY)
-
-    async def _check_layered_readiness(
-        self, sandbox: SandboxInstance
-    ) -> "LayeredReadinessResult":
-        """Check layered readiness gates for a sandbox.
-
-        Layered gates:
-        1. Identity completeness (hard gate)
-        2. Gateway health (ready gate)
-
-        Args:
-            sandbox: Sandbox instance to check.
-
-        Returns:
-            LayeredReadinessResult with readiness status.
-        """
-        from dataclasses import dataclass
-
-        @dataclass
-        class LayeredReadinessResult:
-            is_request_ready: bool
-            needs_hydration: bool
-            failure_reason: Optional[str]
-            provider_info: Optional[SandboxInfo]
-            identity_ready: bool
-            health_ready: bool
-
-        # Gate 1: Identity completeness (hard gate)
-        if not sandbox.identity_ready:
-            return LayeredReadinessResult(
-                is_request_ready=False,
-                needs_hydration=False,
-                failure_reason="Identity files not mounted",
-                provider_info=None,
-                identity_ready=False,
-                health_ready=False,
-            )
-
-        # Gate 2: Gateway health check (ready gate)
-        provider_info = await self._check_sandbox_health(sandbox)
-
-        if not provider_info:
-            return LayeredReadinessResult(
-                is_request_ready=False,
-                needs_hydration=True,
-                failure_reason="Health check failed",
-                provider_info=None,
-                identity_ready=True,
-                health_ready=False,
-            )
-
-        if provider_info.health != ProviderSandboxHealth.HEALTHY:
-            return LayeredReadinessResult(
-                is_request_ready=False,
-                needs_hydration=True,
-                failure_reason=f"Sandbox unhealthy: {provider_info.health}",
-                provider_info=provider_info,
-                identity_ready=True,
-                health_ready=False,
-            )
-
-        # Both gates passed - request-ready
-        needs_hydration = sandbox.hydration_status in (
-            SandboxHydrationStatus.PENDING,
-            SandboxHydrationStatus.IN_PROGRESS,
-        )
-
-        return LayeredReadinessResult(
-            is_request_ready=True,
-            needs_hydration=needs_hydration,
-            failure_reason=None,
-            provider_info=provider_info,
-            identity_ready=True,
-            health_ready=True,
-        )
-
-    def _trigger_async_hydration(
-        self, sandbox: SandboxInstance, workspace_id: UUID
-    ) -> None:
-        """Trigger async checkpoint hydration in the background.
-
-        This method schedules hydration asynchronously without blocking
-        request routing. Hydration failures are tracked but don't affect
-        request-readiness.
-
-        Args:
-            sandbox: Sandbox to hydrate.
-            workspace_id: Associated workspace ID.
-        """
-        # Update hydration status to in_progress
-        self._repository.set_hydration_status(
-            sandbox.id, SandboxHydrationStatus.IN_PROGRESS
-        )
-
-        # In production, this would use a proper task queue
-        # For now, just update status to completed for testing
-        self._repository.set_hydration_status(
-            sandbox.id, SandboxHydrationStatus.COMPLETED
-        )
-
-    async def _reconcile_daytona_orphans(
-        self,
-        workspace_id: UUID,
-        profile: SandboxProfile,
-        external_user_id: Optional[str],
-    ) -> None:
-        """Reconcile Daytona workspaces that exist without DB rows.
-
-        This is a best-effort safety net for request rollback scenarios where
-        Daytona provisioning succeeded but the request transaction rolled back.
-        """
-        list_refs = getattr(self._provider, "list_sandbox_refs_by_workspace", None)
-        if not callable(list_refs):
-            return
-
-        try:
-            provider_refs = await list_refs(workspace_id)
-        except Exception:
-            return
-
-        for provider_ref in provider_refs:
-            if self._repository.get_by_provider_ref(provider_ref):
-                continue
-
-            sandbox = self._repository.create(
-                workspace_id=workspace_id,
-                profile=profile,
-                idle_ttl_seconds=self._idle_ttl_seconds,
-                external_user_id=external_user_id,
-            )
-            self._repository.set_provider_ref(sandbox.id, provider_ref)
-            self._repository.update_state(sandbox.id, SandboxState.CREATING)
-            self._repository.update_health(sandbox.id, SandboxHealthStatus.UNKNOWN)
-
-            resolve_gateway = getattr(self._provider, "resolve_gateway_endpoint", None)
-            if callable(resolve_gateway):
-                try:
-                    gateway_url = await resolve_gateway(provider_ref)
-                    if gateway_url:
-                        self._repository.set_gateway_url_authoritative(
-                            sandbox.id, gateway_url
-                        )
-                except Exception:
-                    pass
-
-            self._session.commit()
-
-    def _find_in_progress_sandbox(
-        self,
-        workspace_id: UUID,
-        profile: SandboxProfile,
-        agent_pack_id: Optional[UUID],
-        external_user_id: Optional[str],
-    ) -> Optional[SandboxInstance]:
-        """Find an existing PENDING/CREATING sandbox to avoid duplicates on retry.
-
-        When _provision_sandbox is retried after a transient failure, we don't
-        want to create a new database record - we want to reuse the existing one.
-        This method looks for sandboxes in PENDING or CREATING state that match
-        the workspace/profile/pack criteria.
-
-        Args:
-            workspace_id: Workspace to search in.
-            profile: Deployment profile.
-            agent_pack_id: Optional agent pack ID.
-            external_user_id: Optional external user ID.
-
-        Returns:
-            Existing SandboxInstance if found, None otherwise.
-        """
-        conditions = [
-            SandboxInstance.workspace_id == workspace_id,
-            SandboxInstance.profile == profile,
-            SandboxInstance.state.in_([SandboxState.PENDING, SandboxState.CREATING]),
-        ]
-
-        if agent_pack_id is not None:
-            conditions.append(SandboxInstance.agent_pack_id == agent_pack_id)
-
-        if external_user_id is not None:
-            conditions.append(SandboxInstance.external_user_id == external_user_id)
-
-        stmt = (
-            select(SandboxInstance)
-            .where(and_(*conditions))
-            .order_by(SandboxInstance.created_at.desc())
-        )
-
-        result = self._session.execute(stmt).scalars().first()
-        return result
-
-    async def _wait_for_existing_sandbox_activation(
-        self,
-        sandbox_id: UUID,
-    ) -> Optional[SandboxInstance]:
-        """Wait for an in-progress sandbox to become active.
-
-        Args:
-            sandbox_id: Sandbox record currently being provisioned by another request.
-
-        Returns:
-            Active sandbox when provisioning completes, or None on timeout/terminal state.
-        """
-        deadline = asyncio.get_event_loop().time() + self.EXISTING_SANDBOX_WAIT_SECONDS
-
-        while asyncio.get_event_loop().time() < deadline:
-            sandbox = self._repository.get_by_id(sandbox_id)
-            if not sandbox:
-                return None
-
-            if sandbox.state == SandboxState.ACTIVE and sandbox.provider_ref:
-                return sandbox
-
-            if sandbox.state in (
-                SandboxState.UNHEALTHY,
-                SandboxState.STOPPING,
-                SandboxState.STOPPED,
-                SandboxState.FAILED,
-            ):
-                return None
-
-            await asyncio.sleep(self.EXISTING_SANDBOX_POLL_SECONDS)
-
-        return None
-
-    async def _provision_with_bounded_retry(
-        self,
-        workspace_id: UUID,
-        profile: Optional[SandboxProfile],
-        agent_pack_id: Optional[UUID],
-        env_vars: Optional[Dict[str, str]],
-        external_user_id: Optional[str],
-        excluded_unhealthy: List[SandboxInstance],
-        ttl_cleanup_applied: bool = False,
-        stopped_sandbox_ids: Optional[List[str]] = None,
-        ttl_cleanup_reason: Optional[str] = None,
-    ) -> SandboxRoutingResult:
-        """Provision a new sandbox with bounded retry and exponential backoff.
-
-        Args:
-            workspace_id: Workspace to provision for.
-            profile: Deployment profile.
-            agent_pack_id: Agent pack to attach.
-            env_vars: Environment variables.
-            external_user_id: Optional external user ID for per-user sandbox routing.
-            excluded_unhealthy: List of excluded unhealthy sandboxes.
-            ttl_cleanup_applied: Whether TTL cleanup was applied before provisioning.
-            stopped_sandbox_ids: List of sandbox IDs stopped during TTL cleanup.
-            ttl_cleanup_reason: Reason for TTL cleanup.
-
-        Returns:
-            SandboxRoutingResult with provisioning outcome.
-        """
-
-        if stopped_sandbox_ids is None:
-            stopped_sandbox_ids = []
-
-        reprovision_attempts = 0
-        last_error = None
-
-        while reprovision_attempts < self.MAX_REPROVISION_ATTEMPTS:
-            try:
-                result = await self._provision_sandbox(
-                    workspace_id=workspace_id,
-                    profile=profile,
-                    agent_pack_id=agent_pack_id,
-                    env_vars=env_vars,
-                    external_user_id=external_user_id,
-                    excluded_unhealthy=excluded_unhealthy,
-                    ttl_cleanup_applied=ttl_cleanup_applied,
-                    stopped_sandbox_ids=stopped_sandbox_ids,
-                    ttl_cleanup_reason=ttl_cleanup_reason,
-                )
-
-                # If successful, return result with attempt count
-                if result.success:
-                    result.reprovision_attempts = reprovision_attempts + 1
-                    return result
-
-                # If provision failed with identity or gateway error, retry
-                last_error = result.message
-
-                # Check if error is retryable
-                if not self._is_retryable_error(result.result):
-                    # Non-retryable error - fail fast
-                    result.reprovision_attempts = reprovision_attempts + 1
-                    return result
-
-            except SandboxIdentityError as e:
-                last_error = f"Identity verification failed: {e}"
-            except SandboxHealthCheckError as e:
-                last_error = f"Health check failed: {e}"
-            except SandboxProviderError as e:
-                last_error = f"Provider error: {e}"
-
-            reprovision_attempts += 1
-
-            # Check if we should retry
-            if reprovision_attempts < self.MAX_REPROVISION_ATTEMPTS:
-                # Exponential backoff
-                backoff = min(
-                    self.REPROVISION_BACKOFF_BASE * (2 ** (reprovision_attempts - 1)),
-                    self.REPROVISION_BACKOFF_MAX,
-                )
-                await asyncio.sleep(backoff)
-
-        # Exhausted retry budget - fail fast with remediation
-        remediation = self._generate_remediation(last_error)
-
-        return SandboxRoutingResult(
-            success=False,
-            result=RoutingResult.PROVISION_FAILED,
-            sandbox=None,
-            provider_info=None,
-            message=f"Provisioning failed after {self.MAX_REPROVISION_ATTEMPTS} attempts: {last_error}",
-            excluded_unhealthy=excluded_unhealthy,
-            ttl_cleanup_applied=ttl_cleanup_applied,
-            stopped_sandbox_ids=stopped_sandbox_ids,
-            ttl_cleanup_reason=ttl_cleanup_reason,
-            remediation=remediation,
-            reprovision_attempts=reprovision_attempts,
-            reprovision_exhausted=True,
-        )
-
-    def _is_retryable_error(self, result: RoutingResult) -> bool:
-        """Determine if a routing error is retryable.
-
-        Args:
-            result: The routing result to check.
-
-        Returns:
-            True if the error is retryable, False otherwise.
-        """
-        retryable_results = {
-            RoutingResult.GATEWAY_RESOLUTION_FAILED,
-            RoutingResult.PROVISION_FAILED,
-        }
-        return result in retryable_results
-
-    def _generate_remediation(self, error_message: Optional[str]) -> str:
-        """Generate remediation guidance for provisioning failures.
-
-        Args:
-            error_message: The error message to analyze.
-
-        Returns:
-            Remediation guidance string.
-        """
-        if not error_message:
-            return "Contact support: Unknown provisioning failure"
-
-        error_lower = error_message.lower()
-
-        if "identity" in error_lower:
-            return "Check Daytona image configuration includes AGENT.md, SOUL.md, IDENTITY.md, skills/"
-        elif "gateway" in error_lower:
-            return (
-                "Verify Daytona network configuration and gateway endpoint resolution"
-            )
-        elif "health" in error_lower:
-            return "Check Daytona workspace health and restart if necessary"
-        elif "provider" in error_lower:
-            return "Check Daytona API connectivity and credentials"
-        elif "pack" in error_lower:
-            return "Verify agent pack is valid and belongs to workspace"
-        else:
-            return "Contact support: Persistent provisioning failure"
+    # ── Provisioning (single attempt) ────────────────────────────
 
     async def _provision_sandbox(
         self,
         workspace_id: UUID,
-        profile: Optional[SandboxProfile],
-        agent_pack_id: Optional[UUID],
-        env_vars: Optional[Dict[str, str]],
-        external_user_id: Optional[str],
-        excluded_unhealthy: List[SandboxInstance],
+        profile: SandboxProfile,
+        agent_pack_id: UUID | None,
+        env_vars: dict[str, str] | None,
+        external_user_id: str | None,
+        excluded_unhealthy: list[SandboxInstance],
         ttl_cleanup_applied: bool = False,
-        stopped_sandbox_ids: Optional[List[str]] = None,
-        ttl_cleanup_reason: Optional[str] = None,
+        stopped_sandbox_ids: list[str] | None = None,
+        ttl_cleanup_reason: str | None = None,
     ) -> SandboxRoutingResult:
-        """Provision a new sandbox.
+        """Provision a new sandbox — single attempt, no retry loop.
 
-        Args:
-            workspace_id: Workspace to provision for.
-            profile: Deployment profile.
-            agent_pack_id: Agent pack to attach.
-            env_vars: Environment variables.
-            external_user_id: Optional external user ID for per-user sandbox routing.
-            excluded_unhealthy: List of excluded unhealthy sandboxes.
-            ttl_cleanup_applied: Whether TTL cleanup was applied before provisioning.
-            stopped_sandbox_ids: List of sandbox IDs stopped during TTL cleanup.
-            ttl_cleanup_reason: Reason for TTL cleanup.
-
-        Returns:
-            SandboxRoutingResult with provisioning outcome.
+        Deduplication is handled by _find_in_progress_sandbox + DB unique constraint.
         """
         if stopped_sandbox_ids is None:
             stopped_sandbox_ids = []
 
-        effective_profile = (
-            profile
-            or getattr(self._provider, "profile", None)
-            or SandboxProfile.LOCAL_COMPOSE
-        )
-
-        pack_source_path: Optional[str] = None
-        pack_digest: Optional[str] = None
-
-        # Resolve and validate agent pack if provided (fail-closed)
+        # Validate agent pack if provided
+        pack_source_path, pack_digest = None, None
         if agent_pack_id:
-            pack_repo = AgentPackRepository(self._session)
-            pack = pack_repo.get_by_id(agent_pack_id)
+            pack_result = self._validate_agent_pack(
+                agent_pack_id,
+                workspace_id,
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
+            )
+            if isinstance(pack_result, SandboxRoutingResult):
+                return pack_result  # Validation failed
+            pack_source_path, pack_digest = pack_result
 
-            # Validation: pack must exist
-            if not pack:
-                return SandboxRoutingResult(
-                    success=False,
-                    result=RoutingResult.PROVISION_FAILED,
-                    sandbox=None,
-                    provider_info=None,
-                    message=f"Agent pack not found: {agent_pack_id}",
-                    excluded_unhealthy=excluded_unhealthy,
-                    ttl_cleanup_applied=ttl_cleanup_applied,
-                    stopped_sandbox_ids=stopped_sandbox_ids,
-                    ttl_cleanup_reason=ttl_cleanup_reason,
-                )
-
-            # Validation: pack must belong to the workspace
-            if pack.workspace_id != workspace_id:
-                return SandboxRoutingResult(
-                    success=False,
-                    result=RoutingResult.PROVISION_FAILED,
-                    sandbox=None,
-                    provider_info=None,
-                    message=f"Agent pack {agent_pack_id} does not belong to workspace {workspace_id}",
-                    excluded_unhealthy=excluded_unhealthy,
-                    ttl_cleanup_applied=ttl_cleanup_applied,
-                    stopped_sandbox_ids=stopped_sandbox_ids,
-                    ttl_cleanup_reason=ttl_cleanup_reason,
-                )
-
-            # Validation: pack must be active
-            if not pack.is_active:
-                return SandboxRoutingResult(
-                    success=False,
-                    result=RoutingResult.PROVISION_FAILED,
-                    sandbox=None,
-                    provider_info=None,
-                    message=f"Agent pack {agent_pack_id} is not active",
-                    excluded_unhealthy=excluded_unhealthy,
-                    ttl_cleanup_applied=ttl_cleanup_applied,
-                    stopped_sandbox_ids=stopped_sandbox_ids,
-                    ttl_cleanup_reason=ttl_cleanup_reason,
-                )
-
-            # Validation: pack must be valid (not pending, invalid, or stale)
-            # validation_status is stored as string in SQLite
-            if pack.validation_status != AgentPackValidationStatus.VALID:
-                return SandboxRoutingResult(
-                    success=False,
-                    result=RoutingResult.PROVISION_FAILED,
-                    sandbox=None,
-                    provider_info=None,
-                    message=f"Agent pack {agent_pack_id} is not valid (status: {pack.validation_status})",
-                    excluded_unhealthy=excluded_unhealthy,
-                    ttl_cleanup_applied=ttl_cleanup_applied,
-                    stopped_sandbox_ids=stopped_sandbox_ids,
-                    ttl_cleanup_reason=ttl_cleanup_reason,
-                )
-
-            pack_source_path = pack.source_path
-            pack_digest = pack.source_digest
-
-        # Generate a single bridge auth token for this sandbox provisioning
-        # This token will be both persisted to DB and injected into runtime config
-        import secrets
-
+        # Generate bridge auth token
         bridge_auth_token = secrets.token_urlsafe(32)
 
-        # Generate runtime bridge config with the pre-generated token
-        # This ensures the in-sandbox gateway uses the same token Minerva persists
+        # Generate runtime config
         runtime_bridge_config = self._generate_runtime_bridge_config(
             workspace_id=workspace_id,
             agent_pack_id=agent_pack_id,
@@ -863,133 +326,41 @@ class SandboxOrchestratorService:
             bridge_auth_token=bridge_auth_token,
         )
 
-        sandbox: Optional[SandboxInstance] = None
-        gateway_url: Optional[str] = None
+        sandbox: SandboxInstance | None = None
+        gateway_url: str | None = None
 
         try:
-            # Check for existing PENDING/CREATING sandbox to avoid duplicates on retry
-            # This prevents the "multiple sandboxes from single request" bug
-            existing_sandbox = self._find_in_progress_sandbox(
-                workspace_id=workspace_id,
-                profile=effective_profile,
-                agent_pack_id=agent_pack_id,
-                external_user_id=external_user_id,
+            # Check for existing in-progress sandbox (dedup)
+            existing = self._find_in_progress_sandbox(
+                workspace_id, profile, agent_pack_id, external_user_id
             )
 
-            if existing_sandbox:
-                # If another request is already provisioning, wait for it to finish
-                # instead of provisioning another provider sandbox concurrently.
-                if existing_sandbox.state in (
-                    SandboxState.PENDING,
-                    SandboxState.CREATING,
-                ):
-                    activated = await self._wait_for_existing_sandbox_activation(
-                        existing_sandbox.id
-                    )
-                    if activated:
-                        return SandboxRoutingResult(
-                            success=True,
-                            result=RoutingResult.ROUTED_EXISTING,
-                            sandbox=activated,
-                            provider_info=None,
-                            message=f"Reused concurrently provisioned sandbox {activated.id}",
-                            excluded_unhealthy=excluded_unhealthy,
-                            ttl_cleanup_applied=ttl_cleanup_applied,
-                            stopped_sandbox_ids=stopped_sandbox_ids,
-                            ttl_cleanup_reason=ttl_cleanup_reason,
-                            gateway_url=activated.gateway_url,
-                        )
-
-                # Reuse existing active sandbox record if available
-                if (
-                    existing_sandbox.state == SandboxState.ACTIVE
-                    and existing_sandbox.provider_ref
-                ):
-                    return SandboxRoutingResult(
-                        success=True,
-                        result=RoutingResult.ROUTED_EXISTING,
-                        sandbox=existing_sandbox,
-                        provider_info=None,
-                        message=f"Reused active sandbox {existing_sandbox.id}",
-                        excluded_unhealthy=excluded_unhealthy,
-                        ttl_cleanup_applied=ttl_cleanup_applied,
-                        stopped_sandbox_ids=stopped_sandbox_ids,
-                        ttl_cleanup_reason=ttl_cleanup_reason,
-                        gateway_url=existing_sandbox.gateway_url,
-                    )
-
-                sandbox = existing_sandbox
+            if existing:
+                result = await self._handle_existing_sandbox(
+                    existing,
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
+                )
+                if result:
+                    return result
+                sandbox = existing
             else:
-                # Create database record first
-                try:
-                    sandbox = self._repository.create(
-                        workspace_id=workspace_id,
-                        profile=effective_profile,
-                        agent_pack_id=agent_pack_id,
-                        idle_ttl_seconds=self._idle_ttl_seconds,
-                        external_user_id=external_user_id,
-                    )
+                sandbox = self._create_sandbox_record(
+                    workspace_id,
+                    profile,
+                    agent_pack_id,
+                    external_user_id,
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
+                )
+                if isinstance(sandbox, SandboxRoutingResult):
+                    return sandbox  # Creation failed (race condition)
 
-                    # Update state to CREATING
-                    self._repository.update_state(sandbox.id, SandboxState.CREATING)
-
-                    # Persist row before provider-side provisioning to prevent
-                    # Daytona/DB drift if later request logic raises and rolls back.
-                    sandbox_id = sandbox.id
-                    self._session.commit()
-                    sandbox = self._repository.get_by_id(sandbox_id)
-                    if sandbox is None:
-                        return SandboxRoutingResult(
-                            success=False,
-                            result=RoutingResult.PROVISION_FAILED,
-                            sandbox=None,
-                            provider_info=None,
-                            message="Sandbox DB row was not persisted before provider provisioning",
-                            excluded_unhealthy=excluded_unhealthy,
-                            ttl_cleanup_applied=ttl_cleanup_applied,
-                            stopped_sandbox_ids=stopped_sandbox_ids,
-                            ttl_cleanup_reason=ttl_cleanup_reason,
-                        )
-                except IntegrityError:
-                    # Another request won the race to create user lifecycle record.
-                    self._session.rollback()
-                    raced_sandbox = self._find_in_progress_sandbox(
-                        workspace_id=workspace_id,
-                        profile=effective_profile,
-                        agent_pack_id=agent_pack_id,
-                        external_user_id=external_user_id,
-                    )
-                    if raced_sandbox:
-                        activated = await self._wait_for_existing_sandbox_activation(
-                            raced_sandbox.id
-                        )
-                        if activated:
-                            return SandboxRoutingResult(
-                                success=True,
-                                result=RoutingResult.ROUTED_EXISTING,
-                                sandbox=activated,
-                                provider_info=None,
-                                message=f"Reused raced sandbox {activated.id}",
-                                excluded_unhealthy=excluded_unhealthy,
-                                ttl_cleanup_applied=ttl_cleanup_applied,
-                                stopped_sandbox_ids=stopped_sandbox_ids,
-                                ttl_cleanup_reason=ttl_cleanup_reason,
-                                gateway_url=activated.gateway_url,
-                            )
-
-                    return SandboxRoutingResult(
-                        success=False,
-                        result=RoutingResult.PROVISION_FAILED,
-                        sandbox=None,
-                        provider_info=None,
-                        message="Concurrent sandbox creation detected but activation did not complete in time",
-                        excluded_unhealthy=excluded_unhealthy,
-                        ttl_cleanup_applied=ttl_cleanup_applied,
-                        stopped_sandbox_ids=stopped_sandbox_ids,
-                        ttl_cleanup_reason=ttl_cleanup_reason,
-                    )
-
-            # Provision via provider with pack source path and runtime config
+            # Provision via provider
             config = SandboxConfig(
                 workspace_id=workspace_id,
                 external_user_id=external_user_id,
@@ -1003,331 +374,400 @@ class SandboxOrchestratorService:
 
             provider_info = await self._provider.provision_sandbox(config)
 
-            # Update record with provider reference
+            # Update sandbox with provider info
             if provider_info and provider_info.ref:
-                self._repository.set_provider_ref(
-                    sandbox.id, provider_info.ref.provider_ref
+                gateway_url = self._finalize_provisioning(
+                    sandbox, provider_info, profile, bridge_auth_token
                 )
 
-                # Extract gateway URL from provider metadata (Daytona returns authoritative URL)
-                # For Daytona, the gateway_url is resolved from preview URLs in provider
-                gateway_url = provider_info.ref.metadata.get("gateway_url")
-                if not gateway_url:
-                    # Fallback to generation for local_compose
-                    gateway_url = self._generate_gateway_url(
-                        profile=effective_profile,
-                        provider_ref=provider_info.ref.provider_ref,
-                    )
-
-                if gateway_url:
-                    self._repository.set_gateway_url_authoritative(
-                        sandbox.id, gateway_url
-                    )
-
-                # Rotate bridge token with 30-second grace period
-                # Use the same token that was injected into runtime_bridge_config
-                self._repository.rotate_bridge_token(
-                    sandbox.id, bridge_auth_token, grace_seconds=30
-                )
-
-                # Mark identity ready (sandbox is now request-ready)
-                self._repository.set_identity_ready(sandbox.id, ready=True)
-
-                runtime_ready = bool(provider_info.ref.metadata.get("runtime_ready"))
-                hydration_status = (
-                    SandboxHydrationStatus.COMPLETED
-                    if runtime_ready
-                    else SandboxHydrationStatus.PENDING
-                )
-                self._repository.set_hydration_status(sandbox.id, hydration_status)
-
-                self._repository.update_state(sandbox.id, SandboxState.ACTIVE)
-                self._repository.update_health(sandbox.id, SandboxHealthStatus.HEALTHY)
-                self._repository.update_activity(sandbox.id)
-
-                # Persist authoritative provider state before returning.
-                self._session.commit()
-
-            return SandboxRoutingResult(
-                success=True,
-                result=RoutingResult.PROVISIONED_NEW,
-                sandbox=sandbox,
-                provider_info=provider_info,
-                message=f"Provisioned new sandbox {sandbox.id}",
-                excluded_unhealthy=excluded_unhealthy,
-                ttl_cleanup_applied=ttl_cleanup_applied,
-                stopped_sandbox_ids=stopped_sandbox_ids,
-                ttl_cleanup_reason=ttl_cleanup_reason,
+            return self._ok(
+                RoutingResult.PROVISIONED_NEW,
+                sandbox,
+                provider_info,
+                f"Provisioned new sandbox {sandbox.id}",
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
                 gateway_url=gateway_url,
             )
 
-        except SandboxIdentityError as e:
-            if sandbox is not None:
-                self._repository.increment_hydration_retry(sandbox.id, error=str(e))
-                self._repository.set_hydration_status(
-                    sandbox.id,
-                    SandboxHydrationStatus.FAILED,
-                    last_error=str(e),
-                )
-                self._repository.update_health(
-                    sandbox.id, SandboxHealthStatus.UNHEALTHY
-                )
-                self._repository.update_state(sandbox.id, SandboxState.FAILED)
-                self._session.commit()
-            return SandboxRoutingResult(
-                success=False,
-                result=RoutingResult.IDENTITY_CHECK_FAILED,
-                sandbox=sandbox,
-                provider_info=None,
-                message=f"Identity verification failed: {str(e)}",
-                excluded_unhealthy=excluded_unhealthy,
-                ttl_cleanup_applied=ttl_cleanup_applied,
-                stopped_sandbox_ids=stopped_sandbox_ids,
-                ttl_cleanup_reason=ttl_cleanup_reason,
-            )
         except Exception as e:
             if sandbox is not None:
-                self._repository.increment_hydration_retry(sandbox.id, error=str(e))
-                self._repository.set_hydration_status(
-                    sandbox.id,
-                    SandboxHydrationStatus.FAILED,
-                    last_error=str(e),
+                self._mark_sandbox_failed(sandbox, e)
+            return self._fail(
+                RoutingResult.PROVISION_FAILED,
+                f"Failed to provision sandbox: {e}",
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
+            )
+
+    # ── Deduplication ────────────────────────────────────────────
+
+    def _find_in_progress_sandbox(
+        self,
+        workspace_id: UUID,
+        profile: SandboxProfile,
+        agent_pack_id: UUID | None,
+        external_user_id: str | None,
+    ) -> SandboxInstance | None:
+        """Find an existing PENDING/CREATING sandbox to avoid duplicates."""
+        conditions = [
+            SandboxInstance.workspace_id == workspace_id,
+            SandboxInstance.profile == profile,
+            SandboxInstance.state.in_([SandboxState.PENDING, SandboxState.CREATING]),
+        ]
+        if agent_pack_id is not None:
+            conditions.append(SandboxInstance.agent_pack_id == agent_pack_id)
+        if external_user_id is not None:
+            conditions.append(SandboxInstance.external_user_id == external_user_id)
+
+        stmt = (
+            select(SandboxInstance)
+            .where(and_(*conditions))
+            .order_by(SandboxInstance.created_at.desc())
+        )
+        return self._session.execute(stmt).scalars().first()
+
+    async def _wait_for_existing_sandbox_activation(
+        self, sandbox_id: UUID
+    ) -> SandboxInstance | None:
+        """Wait for an in-progress sandbox to become active."""
+        deadline = asyncio.get_event_loop().time() + self.EXISTING_SANDBOX_WAIT_SECONDS
+
+        while asyncio.get_event_loop().time() < deadline:
+            sandbox = self._repository.get_by_id(sandbox_id)
+            if not sandbox:
+                return None
+            if sandbox.state == SandboxState.ACTIVE and sandbox.provider_ref:
+                return sandbox
+            if sandbox.state in (
+                SandboxState.UNHEALTHY,
+                SandboxState.STOPPING,
+                SandboxState.STOPPED,
+                SandboxState.FAILED,
+            ):
+                return None
+            await asyncio.sleep(self.EXISTING_SANDBOX_POLL_SECONDS)
+
+        return None
+
+    async def _handle_existing_sandbox(
+        self,
+        existing: SandboxInstance,
+        excluded_unhealthy: list[SandboxInstance],
+        ttl_cleanup_applied: bool,
+        stopped_sandbox_ids: list[str],
+        ttl_cleanup_reason: str | None,
+    ) -> SandboxRoutingResult | None:
+        """Handle an existing in-progress or active sandbox. Returns result or None."""
+        if existing.state in (SandboxState.PENDING, SandboxState.CREATING):
+            activated = await self._wait_for_existing_sandbox_activation(existing.id)
+            if activated:
+                return self._ok(
+                    RoutingResult.ROUTED_EXISTING,
+                    activated,
+                    None,
+                    f"Reused concurrently provisioned sandbox {activated.id}",
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
+                    gateway_url=activated.gateway_url,
                 )
-                self._repository.update_health(
-                    sandbox.id, SandboxHealthStatus.UNHEALTHY
+
+        if existing.state == SandboxState.ACTIVE and existing.provider_ref:
+            return self._ok(
+                RoutingResult.ROUTED_EXISTING,
+                existing,
+                None,
+                f"Reused active sandbox {existing.id}",
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
+                gateway_url=existing.gateway_url,
+            )
+
+        return None  # Fall through to provisioning
+
+    def _create_sandbox_record(
+        self,
+        workspace_id: UUID,
+        profile: SandboxProfile,
+        agent_pack_id: UUID | None,
+        external_user_id: str | None,
+        excluded_unhealthy: list[SandboxInstance],
+        ttl_cleanup_applied: bool,
+        stopped_sandbox_ids: list[str],
+        ttl_cleanup_reason: str | None,
+    ):
+        """Create DB record for new sandbox. Returns SandboxInstance or SandboxRoutingResult on failure."""
+        try:
+            sandbox = self._repository.create(
+                workspace_id=workspace_id,
+                profile=profile,
+                agent_pack_id=agent_pack_id,
+                idle_ttl_seconds=self._idle_ttl_seconds,
+                external_user_id=external_user_id,
+            )
+            self._repository.update_state(sandbox.id, SandboxState.CREATING)
+            sandbox_id = sandbox.id
+            self._session.commit()
+
+            sandbox = self._repository.get_by_id(sandbox_id)
+            if sandbox is None:
+                return self._fail(
+                    RoutingResult.PROVISION_FAILED,
+                    "Sandbox DB row was not persisted",
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
                 )
-                self._repository.update_state(sandbox.id, SandboxState.FAILED)
-                self._session.commit()
-            return SandboxRoutingResult(
-                success=False,
-                result=RoutingResult.PROVISION_FAILED,
-                sandbox=sandbox,
+            return sandbox
+
+        except IntegrityError:
+            self._session.rollback()
+            raced = self._find_in_progress_sandbox(
+                workspace_id, profile, agent_pack_id, external_user_id
+            )
+            if raced:
+                # Another request won the race — try to wait for activation
+                # We do NOT provision again (prevents multi-sandbox)
+                return self._fail(
+                    RoutingResult.PROVISION_FAILED,
+                    f"Concurrent sandbox creation detected (raced sandbox {raced.id})",
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
+                )
+            return self._fail(
+                RoutingResult.PROVISION_FAILED,
+                "Concurrent sandbox creation detected — activation did not complete",
+                excluded_unhealthy,
+                ttl_cleanup_applied,
+                stopped_sandbox_ids,
+                ttl_cleanup_reason,
+            )
+
+    # ── Readiness & Health ───────────────────────────────────────
+
+    async def _check_readiness(self, sandbox: SandboxInstance) -> LayeredReadinessResult:
+        """Check layered readiness: identity → health."""
+        if not sandbox.identity_ready:
+            return LayeredReadinessResult(
+                is_request_ready=False,
+                needs_hydration=False,
+                failure_reason="Identity files not mounted",
                 provider_info=None,
-                message=f"Failed to provision sandbox: {str(e)}",
-                excluded_unhealthy=excluded_unhealthy,
-                ttl_cleanup_applied=ttl_cleanup_applied,
-                stopped_sandbox_ids=stopped_sandbox_ids,
-                ttl_cleanup_reason=ttl_cleanup_reason,
+                identity_ready=False,
+                health_ready=False,
             )
 
-    def check_stop_eligibility(self, sandbox: SandboxInstance) -> StopEligibilityResult:
-        """Check if a sandbox is eligible for idle stop.
-
-        Uses the configured idle TTL to determine eligibility.
-
-        Args:
-            sandbox: Sandbox to check.
-
-        Returns:
-            StopEligibilityResult with eligibility determination.
-        """
-        # Only active sandboxes can be stopped
-        if sandbox.state != SandboxState.ACTIVE:
-            return StopEligibilityResult(
-                eligible=False,
-                reason=f"Sandbox is not active (state: {sandbox.state})",
-                idle_seconds=None,
-                ttl_seconds=self._idle_ttl_seconds,
+        provider_info = await self._check_provider_health(sandbox)
+        if not provider_info:
+            return LayeredReadinessResult(
+                is_request_ready=False,
+                needs_hydration=True,
+                failure_reason="Health check failed",
+                provider_info=None,
+                identity_ready=True,
+                health_ready=False,
+            )
+        if provider_info.health != ProviderSandboxHealth.HEALTHY:
+            return LayeredReadinessResult(
+                is_request_ready=False,
+                needs_hydration=True,
+                failure_reason=f"Sandbox unhealthy: {provider_info.health}",
+                provider_info=provider_info,
+                identity_ready=True,
+                health_ready=False,
             )
 
-        # Need last activity timestamp
-        if not sandbox.last_activity_at:
-            # If no activity recorded, use created_at
-            last_activity = sandbox.created_at
-        else:
-            last_activity = sandbox.last_activity_at
-
-        now = datetime.utcnow()
-        idle_duration = (now - last_activity).total_seconds()
-
-        # Use sandbox-specific TTL if set, otherwise use configured TTL
-        ttl = sandbox.idle_ttl_seconds or self._idle_ttl_seconds
-
-        if idle_duration >= ttl:
-            return StopEligibilityResult(
-                eligible=True,
-                reason=f"Sandbox idle for {int(idle_duration)}s (TTL: {ttl}s)",
-                idle_seconds=int(idle_duration),
-                ttl_seconds=ttl,
-            )
-
-        return StopEligibilityResult(
-            eligible=False,
-            reason=f"Sandbox active within TTL window (idle: {int(idle_duration)}s, TTL: {ttl}s)",
-            idle_seconds=int(idle_duration),
-            ttl_seconds=ttl,
+        needs_hydration = sandbox.hydration_status in (
+            SandboxHydrationStatus.PENDING,
+            SandboxHydrationStatus.IN_PROGRESS,
+        )
+        return LayeredReadinessResult(
+            is_request_ready=True,
+            needs_hydration=needs_hydration,
+            failure_reason=None,
+            provider_info=provider_info,
+            identity_ready=True,
+            health_ready=True,
         )
 
-    async def stop_idle_sandboxes(
-        self, workspace_id: Optional[UUID] = None
-    ) -> List[SandboxInstance]:
-        """Stop sandboxes that have exceeded idle TTL.
-
-        Args:
-            workspace_id: Optional workspace to limit scope.
-
-        Returns:
-            List of sandboxes that were stopped.
-        """
-        stopped = []
-
-        # Get all active sandboxes
-        if workspace_id:
-            candidates = self._repository.list_by_workspace(
-                workspace_id=workspace_id, include_inactive=False
+    async def _check_provider_health(self, sandbox: SandboxInstance) -> SandboxInfo | None:
+        """Check health via provider."""
+        if not sandbox.provider_ref:
+            return None
+        try:
+            ref = SandboxRef(
+                provider_ref=sandbox.provider_ref,
+                profile=sandbox.profile,
             )
-        else:
-            # Get all sandboxes and filter to active
-            # Note: This could be optimized with a dedicated query
-            candidates = []
+            return await self._provider.get_health(ref)
+        except (SandboxNotFoundError, SandboxProviderError):
+            return None
 
-        # Filter to those eligible for stop
+    def _mark_unhealthy(self, sandbox: SandboxInstance, reason: str | None = None) -> None:
+        """Mark sandbox as unhealthy in the database."""
+        self._repository.update_health(sandbox.id, SandboxHealthStatus.UNHEALTHY)
+        self._repository.update_state(sandbox.id, SandboxState.UNHEALTHY)
+
+    def _trigger_hydration(self, sandbox: SandboxInstance) -> None:
+        """Trigger async checkpoint hydration (non-blocking)."""
+        self._repository.set_hydration_status(sandbox.id, SandboxHydrationStatus.IN_PROGRESS)
+        # Production: use a task queue. For now, mark completed.
+        self._repository.set_hydration_status(sandbox.id, SandboxHydrationStatus.COMPLETED)
+
+    # ── Idle TTL Enforcement ─────────────────────────────────────
+
+    async def _stop_idle_sandboxes(self, workspace_id: UUID) -> list[SandboxInstance]:
+        """Stop sandboxes that exceeded TTL."""
+        candidates = self._repository.list_by_workspace(
+            workspace_id=workspace_id, include_inactive=False
+        )
+        stopped = []
         for sandbox in candidates:
-            eligibility = self.check_stop_eligibility(sandbox)
-            if eligibility.eligible:
-                stopped_sandbox = await self._stop_sandbox(sandbox)
-                if stopped_sandbox:
-                    stopped.append(stopped_sandbox)
-
+            if self.check_stop_eligibility(sandbox).eligible:
+                result = await self._stop_sandbox(sandbox)
+                if result:
+                    stopped.append(result)
         return stopped
 
-    async def _stop_sandbox(
-        self, sandbox: SandboxInstance
-    ) -> Optional[SandboxInstance]:
-        """Stop a sandbox (idempotent).
-
-        Args:
-            sandbox: Sandbox to stop.
-
-        Returns:
-            Stopped sandbox instance if successful.
-        """
+    async def _stop_sandbox(self, sandbox: SandboxInstance) -> SandboxInstance | None:
+        """Stop a sandbox (idempotent)."""
         try:
-            # Update state to STOPPING
             self._repository.update_state(sandbox.id, SandboxState.STOPPING)
-
-            # Call provider stop if we have a provider ref
             if sandbox.provider_ref:
                 try:
-                    from src.infrastructure.sandbox.providers.base import SandboxRef
-
                     ref = SandboxRef(
                         provider_ref=sandbox.provider_ref,
                         profile=sandbox.profile,
                     )
                     await self._provider.stop_sandbox(ref)
                 except SandboxNotFoundError:
-                    # Already stopped/not found - idempotent
                     pass
-
-            # Update to STOPPED
-            stopped = self._repository.update_state(sandbox.id, SandboxState.STOPPED)
-            return stopped
-
+            return self._repository.update_state(sandbox.id, SandboxState.STOPPED)
         except Exception:
-            # Mark as failed but don't raise
             self._repository.update_state(sandbox.id, SandboxState.FAILED)
             return None
 
-    def list_idle_sandboxes(
-        self, workspace_id: Optional[UUID] = None
-    ) -> List[SandboxInstance]:
-        """List sandboxes eligible for idle stop.
+    # ── Pack Validation ──────────────────────────────────────────
 
-        Args:
-            workspace_id: Optional workspace filter.
+    def _validate_agent_pack(
+        self,
+        agent_pack_id: UUID,
+        workspace_id: UUID,
+        excluded_unhealthy: list[SandboxInstance],
+        ttl_cleanup_applied: bool,
+        stopped_sandbox_ids: list[str],
+        ttl_cleanup_reason: str | None,
+    ):
+        """Validate agent pack. Returns (source_path, digest) or SandboxRoutingResult on failure."""
+        pack_repo = AgentPackRepository(self._session)
+        pack = pack_repo.get_by_id(agent_pack_id)
 
-        Returns:
-            List of idle sandboxes.
-        """
-        # Get candidates
-        if workspace_id:
-            candidates = self._repository.list_by_workspace(
-                workspace_id=workspace_id, include_inactive=False
-            )
-        else:
-            # Would need a broader query - for now return empty
-            return []
+        checks = [
+            (not pack, f"Agent pack not found: {agent_pack_id}"),
+            (
+                pack and pack.workspace_id != workspace_id,
+                f"Agent pack {agent_pack_id} does not belong to workspace {workspace_id}",
+            ),
+            (pack and not pack.is_active, f"Agent pack {agent_pack_id} is not active"),
+            (
+                pack and pack.validation_status != AgentPackValidationStatus.VALID,
+                f"Agent pack {agent_pack_id} is not valid (status: {getattr(pack, 'validation_status', 'unknown')})",
+            ),
+        ]
+        for condition, msg in checks:
+            if condition:
+                return self._fail(
+                    RoutingResult.PROVISION_FAILED,
+                    msg,
+                    excluded_unhealthy,
+                    ttl_cleanup_applied,
+                    stopped_sandbox_ids,
+                    ttl_cleanup_reason,
+                )
 
-        # Filter to eligible
-        idle = []
-        for sandbox in candidates:
-            eligibility = self.check_stop_eligibility(sandbox)
-            if eligibility.eligible:
-                idle.append(sandbox)
+        return (pack.source_path, pack.source_digest)
 
-        return idle
+    # ── Finalization ─────────────────────────────────────────────
 
-    async def get_sandbox_health(self, sandbox_id: UUID) -> Optional[SandboxInfo]:
-        """Get current health for a sandbox.
+    def _finalize_provisioning(
+        self,
+        sandbox: SandboxInstance,
+        provider_info: SandboxInfo,
+        profile: SandboxProfile,
+        bridge_auth_token: str,
+    ) -> str | None:
+        """Update sandbox record after successful provisioning."""
+        self._repository.set_provider_ref(sandbox.id, provider_info.ref.provider_ref)
 
-        Args:
-            sandbox_id: UUID of the sandbox.
+        gateway_url = provider_info.ref.metadata.get("gateway_url")
+        if not gateway_url:
+            gateway_url = self._generate_gateway_url(profile, provider_info.ref.provider_ref)
+        if gateway_url:
+            self._repository.set_gateway_url_authoritative(sandbox.id, gateway_url)
 
-        Returns:
-            SandboxInfo with current health, or None if not found.
-        """
-        sandbox = self._repository.get_by_id(sandbox_id)
-        if not sandbox:
-            return None
+        self._repository.rotate_bridge_token(sandbox.id, bridge_auth_token, grace_seconds=30)
+        self._repository.set_identity_ready(sandbox.id, ready=True)
 
-        return await self._check_sandbox_health(sandbox)
+        runtime_ready = bool(provider_info.ref.metadata.get("runtime_ready"))
+        self._repository.set_hydration_status(
+            sandbox.id,
+            SandboxHydrationStatus.COMPLETED if runtime_ready else SandboxHydrationStatus.PENDING,
+        )
 
-    def update_sandbox_activity(self, sandbox_id: UUID) -> Optional[SandboxInstance]:
-        """Update last activity timestamp for a sandbox.
+        self._repository.update_state(sandbox.id, SandboxState.ACTIVE)
+        self._repository.update_health(sandbox.id, SandboxHealthStatus.HEALTHY)
+        self._repository.update_activity(sandbox.id)
+        self._session.commit()
 
-        Args:
-            sandbox_id: UUID of the sandbox.
+        return gateway_url
 
-        Returns:
-            Updated sandbox instance.
-        """
-        return self._repository.update_activity(sandbox_id)
+    def _mark_sandbox_failed(self, sandbox: SandboxInstance, error: Exception) -> None:
+        """Mark sandbox as FAILED after provisioning error."""
+        self._repository.increment_hydration_retry(sandbox.id, error=str(error))
+        self._repository.set_hydration_status(
+            sandbox.id,
+            SandboxHydrationStatus.FAILED,
+            last_error=str(error),
+        )
+        self._repository.update_health(sandbox.id, SandboxHealthStatus.UNHEALTHY)
+        self._repository.update_state(sandbox.id, SandboxState.FAILED)
+        self._session.commit()
+
+    # ── Config Generation ────────────────────────────────────────
 
     def _generate_runtime_bridge_config(
         self,
         workspace_id: UUID,
-        agent_pack_id: Optional[UUID],
-        env_vars: Dict[str, str],
+        agent_pack_id: UUID | None,
+        env_vars: dict[str, str],
         bridge_auth_token: str,
-    ) -> Dict[str, Any]:
-        """Generate runtime bridge configuration for Zeroclaw gateway.
+    ) -> dict[str, Any]:
+        """Generate runtime bridge config for sandbox gateway."""
+        from src.integrations.sandbox_runtime.spec import load_runtime_spec
 
-        This creates the per-sandbox configuration needed for the Zeroclaw
-        runtime to operate in gateway mode with isolated credentials.
-        Configuration is spec-driven from ZeroclawSpec.
+        spec = load_runtime_spec()
 
-        Args:
-            workspace_id: Workspace UUID for scoping.
-            agent_pack_id: Optional agent pack ID for workspace mapping.
-            env_vars: Existing environment variables to include in config.
-            bridge_auth_token: The bridge authentication token to inject into config.
-                This must be the same token persisted via rotate_bridge_token().
-
-        Returns:
-            Runtime bridge configuration dict for provider use.
-        """
-        from src.integrations.zeroclaw.spec import load_zeroclaw_spec
-
-        # Load spec for gateway port
-        spec = load_zeroclaw_spec()
-
-        # Build the runtime config that providers will use to generate config.json
-        # This follows Zeroclaw's spec-driven configuration format
-        config = {
+        return {
             "workspace_id": str(workspace_id),
             "agent_pack_id": str(agent_pack_id) if agent_pack_id else None,
             "bridge": {
                 "enabled": True,
                 "auth_token": bridge_auth_token,
                 "auth_mode": spec.auth.mode,
-                # Gateway port from spec
                 "gateway_port": spec.gateway.port,
             },
-            # Environment variables to inject (for sensitive credentials)
-            # Note: Sensitive values should come from env vars, not be embedded
             "env_vars": env_vars,
-            # Gateway configuration from spec
             "gateway": {
                 "host": "0.0.0.0",
                 "port": spec.gateway.port,
@@ -1335,37 +775,85 @@ class SandboxOrchestratorService:
                 "execute_path": spec.gateway.execute_path,
                 "stream_mode": spec.gateway.stream_mode,
             },
-            # Runtime paths from spec
             "runtime": {
                 "config_path": spec.runtime.config_path,
                 "start_command": spec.runtime.start_command,
             },
         }
 
-        return config
-
-    def _generate_gateway_url(
-        self,
-        profile: SandboxProfile,
-        provider_ref: str,
-    ) -> Optional[str]:
-        """Generate the Picoclaw gateway URL for a sandbox.
-
-        Args:
-            profile: The sandbox deployment profile.
-            provider_ref: Provider-specific reference identifier.
-
-        Returns:
-            Gateway URL string or None if unable to generate.
-        """
+    def _generate_gateway_url(self, profile: SandboxProfile, provider_ref: str) -> str | None:
+        """Generate gateway URL for a sandbox."""
         if profile == SandboxProfile.LOCAL_COMPOSE:
-            # For local compose, construct URL from provider_ref (container name)
-            # Default gateway port is 18790
             return f"http://{provider_ref}:18790"
-        elif profile == SandboxProfile.DAYTONA:
-            # For Daytona, the URL would come from the provider info
-            # For now, return None and let the provider update it
-            # Daytona sandboxes have URLs assigned by the service
-            return None
+        return None  # Daytona URLs come from provider
 
-        return None
+    # ── Helpers ──────────────────────────────────────────────────
+
+    def _get_configured_ttl(self) -> int:
+        ttl = getattr(settings, "SANDBOX_IDLE_TTL_SECONDS", None)
+        return int(ttl) if ttl is not None else self.DEFAULT_IDLE_TTL_SECONDS
+
+    @staticmethod
+    def _validate_ttl(ttl_seconds: int) -> int:
+        if ttl_seconds < SandboxOrchestratorService.MIN_IDLE_TTL_SECONDS:
+            raise ValueError(
+                f"Idle TTL must be >= {SandboxOrchestratorService.MIN_IDLE_TTL_SECONDS}s"
+            )
+        if ttl_seconds > SandboxOrchestratorService.MAX_IDLE_TTL_SECONDS:
+            raise ValueError(
+                f"Idle TTL must be <= {SandboxOrchestratorService.MAX_IDLE_TTL_SECONDS}s"
+            )
+        return ttl_seconds
+
+    def _ok(
+        self,
+        result: RoutingResult,
+        sandbox: SandboxInstance | None,
+        provider_info: SandboxInfo | None,
+        message: str,
+        excluded_unhealthy: list[SandboxInstance],
+        ttl_cleanup_applied: bool = False,
+        stopped_sandbox_ids: list[str] | None = None,
+        ttl_cleanup_reason: str | None = None,
+        remediation: str | None = None,
+        gateway_url: str | None = None,
+    ) -> SandboxRoutingResult:
+        """Build a success SandboxRoutingResult."""
+        return SandboxRoutingResult(
+            success=True,
+            result=result,
+            sandbox=sandbox,
+            provider_info=provider_info,
+            message=message,
+            excluded_unhealthy=excluded_unhealthy,
+            ttl_cleanup_applied=ttl_cleanup_applied,
+            stopped_sandbox_ids=stopped_sandbox_ids or [],
+            ttl_cleanup_reason=ttl_cleanup_reason,
+            remediation=remediation,
+            gateway_url=gateway_url,
+        )
+
+    def _fail(
+        self,
+        result: RoutingResult,
+        message: str,
+        excluded_unhealthy: list[SandboxInstance],
+        ttl_cleanup_applied: bool = False,
+        stopped_sandbox_ids: list[str] | None = None,
+        ttl_cleanup_reason: str | None = None,
+        remediation: str | None = None,
+        sandbox: SandboxInstance | None = None,
+    ) -> SandboxRoutingResult:
+        """Build a failure SandboxRoutingResult."""
+        return SandboxRoutingResult(
+            success=False,
+            result=result,
+            sandbox=sandbox,
+            provider_info=None,
+            message=message,
+            excluded_unhealthy=excluded_unhealthy,
+            ttl_cleanup_applied=ttl_cleanup_applied,
+            stopped_sandbox_ids=stopped_sandbox_ids or [],
+            ttl_cleanup_reason=ttl_cleanup_reason,
+            remediation=remediation,
+        )

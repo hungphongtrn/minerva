@@ -419,6 +419,29 @@ class TestDaytonaSnapshotBuildService:
         normalized = dockerfile.read_text(encoding="utf-8")
         assert "--mount=type=cache" not in normalized
 
+    def test_build_image_relocates_docker_subdir_context_for_go_repo(self, tmp_path):
+        """Image build relocates docker/Dockerfile to repo root for Go COPY paths."""
+        docker_dir = tmp_path / "docker"
+        docker_dir.mkdir()
+        dockerfile = docker_dir / "Dockerfile"
+        dockerfile.write_text(
+            "FROM golang:1.25-alpine\nCOPY go.mod go.sum ./\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "go.mod").write_text("module example.com/demo\n", encoding="utf-8")
+        (tmp_path / "go.sum").write_text("", encoding="utf-8")
+
+        service = DaytonaSnapshotBuildService()
+
+        with patch("src.services.daytona_snapshot_build_service.Image") as mock_image:
+            mock_image.from_dockerfile.return_value = MagicMock()
+
+            service._build_image(tmp_path)
+
+            relocated = tmp_path / ".daytona-builder.Dockerfile"
+            assert relocated.exists()
+            mock_image.from_dockerfile.assert_called_once_with(str(relocated))
+
     @pytest.mark.asyncio
     async def test_build_snapshot_success(self):
         """Full snapshot build succeeds."""

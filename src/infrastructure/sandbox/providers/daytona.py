@@ -123,7 +123,7 @@ class DaytonaSandboxProvider:
     # Required identity files for Picoclaw runtime
     REQUIRED_IDENTITY_FILES: Set[str] = {"AGENT.md", "SOUL.md", "IDENTITY.md"}
     REQUIRED_IDENTITY_DIRS: Set[str] = {"skills"}
-    PROVISION_CREATE_TIMEOUT_SECONDS = 20.0
+    PROVISION_CREATE_TIMEOUT_SECONDS = 60.0
     IDENTITY_VERIFY_TIMEOUT_SECONDS = 20.0
     BRIDGE_PORT = 18790
     BRIDGE_START_MAX_ATTEMPTS = 3
@@ -388,6 +388,7 @@ class DaytonaSandboxProvider:
         self,
         sandbox_id: str,
         timeout: float = 30.0,
+        workspace_path: str = WORKSPACE_PATH,
     ) -> IdentityVerificationResult:
         """Verify required identity files are mounted in the sandbox via file API.
 
@@ -407,8 +408,8 @@ class DaytonaSandboxProvider:
         """
         import asyncio
 
-        required_files = [f"{WORKSPACE_PATH}/{f}" for f in self.REQUIRED_IDENTITY_FILES]
-        required_dirs = [f"{WORKSPACE_PATH}/{d}" for d in self.REQUIRED_IDENTITY_DIRS]
+        required_files = [f"{workspace_path}/{f}" for f in self.REQUIRED_IDENTITY_FILES]
+        required_dirs = [f"{workspace_path}/{d}" for d in self.REQUIRED_IDENTITY_DIRS]
 
         start_time = asyncio.get_event_loop().time()
 
@@ -842,6 +843,7 @@ class DaytonaSandboxProvider:
     def _generate_zeroclaw_config(
         self,
         config: SandboxConfig,
+        workspace_path: str = WORKSPACE_PATH,
     ) -> Dict[str, Any]:
         """Generate Zeroclaw config.json for sandbox (spec-driven).
 
@@ -886,7 +888,7 @@ class DaytonaSandboxProvider:
                 "token": bridge_auth_token,
             },
             "workspace": {
-                "path": WORKSPACE_PATH,
+                "path": workspace_path,
                 "pack_mount_path": PACK_MOUNT_PATH,
             },
             "llm": {
@@ -903,7 +905,38 @@ class DaytonaSandboxProvider:
 
         return zeroclaw_config
 
-    async def _create_workspace_symlinks(self, sandbox) -> None:
+    def _build_workspace_prepare_command(self, workspace_path: str) -> str:
+        """Build shell command to ensure workspace path is writable."""
+        return (
+            f"mkdir -p {workspace_path} && "
+            f"if [ ! -w {workspace_path} ]; then "
+            f"chown $(id -u):$(id -g) {workspace_path} 2>/dev/null || "
+            f"sudo chown $(id -u):$(id -g) {workspace_path} 2>/dev/null || true; "
+            f"chmod u+rwx {workspace_path} 2>/dev/null || "
+            f"sudo chmod u+rwx {workspace_path} 2>/dev/null || true; "
+            "fi && "
+            f"test -w {workspace_path}"
+        )
+
+    def _resolve_runtime_config_path(
+        self,
+        spec_config_path: str,
+        workspace_path: str,
+    ) -> str:
+        """Resolve runtime config path against the effective workspace path."""
+        normalized_workspace = workspace_path.rstrip("/")
+        workspace_prefix = f"{WORKSPACE_PATH}/"
+
+        if spec_config_path == WORKSPACE_PATH:
+            return normalized_workspace
+
+        if spec_config_path.startswith(workspace_prefix):
+            suffix = spec_config_path[len(WORKSPACE_PATH) :]
+            return f"{normalized_workspace}{suffix}"
+
+        return spec_config_path
+
+    async def _create_workspace_symlinks(self, sandbox) -> str:
         """Create workspace directory and symlink identity files from pack volume.
 
         Creates /workspace/ and symlinks:
@@ -916,20 +949,41 @@ class DaytonaSandboxProvider:
         Identity files are symlinked to make them accessible from the workspace.
         """
 
-        # Create workspace directory
-        await self._exec_checked(sandbox, f"mkdir -p {WORKSPACE_PATH}")
+        sandbox_env = getattr(sandbox, "env", {}) or {}
+        home_dir = str(sandbox_env.get("HOME") or "/tmp").rstrip("/")
+        fallback_workspace = f"{home_dir}/workspace"
 
-        # Symlink identity files
-        for f in IDENTITY_FILES:
-            await self._exec_checked(
-                sandbox, f"ln -sf {PACK_MOUNT_PATH}/{f} {WORKSPACE_PATH}/{f}"
-            )
+        workspace_candidates = [WORKSPACE_PATH]
+        if fallback_workspace != WORKSPACE_PATH:
+            workspace_candidates.append(fallback_workspace)
 
-        # Symlink identity directories
-        for d in IDENTITY_DIRS:
-            await self._exec_checked(
-                sandbox, f"ln -sf {PACK_MOUNT_PATH}/{d} {WORKSPACE_PATH}/{d}"
-            )
+        for workspace_path in workspace_candidates:
+            try:
+                await self._exec_checked(
+                    sandbox,
+                    self._build_workspace_prepare_command(workspace_path),
+                )
+            except SandboxProvisionError:
+                continue
+
+            for f in IDENTITY_FILES:
+                await self._exec_checked(
+                    sandbox,
+                    f"ln -sf {PACK_MOUNT_PATH}/{f} {workspace_path}/{f}",
+                )
+
+            for d in IDENTITY_DIRS:
+                await self._exec_checked(
+                    sandbox,
+                    f"ln -sf {PACK_MOUNT_PATH}/{d} {workspace_path}/{d}",
+                )
+
+            return workspace_path
+
+        raise SandboxProvisionError(
+            "Workspace path is not writable after repair attempt: "
+            f"{WORKSPACE_PATH} (fallback attempted: {fallback_workspace})"
+        )
 
     async def _is_bridge_listening(self, sandbox: Any) -> bool:
         """Check whether Picoclaw bridge is listening on configured port."""
@@ -944,7 +998,12 @@ class DaytonaSandboxProvider:
         result = await self._maybe_await(sandbox.process.exec(probe_cmd))
         return getattr(result, "exit_code", 1) == 0
 
-    async def _start_bridge_runtime(self, sandbox: Any, strict: bool = True) -> bool:
+    async def _start_bridge_runtime(
+        self,
+        sandbox: Any,
+        strict: bool = True,
+        config_path: Optional[str] = None,
+    ) -> bool:
         """Start the bridge runtime process and verify port listener.
 
         Uses Zeroclaw start_command from spec for runtime initialization.
@@ -961,8 +1020,14 @@ class DaytonaSandboxProvider:
         if await self._is_bridge_listening(sandbox):
             return True
 
-        # Use Zeroclaw start command from spec
+        # Use Zeroclaw start command from spec, substituting runtime config path
+        # when workspace fallback changes the actual writable workspace root.
         start_cmd = spec.runtime.start_command
+        effective_config_path = config_path or spec.runtime.config_path
+        if effective_config_path != spec.runtime.config_path:
+            start_cmd = start_cmd.replace(
+                spec.runtime.config_path, effective_config_path
+            )
 
         max_attempts = self.BRIDGE_START_MAX_ATTEMPTS if strict else 1
         listen_timeout = self.BRIDGE_LISTEN_TIMEOUT_SECONDS if strict else 1.0
@@ -1345,13 +1410,14 @@ class DaytonaSandboxProvider:
 
                 # Create workspace directory and symlink identity files from pack volume
                 # This implements mount isolation: pack volume (read-only) vs workspace (writable)
-                await self._create_workspace_symlinks(sandbox)
+                workspace_path = await self._create_workspace_symlinks(sandbox)
 
                 # Verify identity files are mounted at workspace path (hard gate)
                 # This confirms symlinks work at the configured workspace path.
                 identity_result = await self.verify_identity_files(
                     sandbox_id,
                     timeout=self.IDENTITY_VERIFY_TIMEOUT_SECONDS,
+                    workspace_path=workspace_path,
                 )
                 if not identity_result.ready:
                     raise SandboxIdentityError(
@@ -1374,7 +1440,10 @@ class DaytonaSandboxProvider:
                 from src.integrations.zeroclaw.spec import load_zeroclaw_spec
 
                 spec = load_zeroclaw_spec()
-                config_path = spec.runtime.config_path
+                config_path = self._resolve_runtime_config_path(
+                    spec.runtime.config_path,
+                    workspace_path,
+                )
                 try:
 
                     async def _fs_call(method, *args):
@@ -1389,7 +1458,10 @@ class DaytonaSandboxProvider:
                     )
 
                     # Generate Zeroclaw config (spec-driven)
-                    zeroclaw_config = self._generate_zeroclaw_config(config)
+                    zeroclaw_config = self._generate_zeroclaw_config(
+                        config,
+                        workspace_path=workspace_path,
+                    )
                     config_bytes = json.dumps(zeroclaw_config, indent=2).encode("utf-8")
 
                     # Create config directory via file API
@@ -1422,6 +1494,7 @@ class DaytonaSandboxProvider:
                 runtime_ready = await self._start_bridge_runtime(
                     sandbox,
                     strict=strict_runtime_ready,
+                    config_path=config_path,
                 )
 
                 # Store pack binding metadata on the sandbox if possible
@@ -1431,6 +1504,7 @@ class DaytonaSandboxProvider:
                     "identity_ready": True,
                     "runtime_ready": runtime_ready,
                     "materialized_config_path": config_path,
+                    "workspace_path": workspace_path,
                 }
                 if pack_bound:
                     metadata["pack_bound"] = True

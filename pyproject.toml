@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "picoclaw"
+name = "minerva"
 version = "0.1.0"
 description = "Multi-tenant OSS runtime for agent packs"
 readme = "README.md"
@@ -19,7 +19,6 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0.0",
     "psycopg>=3.3.3",
     "pydantic-settings>=2.13.1",
-    "pytest>=9.0.2",
     "sqlalchemy>=2.0.46",
     "structlog>=25.0.0",
     "uvicorn>=0.41.0",
@@ -31,7 +30,9 @@ minerva = "src.cli.main:main"
 
 [dependency-groups]
 dev = [
+    "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "ruff>=0.9.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -44,3 +45,17 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -1,1 +1,1 @@
-"""Picoclaw source package."""
+"""Minerva source package."""

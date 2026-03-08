@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 
-# Mount isolation constants for Picoclaw runtime
+# Mount isolation constants for agent runtime
 # These codify the contract between pack volume (read-only, static) and workspace (writable, dynamic)
 PACK_MOUNT_PATH: str = "/workspace/pack"
 """Static, read-only pack volume mount point. Contains identity files and skills."""
@@ -21,8 +21,8 @@ PACK_MOUNT_PATH: str = "/workspace/pack"
 WORKSPACE_PATH: str = "/workspace"
 """Dynamic, writable per-sandbox workspace. Contains runtime data (memory/, sessions/, etc.)."""
 
-CONFIG_PATH: str = "/home/daytona/.picoclaw/config.json"
-"""Per-sandbox Picoclaw configuration file location (outside pack volume)."""
+CONFIG_PATH: str = "/home/daytona/.minerva/config.json"
+"""Per-sandbox configuration file location (outside pack volume)."""
 
 IDENTITY_FILES: List[str] = ["AGENT.md", "SOUL.md", "IDENTITY.md"]
 """Identity files to symlink from pack volume into workspace."""
@@ -131,7 +131,7 @@ class SandboxConfig:
     """
 
     session_id: Optional[str] = None
-    """Session ID forwarded from X-Session-ID for Picoclaw thread scoping."""
+    """Session ID forwarded from X-Session-ID for thread scoping."""
 
     idle_ttl_seconds: int = 3600
     """Time-to-live in seconds before auto-stop on idle."""
@@ -149,7 +149,7 @@ class SandboxConfig:
     """SHA-256 digest of the agent pack at provisioning time for stale detection."""
 
     runtime_bridge_config: Optional[Dict[str, Any]] = None
-    """Runtime bridge configuration for Picoclaw gateway (model, channels, etc.)."""
+    """Runtime bridge configuration for sandbox gateway (model, channels, etc.)."""
 
     agent_pack_id: Optional[UUID] = None
     """Agent pack ID for volume binding (optional, for pack-based provisioning)."""

@@ -20,6 +20,7 @@ from src.infrastructure.sandbox.providers.base import SandboxConfig
 from src.infrastructure.sandbox.providers.daytona import (
     DaytonaSandboxProvider,
     IdentityVerificationResult,
+    SandboxProvisionError,
 )
 
 
@@ -196,6 +197,74 @@ class TestVolumeMountWiring:
             # No volumes should be mounted
             assert params.volumes is None or len(params.volumes) == 0
             mock_daytona.volume.get.assert_not_called()
+
+
+class TestWorkspaceSymlinkPermissions:
+    """Tests for workspace permission preflight during symlink setup."""
+
+    @pytest.mark.asyncio
+    async def test_create_workspace_symlinks_runs_writable_preflight(
+        self, provider, create_mock_sandbox
+    ):
+        """Provider repairs/checks workspace writability before creating symlinks."""
+        mock_sandbox = create_mock_sandbox()
+
+        await provider._create_workspace_symlinks(mock_sandbox)
+
+        commands = [call.args[0] for call in mock_sandbox.process.exec.await_args_list]
+        assert len(commands) == 5
+        assert "test -w /workspace" in commands[0]
+        assert "chown $(id -u):$(id -g) /workspace" in commands[0]
+        assert "chmod u+rwx /workspace" in commands[0]
+        assert commands[1] == "ln -sf /workspace/pack/AGENT.md /workspace/AGENT.md"
+
+    @pytest.mark.asyncio
+    async def test_create_workspace_symlinks_falls_back_to_home_workspace(
+        self, provider
+    ):
+        """Provider falls back to HOME/workspace if /workspace is not writable."""
+        mock_sandbox = MagicMock()
+        mock_sandbox.env = {"HOME": "/home/picoclaw"}
+        mock_sandbox.process = MagicMock()
+        mock_sandbox.process.exec = AsyncMock(
+            side_effect=[
+                MagicMock(exit_code=1, stderr="Permission denied", result=""),
+                MagicMock(exit_code=0, stderr="", result=""),
+                MagicMock(exit_code=0, stderr="", result=""),
+                MagicMock(exit_code=0, stderr="", result=""),
+                MagicMock(exit_code=0, stderr="", result=""),
+                MagicMock(exit_code=0, stderr="", result=""),
+            ]
+        )
+
+        workspace_path = await provider._create_workspace_symlinks(mock_sandbox)
+
+        commands = [call.args[0] for call in mock_sandbox.process.exec.await_args_list]
+        assert workspace_path == "/home/picoclaw/workspace"
+        assert "test -w /workspace" in commands[0]
+        assert "test -w /home/picoclaw/workspace" in commands[1]
+        assert (
+            commands[2]
+            == "ln -sf /workspace/pack/AGENT.md /home/picoclaw/workspace/AGENT.md"
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_workspace_symlinks_fails_with_clear_message_when_not_writable(
+        self, provider
+    ):
+        """Provider raises explicit error when workspace remains non-writable."""
+        mock_sandbox = MagicMock()
+        mock_sandbox.process = MagicMock()
+        mock_sandbox.process.exec = AsyncMock(
+            return_value=MagicMock(exit_code=1, stderr="Permission denied", result="")
+        )
+
+        with pytest.raises(SandboxProvisionError) as exc_info:
+            await provider._create_workspace_symlinks(mock_sandbox)
+
+        assert "Workspace path is not writable after repair attempt" in str(
+            exc_info.value
+        )
 
 
 class TestIdentityFileVerification:
@@ -624,3 +693,115 @@ class TestPerSandboxConfigWrite:
                 result = await provider.provision_sandbox(config)
 
             assert result.ref.metadata.get("gateway_url") == gateway_url
+
+
+class TestWorkspaceFallbackRuntimeConfigPath:
+    """Tests for runtime config path behavior with workspace fallback."""
+
+    def test_resolve_runtime_config_path_uses_effective_workspace(self, provider):
+        """Provider rewrites /workspace runtime config path to fallback workspace."""
+        resolved = provider._resolve_runtime_config_path(
+            "/workspace/.zeroclaw/config.json",
+            "/home/picoclaw/workspace",
+        )
+
+        assert resolved == "/home/picoclaw/workspace/.zeroclaw/config.json"
+
+    @pytest.mark.asyncio
+    async def test_start_bridge_runtime_substitutes_fallback_config_path(
+        self, provider
+    ):
+        """Bridge start command uses the effective config path when provided."""
+        mock_sandbox = MagicMock()
+
+        with (
+            patch.object(
+                provider,
+                "_is_bridge_listening",
+                new=AsyncMock(side_effect=[False, True]),
+            ),
+            patch.object(
+                provider,
+                "_exec_checked",
+                new_callable=AsyncMock,
+            ) as mock_exec_checked,
+        ):
+            mock_exec_checked.return_value = {}
+            started = await provider._start_bridge_runtime(
+                mock_sandbox,
+                strict=True,
+                config_path="/home/picoclaw/workspace/.zeroclaw/config.json",
+            )
+
+        assert started is True
+        start_cmd = mock_exec_checked.await_args.args[1]
+        assert "/home/picoclaw/workspace/.zeroclaw/config.json" in start_cmd
+        assert "--config /workspace/.zeroclaw/config.json" not in start_cmd
+
+    @pytest.mark.asyncio
+    async def test_provision_uses_fallback_path_for_config_write_and_start(
+        self, provider, create_mock_sandbox
+    ):
+        """Provisioning writes config and starts runtime with fallback config path."""
+        workspace_id = uuid4()
+        config = SandboxConfig(
+            workspace_id=workspace_id,
+            runtime_bridge_config={
+                "bridge": {"enabled": True, "auth_token": "test-token"},
+                "workspace_id": str(workspace_id),
+            },
+        )
+
+        mock_sandbox = create_mock_sandbox()
+
+        with patch(
+            "src.infrastructure.sandbox.providers.daytona.AsyncDaytona"
+        ) as mock_sdk_class:
+            mock_daytona = AsyncMock()
+            mock_sdk_class.return_value.__aenter__ = AsyncMock(
+                return_value=mock_daytona
+            )
+            mock_sdk_class.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_daytona.create = AsyncMock(return_value=mock_sandbox)
+
+            with (
+                patch.object(
+                    provider,
+                    "_create_workspace_symlinks",
+                    new=AsyncMock(return_value="/home/picoclaw/workspace"),
+                ),
+                patch.object(
+                    provider, "verify_identity_files", new_callable=AsyncMock
+                ) as mock_verify,
+                patch.object(
+                    provider, "resolve_gateway_endpoint", new_callable=AsyncMock
+                ) as mock_gateway,
+                patch.object(
+                    provider, "_start_bridge_runtime", new_callable=AsyncMock
+                ) as mock_start_runtime,
+            ):
+                mock_verify.return_value = IdentityVerificationResult(
+                    ready=True, missing_files=[]
+                )
+                mock_gateway.return_value = (
+                    f"https://gateway-{workspace_id}.daytona.run:18790"
+                )
+                mock_start_runtime.return_value = True
+
+                result = await provider.provision_sandbox(config)
+
+        mock_sandbox.fs.create_folder.assert_called_once_with(
+            "/home/picoclaw/workspace/.zeroclaw",
+            "700",
+        )
+        upload_path = mock_sandbox.fs.upload_file.call_args[0][1]
+        assert upload_path == "/home/picoclaw/workspace/.zeroclaw/config.json"
+
+        assert (
+            mock_start_runtime.await_args.kwargs["config_path"]
+            == "/home/picoclaw/workspace/.zeroclaw/config.json"
+        )
+        assert (
+            result.ref.metadata.get("materialized_config_path")
+            == "/home/picoclaw/workspace/.zeroclaw/config.json"
+        )
