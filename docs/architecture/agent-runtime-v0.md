@@ -41,7 +41,7 @@ agent-pack/
 
 ## Components
 
-- **API/Auth**: accepts user requests and establishes an SSE stream.
+- **API/Auth**: a NestJS service edge that accepts user requests and establishes an SSE stream.
 - **Run Orchestrator**: queues work, enforces per-user serialization, maintains run state, fans out SSE.
 - **Agent Worker(s)**: wraps `@mariozechner/pi-agent-core` to run the agent loop and emit events.
 - **Sandbox Fleet**: Daytona workspaces (per user/workspace) that actually run tools.
@@ -78,7 +78,7 @@ High-level idea:
 
 Wrap `pi-agent-core` so its tool execution hooks call Daytona.
 
-The orchestrator should map pi-agent-core events to SSE nearly 1:1:
+The NestJS orchestrator should map pi-agent-core events to SSE nearly 1:1:
 
 - `agent_start` / `agent_end`
 - `turn_start` / `turn_end`

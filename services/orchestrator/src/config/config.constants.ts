@@ -1,0 +1,1 @@
+export const ORCHESTRATOR_CONFIG = Symbol('ORCHESTRATOR_CONFIG');
