@@ -16,4 +16,4 @@ Assess whether the current `services/orchestrator` repository structure follows 
 
 ## Summary of Changes
 
-Reviewed `services/orchestrator` and compared it to standard NestJS conventions. Concluded that the top-level service placement is reasonable for a monorepo, but the package itself is not a NestJS app because it uses Hono and plain TypeScript modules instead of Nest modules, controllers, providers, and bootstrap patterns.
+Reviewed `services/orchestrator` and compared it to standard NestJS conventions. Concluded that the top-level service placement is reasonable for a monorepo and that the package should center on standard NestJS modules, controllers, providers, and bootstrap patterns.
