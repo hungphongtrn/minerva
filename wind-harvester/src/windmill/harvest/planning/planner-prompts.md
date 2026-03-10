@@ -14,6 +14,8 @@ Read:
 - openspec/changes/<name>/design.md
 - relevant docs/
 
+Treat the task as fresh context every time. Re-read source docs and bean details even when resuming prior work.
+
 Write the plan to docs/plans/<change-name>/<section-slug>.md.
 
 The plan must include:
@@ -43,6 +45,8 @@ The fix plan must include:
 2. Minimal file changes
 3. Test updates
 4. Verification steps
+
+Before tagging the bean planned, prepare the per-bean planning commit.
 ```
 
 ## Plan Completion Rule

@@ -17,8 +17,8 @@ This is the documentation entry point for Minerva.
 
 ## Workflows
 
-- `docs/workflows/harvest-system.md`: harvest pipeline (plan → implement → check) for agent-driven task execution.
-- `docs/workflows/wind-harvester.md`: packaged harvest assets and OpenCode installer flow.
+- `docs/workflows/harvest-system.md`: harvest pipeline (`/harvest-bootstrap` -> `/harvest-plan` -> `/harvest-implement` -> `/harvest-check` -> `/harvest-status`) for agent-driven task execution.
+- `docs/workflows/wind-harvester.md`: packaged harvest assets, installer behavior, and installed OpenCode layout.
 
 ## Principles
 

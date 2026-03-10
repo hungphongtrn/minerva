@@ -4,10 +4,12 @@ The harvest workflow turns OpenSpec changes into tracked, planned, implemented, 
 
 ## Pipeline
 
-1. `/harvest-plan` discovers unplanned work or creates it from `tasks.md`.
-2. `/harvest-implement` executes planned work by priority tier.
-3. `/harvest-check` verifies completed work and creates fix beans when needed.
-4. After all beans verify, the change can move to the normal archive flow.
+1. `/harvest-bootstrap` seeds docs, initializes tools, and creates roadmap milestones.
+2. `/harvest-plan` discovers unplanned work or creates it from `tasks.md`.
+3. `/harvest-implement` executes planned work by priority tier and records per-bean commits.
+4. `/harvest-check` verifies completed work, creates fix beans when needed, and stops at loop boundaries when user direction is required.
+5. `/harvest-status` renders the current dashboard from bean tags and session state.
+6. After all beans verify, run doc drift and Beans/OpenSpec sync before the normal archive flow.
 
 ## Progressive Disclosure
 

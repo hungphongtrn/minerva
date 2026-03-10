@@ -4,6 +4,7 @@
 
 - First failure: create a fix bean and send the work back through `/harvest-plan`.
 - Second failure on the same original bean: stop the loop and escalate to the user.
+- Use `{{WINDMILL_ROOT}}/workflow/loop-boundaries.md` for the detailed scenario heuristics and option framing.
 
 ## Epic Completion
 
