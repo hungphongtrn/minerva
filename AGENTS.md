@@ -4,6 +4,7 @@
 
 - **IMPORTANT**: before you do anything else, run the `beans prime` command and heed its output. 
 - Terminology: a bean = a issue
+- **OpenSpec Rule**: When working with any `openspec-*` command, always create a bean to track the change. Every OpenSpec change should be properly documented and tracked through a bean.
 
 ## Docs TOC
 
@@ -59,3 +60,7 @@ docs/
 ## Coding Standards Reference
 
 Coding quality and architecture rules are maintained in `docs/CODING_STANDARDS.md`.
+
+## Code Commits
+
+- After each completed bean, commit it following `docs/COMMIT_GUIDELINES.md`, include the relevant bean IDs in the commit message.

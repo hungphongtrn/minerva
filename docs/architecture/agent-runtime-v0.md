@@ -115,15 +115,70 @@ tool_execution_start
   -> tool_execution_end (exit code + structured result)
 ```
 
+## Model Provider Integration
+
+The orchestrator uses a configurable model provider system to connect to real LLM backends:
+
+### Supported Providers
+
+- **OpenAI**: GPT-4, GPT-3.5-turbo, and other OpenAI models
+- **Anthropic**: Claude 3 Opus, Sonnet, Haiku, and other Anthropic models
+
+### Configuration
+
+Provider selection is configured via environment variables:
+
+```bash
+MODEL_PROVIDER=openai  # or 'anthropic'
+OPENAI_API_KEY=sk-...  # required if MODEL_PROVIDER=openai
+ANTHROPIC_API_KEY=sk-ant-...  # required if MODEL_PROVIDER=anthropic
+```
+
+Optional parameters:
+- `MODEL_NAME`: Override default model selection
+- `MODEL_TEMPERATURE`: Control randomness (0-2)
+- `MODEL_MAX_TOKENS`: Limit response length
+
+### Architecture
+
+The model provider system consists of three layers:
+
+1. **Configuration Layer** (`ModelProviderConfig`): Validates environment variables using Zod schemas, provides fail-fast error messages for missing/invalid config
+
+2. **Service Layer** (`ModelProviderService`): Factory for creating StreamFn instances compatible with pi-agent-core, implements health checks, handles provider-specific logic
+
+3. **Integration Layer** (`RunExecutionService`): Injects the provider service, verifies health before starting runs, translates provider errors to user-friendly messages
+
+### Health Checking
+
+The `/health` endpoint validates provider connectivity:
+- Returns HTTP 200 when provider is configured and accessible
+- Returns HTTP 503 with descriptive error when provider is unavailable
+- Checks API key format and basic configuration validity
+
+### Error Handling
+
+Provider errors are automatically enhanced with descriptive messages:
+- Rate limit errors include retry guidance
+- Authentication errors prompt checking API keys
+- Timeout errors suggest checking network or reducing request size
+- Quota errors indicate billing issues
+
+See `docs/model-provider-setup.md` for detailed setup instructions and `docs/model-provider-troubleshooting.md` for common issues.
+
 ## Deferred Topics (Explicitly Parked)
 
 - External authenticated tools (MCP/connectors/tool gateways)
 - Capability profiles/toolpacks to reconcile "skills" with finite sandbox environments
 - Rich memory systems attached to the agent (scoping, isolation, retention)
 - Workspace persistence: snapshot/restore, downloads/exports, retention, garbage collection
+- Multi-model routing or provider fallback
+- Fine-grained model parameter tuning beyond basic configuration
 
 ## Known Gaps / Risks (Non-exhaustive)
 
 - Prompt injection can still cause destructive local actions via `bash`; sandbox-level resource and safety policies are still required.
 - Without workspace persistence, users cannot reliably "resume" a prior filesystem state; v0 should set expectations accordingly.
 - Per-user single workspace is simple but may block multi-project workflows; keep the model extensible.
+- Real LLM providers introduce latency and costs compared to scripted runtime; UI expectations should be set accordingly.
+- Provider rate limits and quotas can interrupt service availability; monitoring and alerting should be implemented.

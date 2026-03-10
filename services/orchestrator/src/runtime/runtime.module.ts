@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import type { StreamFn } from '@mariozechner/pi-agent-core';
 import { ORCHESTRATOR_CONFIG } from '../config/config.constants.js';
 import type { OrchestratorConfig } from '../config/types.js';
-import { SANDBOX_ADAPTER, AGENT_STREAM_FN } from '../providers/provider-tokens.js';
+import { ModelProviderModule } from '../model-provider/model-provider.module.js';
+import { SANDBOX_ADAPTER } from '../providers/provider-tokens.js';
 import { DaytonaSandboxAdapter, type ISandboxAdapter } from '../sandbox/adapter.js';
 import { DaytonaClient } from '../sandbox/daytona-client.js';
 import { ExecutionService } from '../sandbox/execution.js';
@@ -14,6 +14,7 @@ import { SSEService } from '../sse/sse.service.js';
 import { RunExecutionService } from './run-execution.service.js';
 
 @Module({
+  imports: [ModelProviderModule],
   providers: [
     RunManager,
     SSEService,
@@ -68,17 +69,8 @@ import { RunExecutionService } from './run-execution.service.js';
         };
       },
     },
-    {
-      provide: AGENT_STREAM_FN,
-      useFactory: (): StreamFn => {
-        return async (model, context) => {
-          const { scriptedStream } = await import('./scripted-stream.js');
-          return scriptedStream(model as Parameters<typeof scriptedStream>[0], context);
-        };
-      },
-    },
     RunExecutionService,
   ],
-  exports: [RunManager, SSEService, RunExecutionService, SANDBOX_ADAPTER, AGENT_STREAM_FN],
+  exports: [RunManager, SSEService, RunExecutionService, SANDBOX_ADAPTER],
 })
 export class RuntimeModule {}

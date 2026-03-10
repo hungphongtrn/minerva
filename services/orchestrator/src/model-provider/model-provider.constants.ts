@@ -1,0 +1,1 @@
+export const MODEL_PROVIDER_CONFIG = Symbol('MODEL_PROVIDER_CONFIG');

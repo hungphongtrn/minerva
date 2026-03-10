@@ -4,6 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type {
   Agent as PiAgent,
@@ -11,15 +12,15 @@ import type {
   AgentMessage as PiAgentMessage,
   AgentTool as PiAgentTool,
   AgentToolResult,
-  StreamFn,
 } from '@mariozechner/pi-agent-core';
 import type { Message } from '@mariozechner/pi-ai';
 import path from 'node:path';
 import { ORCHESTRATOR_CONFIG } from '../config/config.constants.js';
 import type { OrchestratorConfig } from '../config/types.js';
+import { ModelProviderService } from '../model-provider/model-provider.service.js';
 import { packLoader } from '../packs/loader.js';
 import { systemPromptAssembler } from '../packs/assembler.js';
-import { LOGGER, SANDBOX_ADAPTER, AGENT_STREAM_FN } from '../providers/provider-tokens.js';
+import { LOGGER, SANDBOX_ADAPTER } from '../providers/provider-tokens.js';
 import type { ILogger } from '../providers/types.js';
 import type { ISandboxAdapter } from '../sandbox/adapter.js';
 import { SSEService } from '../sse/sse.service.js';
@@ -48,7 +49,7 @@ export class RunExecutionService {
     private readonly runManager: RunManager,
     private readonly sseService: SSEService,
     @Inject(SANDBOX_ADAPTER) private readonly sandboxAdapter: ISandboxAdapter,
-    @Inject(AGENT_STREAM_FN) private readonly streamFn: StreamFn,
+    private readonly modelProviderService: ModelProviderService,
     @Inject(ORCHESTRATOR_CONFIG) private readonly config: OrchestratorConfig,
     @Inject(LOGGER) private readonly logger: ILogger
   ) {}
@@ -138,10 +139,20 @@ export class RunExecutionService {
     let abortListenerInstalled = false;
 
     try {
-      const [{ Agent }, { getScriptedModel }] = await Promise.all([
-        import('@mariozechner/pi-agent-core'),
-        import('./scripted-stream.js'),
-      ]);
+      // Check provider health before starting
+      const providerHealth = await this.modelProviderService.checkHealth();
+      if (!providerHealth.healthy) {
+        this.logger.error('Provider health check failed', undefined, {
+          runId: run.id,
+          provider: providerHealth.provider,
+          error: providerHealth.error,
+        });
+        throw new ServiceUnavailableException(
+          `Provider ${providerHealth.provider} is not available: ${providerHealth.error}`
+        );
+      }
+
+      const { Agent } = await import('@mariozechner/pi-agent-core');
 
       const workspace = await this.sandboxAdapter.getOrCreateWorkspace(
         run.userId,
@@ -165,16 +176,20 @@ export class RunExecutionService {
         workspaceId: workspace.id,
       });
 
+      // Get model and stream function from model provider service
+      const model = this.modelProviderService.getModel();
+      const streamFn = this.modelProviderService.createStreamFn();
+
       agent = new Agent({
         initialState: {
           systemPrompt,
-          model: getScriptedModel(),
+          model,
           tools,
           messages: [],
           thinkingLevel: 'minimal',
         },
         convertToLlm: (messages) => this.filterLlmMessages(messages),
-        streamFn: this.streamFn,
+        streamFn,
       });
 
       const unsubscribe = agent.subscribe((event: AgentEvent) => {
@@ -232,9 +247,12 @@ export class RunExecutionService {
     } catch (error) {
       const latestRun = await this.runManager.getRun(run.id);
       if (latestRun && latestRun.state !== RunState.CANCELLED && latestRun.state !== RunState.TIMED_OUT) {
+        // Enhanced error handling for provider-specific errors
+        const enhancedError = this.enhanceProviderError(error);
+
         const failedRun = await this.runManager.failRun(
           run.id,
-          error instanceof Error ? error : new Error(String(error))
+          enhancedError
         );
         this.emitTerminalOnce(run.id, 'run_failed', {
           failed_at: failedRun.completedAt?.toISOString() ?? new Date().toISOString(),
@@ -253,6 +271,41 @@ export class RunExecutionService {
         agent.abort();
       }
     }
+  }
+
+  /**
+   * Enhances provider errors with descriptive messages for common error types.
+   */
+  private enhanceProviderError(error: unknown): Error {
+    if (!(error instanceof Error)) {
+      return new Error(String(error));
+    }
+
+    const message = error.message.toLowerCase();
+
+    // Rate limit errors
+    if (message.includes('rate limit') || message.includes('too many requests') || message.includes('429')) {
+      return new Error(`Rate limit exceeded. Please wait before retrying. Original error: ${error.message}`);
+    }
+
+    // Authentication errors
+    if (message.includes('authentication') || message.includes('unauthorized') || message.includes('401') ||
+        message.includes('invalid api key') || message.includes('api key invalid')) {
+      return new Error(`Authentication failed. Please check your API key configuration. Original error: ${error.message}`);
+    }
+
+    // Timeout errors
+    if (message.includes('timeout') || message.includes('etimedout') || message.includes('econnreset')) {
+      return new Error(`Request timed out. The provider may be experiencing high load or the request may be too large. Original error: ${error.message}`);
+    }
+
+    // Quota exceeded errors
+    if (message.includes('quota') || message.includes('exceeded') || message.includes('billing')) {
+      return new Error(`API quota exceeded. Please check your billing and usage limits. Original error: ${error.message}`);
+    }
+
+    // Return original error with provider context
+    return error;
   }
 
   private resolvePackPath(agentPackId: string): string {

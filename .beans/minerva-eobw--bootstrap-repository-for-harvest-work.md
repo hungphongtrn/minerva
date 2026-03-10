@@ -1,10 +1,11 @@
 ---
 # minerva-eobw
 title: Bootstrap repository for harvest work
-status: in-progress
+status: scrapped
 type: task
+priority: normal
 created_at: 2026-03-10T08:53:14Z
-updated_at: 2026-03-10T08:53:14Z
+updated_at: 2026-03-10T09:01:20Z
 ---
 
 ## Goal

@@ -15,6 +15,11 @@ This is the documentation entry point for Minerva.
 - `docs/architecture/agent-runtime-v0.md`: orchestrator + sandbox runtime notes.
 - `docs/architecture/backend-service-framework.md`: backend framework standard for NestJS services.
 
+## Model Provider
+
+- `docs/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration.
+- `docs/model-provider-troubleshooting.md`: troubleshooting common provider issues.
+
 ## Workflows
 
 - `docs/workflows/harvest-system.md`: harvest pipeline (`/harvest-bootstrap` -> `/harvest-plan` -> `/harvest-implement` -> `/harvest-check` -> `/harvest-status`) for agent-driven task execution.
