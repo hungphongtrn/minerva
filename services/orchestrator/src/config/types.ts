@@ -1,3 +1,5 @@
+import type { WorkspaceStrategy, WorkspaceConfig } from '../sandbox/types.js';
+
 export interface OrchestratorConfig {
   server: {
     port: number;
@@ -10,5 +12,18 @@ export interface OrchestratorConfig {
     serverUrl: string;
     apiKey: string;
     target: string;
+  };
+  packs: {
+    basePath: string;
+    maxSkillSize: number;
+    allowedExtensions: string[];
+  };
+  sandbox: {
+    strategy: WorkspaceStrategy;
+    workspace: WorkspaceConfig;
+    security: {
+      maxFileSize: number;
+      allowedPaths?: string[];
+    };
   };
 }
