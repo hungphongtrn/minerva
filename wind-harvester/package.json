@@ -1,8 +1,0 @@
-{
-  "name": "wind-harvester",
-  "version": "0.1.0",
-  "private": true,
-  "bin": {
-    "wind-harvester-install": "./bin/install.js"
-  }
-}
