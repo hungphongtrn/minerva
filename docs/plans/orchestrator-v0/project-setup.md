@@ -12,7 +12,7 @@
 Minerva requires a foundation for building the TypeScript orchestrator service. Currently, the repository contains only documentation and research notes. We need to establish:
 1. A clear repository structure for TypeScript services
 2. Node.js/TypeScript project scaffolding with tooling
-3. Core runtime dependencies (pi-agent-core, Daytona SDK, HTTP framework)
+3. Core runtime dependencies (pi-agent-core, Daytona SDK, NestJS backend framework)
 
 ### Goal
 Create a well-structured TypeScript project that serves as the foundation for:
@@ -41,14 +41,16 @@ Create a well-structured TypeScript project that serves as the foundation for:
 │       ├── tsconfig.json
 │       ├── README.md
 │       ├── src/
-│       │   ├── index.ts               # Entry point
-│       │   ├── server.ts              # HTTP server setup
+│       │   ├── main.ts                # NestJS bootstrap entry point
+│       │   ├── app.module.ts          # Root service module
 │       │   ├── config/
+│       │   ├── health/
 │       │   ├── types/
 │       │   ├── providers/
-│       │   ├── repo/
 │       │   ├── services/
-│       │   └── runtime/
+│       │   ├── sandbox/
+│       │   ├── packs/
+│       │   └── tools/
 │       └── tests/
 ├── docs/                              # Documentation (existing)
 ├── package.json                       # Root workspace config (optional)
@@ -85,12 +87,18 @@ Create a well-structured TypeScript project that serves as the foundation for:
 #### `/services/orchestrator/.prettierrc`
 - Consistent formatting: 2-space indent, single quotes, trailing commas
 
-#### `/services/orchestrator/src/index.ts`
-- Replaced by `/services/orchestrator/src/main.ts` as the NestJS bootstrap entry point
+#### `/services/orchestrator/src/main.ts`
+- NestJS bootstrap entry point
+- Creates the app, configures global concerns, and starts the HTTP server
 
-#### `/services/orchestrator/src/server.ts`
-- Replaced by NestJS modules/controllers for HTTP server initialization
-- Health check endpoint `/health` lives in a feature controller
+#### `/services/orchestrator/src/app.module.ts`
+- Root NestJS module wiring config, providers, and feature modules
+
+#### `/services/orchestrator/src/health/health.controller.ts`
+- Defines the `/health` endpoint inside a NestJS controller
+
+#### `/services/orchestrator/src/health/health.module.ts`
+- Groups health controller dependencies into a feature module
 
 #### `/services/orchestrator/src/config/index.ts`
 - Configuration loading (env vars, defaults)

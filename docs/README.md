@@ -18,6 +18,12 @@ This is the documentation entry point for Minerva.
 ## Workflows
 
 - `docs/workflows/harvest-system.md`: harvest pipeline (plan → implement → check) for agent-driven task execution.
+- `docs/workflows/wind-harvester.md`: packaged harvest assets and OpenCode installer flow.
+
+## Principles
+
+- `docs/principles/README.md`: documentation principles index.
+- `docs/principles/progressive-disclosure.md`: how to structure agent-facing docs with small entry points and focused references.
 
 ## Research
 
