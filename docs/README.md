@@ -35,6 +35,14 @@ This is the documentation entry point for Minerva.
 - `docs/process/README.md`: process index for markdown-first planning and execution.
 - `docs/process/markdown-beans-workflow.md`: idea-to-MVP-to-phase-to-task workflow using progressive disclosure and beans.
 
+## Glider
+
+- `docs/glider/README.md`: glider index for workflow, layered documentation, and agent planning.
+- `docs/glider/implementation-plan.md`: rollout plan for the glider documentation system.
+- `docs/glider/workflow.md`: glider workflow from idea through bean-ready tasks.
+- `docs/glider/layered-documentation-system.md`: layered markdown architecture for glider.
+- `docs/glider/agent-skills-and-plans.md`: agent skill expectations and plan taxonomy for glider.
+
 ## Principles
 
 - `docs/principles/README.md`: documentation principles index.

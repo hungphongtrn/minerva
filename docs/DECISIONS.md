@@ -18,3 +18,13 @@
 - [docs/README.md](./README.md)
 - [docs/specs/README.md](./specs/README.md)
 - [.beans/minerva-0qt4--shift-project-process-from-spec-plugins-to-markdow.md](../.beans/minerva-0qt4--shift-project-process-from-spec-plugins-to-markdow.md)
+
+* 2026-03-11T15:23:00+07:00-create docs/glider as the home for workflow, layered documentation design, and agent planning guidance
+- [AGENTS.md](../AGENTS.md)
+- [docs/README.md](./README.md)
+- [docs/glider/README.md](./glider/README.md)
+- [docs/glider/implementation-plan.md](./glider/implementation-plan.md)
+- [docs/glider/workflow.md](./glider/workflow.md)
+- [docs/glider/layered-documentation-system.md](./glider/layered-documentation-system.md)
+- [docs/glider/agent-skills-and-plans.md](./glider/agent-skills-and-plans.md)
+- [.beans/minerva-fyzv--plan-glider-documentation-system-and-templates.md](../.beans/minerva-fyzv--plan-glider-documentation-system-and-templates.md)

@@ -16,6 +16,7 @@ IMPORTANT: keep this section up to date every time a document is created, rename
 - `docs/CODING_STANDARDS.md`: coding quality and architecture dependency rules
 - `docs/COMMIT_GUIDELINES.md`: commit formatting and traceability rules
 - `docs/process/README.md`: markdown-first development workflow and document expectations
+- `docs/glider/README.md`: glider workflow, layered docs, and agent planning system
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions
 
 ## Documentation Guidelines
