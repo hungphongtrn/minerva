@@ -8,34 +8,14 @@
 
 ## Docs TOC
 
-IMPORTANT: keep this section up to date every time a document is created, renamed, moved, or materially updated.
+IMPORTANT: keep this section up to date every time a document is created, renamed, moved, or materially updated, but keep it high-level. `docs/README.md` is the detailed documentation index; this section should only list the key anchor docs agents should check first.
 
-- `docs/README.md`: documentation entry point (index)
-- `docs/PROJECT.md`: what Minerva is building (phase focus, scope)
+- `docs/README.md`: documentation entry point and detailed index
+- `docs/PROJECT.md`: product scope, phase focus, and non-goals
 - `docs/ROADMAP.md`: phased delivery plan
 - `docs/CODING_STANDARDS.md`: coding quality and architecture dependency rules
 - `docs/COMMIT_GUIDELINES.md`: commit formatting and traceability rules
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions
-- `docs/architecture/README.md`: architecture index
-- `docs/architecture/agent-runtime-v0.md`: orchestrator + Daytona sandbox notes (v0)
-- `docs/architecture/backend-service-framework.md`: NestJS service framework standard
-- `docs/specs/README.md`: specification index
-- `docs/specs/agent-packs.md`: agent pack format and skill loading
-- `docs/specs/event-streaming.md`: SSE streaming behavior
-- `docs/specs/run-orchestration.md`: run lifecycle and execution control
-- `docs/specs/sandbox-execution.md`: sandbox security and tool surface
-- `docs/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration
-- `docs/model-provider-troubleshooting.md`: troubleshooting provider integration issues
-- `docs/workflows/harvest-system.md`: harvest pipeline and bean-driven execution flow
-- `docs/workflows/wind-harvester.md`: packaged harvest assets and installer behavior
-- `docs/principles/README.md`: principles index
-- `docs/principles/progressive-disclosure.md`: documentation structuring principle
-- `docs/research/pi-agent-core/README.md`: pi-agent-core overview
-- `docs/research/pi-agent-core/events.md`: pi-agent-core event model (maps well to SSE)
-- `docs/research/pi-agent-core/api-reference.md`: pi-agent-core API notes
-- `docs/research/pi-agent-core/concepts.md`: pi-agent-core concepts
-- `docs/research/pi-agent-core/tools.md`: pi-agent-core tool model notes
-- `docs/research/pi-agent-core/examples.md`: pi-agent-core examples
 
 ## Documentation Guidelines
 
@@ -47,8 +27,14 @@ When we discuss, design, or implement changes, we must also update the relevant 
 
 Every time a doc is created, renamed, moved, or materially updated:
 - update `docs/README.md` if the index should reference it
-- update the `## Docs TOC` section in this `AGENTS.md`
+- update the `## Docs TOC` section in this `AGENTS.md` only if the high-level anchor list should change
 - add or update a matching entry in `docs/DECISIONS.md` when the change captures a decision, direction, constraint, or user-requested policy
+
+Every time the user makes a meaningful decision or explicitly approves a direction:
+- record it in `docs/DECISIONS.md` in the same work session
+- do this even if no code changes are made yet
+- include links to the most relevant docs, files, beans, or artifacts touched by that decision
+- treat missing decision-log updates as incomplete documentation work
 
 ### Decision Log
 
@@ -68,6 +54,7 @@ Guidelines:
 - keep each decision entry concise and specific
 - include links to the most relevant files, docs, beans, or artifacts affected by the decision
 - update `docs/DECISIONS.md` whenever a meaningful product, architecture, process, or user-requested decision is made
+- if the user states a preference, approves an approach, changes a rule, narrows scope, or rejects a direction, log that decision before considering the work complete
 
 ### Progressive Disclosure Principle
 
