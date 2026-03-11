@@ -8,6 +8,7 @@ This is the documentation entry point for Minerva.
 - `docs/ROADMAP.md`: phased delivery plan.
 - `docs/CODING_STANDARDS.md`: coding quality standards and dependency rules.
 - `docs/COMMIT_GUIDELINES.md`: granular commit conventions and traceability rules.
+- `docs/process/README.md`: markdown-first development workflow and document expectations.
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions.
 
 ## Architecture
@@ -16,9 +17,9 @@ This is the documentation entry point for Minerva.
 - `docs/architecture/agent-runtime-v0.md`: orchestrator + sandbox runtime notes.
 - `docs/architecture/backend-service-framework.md`: backend framework standard for NestJS services.
 
-## Specifications
+## Technical Reference Docs
 
-- `docs/specs/README.md`: technical specifications index.
+- `docs/specs/README.md`: plain-markdown technical reference index.
 - `docs/specs/agent-packs.md`: agent pack format and skill loading.
 - `docs/specs/event-streaming.md`: SSE streaming behavior.
 - `docs/specs/run-orchestration.md`: run lifecycle and execution control.
@@ -29,10 +30,10 @@ This is the documentation entry point for Minerva.
 - `docs/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration.
 - `docs/model-provider-troubleshooting.md`: troubleshooting common provider issues.
 
-## Workflows
+## Process
 
-- `docs/workflows/harvest-system.md`: harvest pipeline (`/harvest-bootstrap` -> `/harvest-plan` -> `/harvest-implement` -> `/harvest-check` -> `/harvest-status`) for agent-driven task execution.
-- `docs/workflows/wind-harvester.md`: packaged harvest assets, installer behavior, and installed OpenCode layout.
+- `docs/process/README.md`: process index for markdown-first planning and execution.
+- `docs/process/markdown-beans-workflow.md`: idea-to-MVP-to-phase-to-task workflow using progressive disclosure and beans.
 
 ## Principles
 

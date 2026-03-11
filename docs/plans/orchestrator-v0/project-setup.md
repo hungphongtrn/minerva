@@ -378,8 +378,9 @@ npm start
 - [Architecture Notes](../../../docs/architecture/agent-runtime-v0.md) - Orchestrator + sandbox design
 
 ### Research and Design
-- [Proposal](../../../openspec/changes/orchestrator-v0/proposal.md) - Why and what changes
-- [Design Document](../../../openspec/changes/orchestrator-v0/design.md) - Goals, decisions, risks
+- [Process Workflow](../../../docs/process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
+- [Project Scope](../../../docs/PROJECT.md) - Goals, constraints, and non-goals for the MVP
+- [Architecture Notes](../../../docs/architecture/agent-runtime-v0.md) - Runtime design context
 - [pi-agent-core Events](../../../docs/research/pi-agent-core/events.md) - Event streaming reference
 
 ### External Dependencies

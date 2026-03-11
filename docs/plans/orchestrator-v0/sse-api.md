@@ -912,9 +912,9 @@ Agent Integration (pi-agent-core events)
 ## 6. Reference Links
 
 ### Documentation
-- [Proposal](../../openspec/changes/orchestrator-v0/proposal.md) - Change proposal with event-streaming capability
-- [Design](../../openspec/changes/orchestrator-v0/design.md) - Design decisions on event streaming as thin adaptation
-- [Event Streaming Spec](../../openspec/changes/orchestrator-v0/specs/event-streaming/spec.md) - Detailed SSE requirements
+- [Project Scope](../../PROJECT.md) - Product boundaries for the orchestrator MVP
+- [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
+- [Event Streaming Reference](../../specs/event-streaming.md) - Plain-markdown SSE requirements
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and event flow
 - [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
 

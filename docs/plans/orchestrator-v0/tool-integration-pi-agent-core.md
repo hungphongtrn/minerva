@@ -260,16 +260,16 @@ interface SSEEvent {
 
 ## 6. Reference Links
 
-### OpenSpec Change Artifacts
-- [Proposal](../../openspec/changes/orchestrator-v0/proposal.md) - Goals and capabilities
-- [Design](../../openspec/changes/orchestrator-v0/design.md) - Decisions and constraints
-- [Tasks](../../openspec/changes/orchestrator-v0/tasks.md) - Full task list
+### Planning Artifacts
+- [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
+- [Project Scope](../../PROJECT.md) - Goals and capability boundaries
+- [Run Orchestration Reference](../../specs/run-orchestration.md) - Lifecycle constraints for tool integration
 
 ### Documentation
-- [PI Agent Core - Events](../../docs/research/pi-agent-core/events.md) - Event model and sequences
-- [PI Agent Core - Tools](../../docs/research/pi-agent-core/tools.md) - Tool definition patterns
-- [Agent Runtime v0](../../docs/architecture/agent-runtime-v0.md) - Architecture notes
-- [Coding Standards](../../docs/CODING_STANDARDS.md) - Code quality rules
+- [PI Agent Core - Events](../../research/pi-agent-core/events.md) - Event model and sequences
+- [PI Agent Core - Tools](../../research/pi-agent-core/tools.md) - Tool definition patterns
+- [Agent Runtime v0](../../architecture/agent-runtime-v0.md) - Architecture notes
+- [Coding Standards](../../CODING_STANDARDS.md) - Code quality rules
 
 ### External References
 - `@mariozechner/pi-agent-core` - Agent SDK

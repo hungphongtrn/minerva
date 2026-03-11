@@ -543,8 +543,9 @@ export class RunService implements IRunService {
 - [Architecture Notes](../../../docs/architecture/agent-runtime-v0.md) - Agent pack baseline structure
 
 ### Design Documents
-- [Proposal](../../../openspec/changes/orchestrator-v0/proposal.md) - Why and what changes (see capabilities section)
-- [Design Document](../../../openspec/changes/orchestrator-v0/design.md) - Goals, decisions, risks (see "Skills are instructional-only")
+- [Process Workflow](../../../docs/process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
+- [Project Scope](../../../docs/PROJECT.md) - Why and what changes belong in the MVP
+- [Agent Packs Reference](../../../docs/specs/agent-packs.md) - AGENTS.md and skill-loading behavior
 - [Run Model Plan](./run-model-scheduling.md) - Integration point for pack loading
 
 ### Related Plans

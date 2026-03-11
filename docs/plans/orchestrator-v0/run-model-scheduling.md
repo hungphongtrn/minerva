@@ -294,9 +294,10 @@ Event Streaming
 ## 7. Reference Links
 
 ### Documentation
-- [Proposal](../../openspec/changes/orchestrator-v0/proposal.md) - Change proposal with capabilities overview
-- [Design](../../openspec/changes/orchestrator-v0/design.md) - Design decisions and constraints
+- [Project Scope](../../PROJECT.md) - Product boundaries for the orchestrator MVP
+- [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and state machine
+- [Run Orchestration Reference](../../specs/run-orchestration.md) - Plain-markdown run lifecycle requirements
 - [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
 
 ### Research

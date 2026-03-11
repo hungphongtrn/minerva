@@ -1,6 +1,6 @@
-# Technical Specifications
+# Technical Reference Docs
 
-Detailed technical specifications for Minerva's core subsystems.
+Plain-markdown technical reference documents for Minerva's core subsystems. These docs are maintained directly in-repo and do not depend on specification plugins.
 
 ## Specifications
 
@@ -16,12 +16,13 @@ Detailed technical specifications for Minerva's core subsystems.
 ### Sandbox Execution
 - `docs/specs/sandbox-execution.md`: Daytona sandbox integration, tool surface, and security constraints.
 
-## Specification Format
+## Document Format
 
-Each specification uses a structured format with:
+Each technical reference doc should stay in plain markdown and use only the structure needed for the topic. Common sections include:
 
-- **Purpose**: Overview of the subsystem (TBD for draft specs)
-- **Requirements**: Specific behavioral requirements
-- **Scenarios**: Concrete examples illustrating each requirement
+- **Purpose**: overview of the subsystem or document intent
+- **Requirements or Rules**: behavioral expectations when needed
+- **Scenarios or Examples**: concrete illustrations
+- **Links**: related architecture, research, plan, or bean artifacts
 
-Requirements are written as SHALL/SHALL NOT statements per RFC 2119 conventions.
+Use RFC 2119 language only when it improves clarity. The repository does not require any external specification plugin or schema.

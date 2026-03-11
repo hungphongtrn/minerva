@@ -490,11 +490,11 @@ DAYTONA_MAX_FILE_SIZE=10485760  # 10MB
 ## 8. Reference Links
 
 ### Documentation
-- [Proposal](../../openspec/changes/orchestrator-v0/proposal.md) - Change proposal with capabilities overview
-- [Design](../../openspec/changes/orchestrator-v0/design.md) - Design decisions and constraints
-- [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and execution model
-- [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
 - [Project Scope](../../PROJECT.md) - What Minerva is building
+- [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
+- [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and execution model
+- [Sandbox Execution Reference](../../specs/sandbox-execution.md) - Plain-markdown sandbox constraints
+- [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
 
 ### Research
 - [pi-agent-core Tools](../../research/pi-agent-core/tools.md) - Tool implementation patterns

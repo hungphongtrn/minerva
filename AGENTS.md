@@ -3,8 +3,8 @@
 ## Beans as our issue trackers
 
 - **IMPORTANT**: before you do anything else, run the `beans prime` command and heed its output. 
-- Terminology: a bean = a issue
-- **OpenSpec Rule**: When working with any `openspec-*` command, always create a bean to track the change. Every OpenSpec change should be properly documented and tracked through a bean.
+- Terminology: a bean = an issue
+- We do not depend on specification plugins or `openspec-*` workflows. Use plain markdown documents under `docs/` plus beans for all planning, design, research, and execution tracking.
 
 ## Docs TOC
 
@@ -15,6 +15,7 @@ IMPORTANT: keep this section up to date every time a document is created, rename
 - `docs/ROADMAP.md`: phased delivery plan
 - `docs/CODING_STANDARDS.md`: coding quality and architecture dependency rules
 - `docs/COMMIT_GUIDELINES.md`: commit formatting and traceability rules
+- `docs/process/README.md`: markdown-first development workflow and document expectations
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions
 
 ## Documentation Guidelines
