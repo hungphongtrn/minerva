@@ -15,6 +15,14 @@ This is the documentation entry point for Minerva.
 - `docs/architecture/agent-runtime-v0.md`: orchestrator + sandbox runtime notes.
 - `docs/architecture/backend-service-framework.md`: backend framework standard for NestJS services.
 
+## Specifications
+
+- `docs/specs/README.md`: technical specifications index.
+- `docs/specs/agent-packs.md`: agent pack format and skill loading.
+- `docs/specs/event-streaming.md`: SSE streaming behavior.
+- `docs/specs/run-orchestration.md`: run lifecycle and execution control.
+- `docs/specs/sandbox-execution.md`: sandbox security and tool surface.
+
 ## Model Provider
 
 - `docs/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration.
