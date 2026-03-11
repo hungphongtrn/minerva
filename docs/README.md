@@ -8,6 +8,7 @@ This is the documentation entry point for Minerva.
 - `docs/ROADMAP.md`: phased delivery plan.
 - `docs/CODING_STANDARDS.md`: coding quality standards and dependency rules.
 - `docs/COMMIT_GUIDELINES.md`: granular commit conventions and traceability rules.
+- `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions.
 
 ## Architecture
 
