@@ -14,6 +14,10 @@ import {
   isValidStateTransition,
   isTerminalState,
 } from '../types/run.js';
+import {
+  legacyOwnerPrincipalFromUserId,
+  ownerKeyFromPrincipal,
+} from '../types/owner.js';
 
 import {
   RunNotFoundError,
@@ -134,13 +138,16 @@ export class RunManager {
       input.maxDurationMs ?? this.config.defaultTimeoutMs,
       this.config.maxTimeoutMs
     );
+    const owner = input.owner ?? legacyOwnerPrincipalFromUserId(input.userId ?? 'anonymous');
+    const ownerKey = ownerKeyFromPrincipal(owner);
     
     // Generate ULID-like ID (timestamp + random)
     const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     
     const run: Run = {
       id: runId,
-      userId: input.userId,
+      owner,
+      userId: ownerKey,
       state: RunState.QUEUED,
       createdAt: now,
       maxDurationMs,
@@ -152,7 +159,7 @@ export class RunManager {
     await this.repo.create(run);
     
     // Add to queue
-    const position = await this.queue.enqueue(runId, input.userId);
+    const position = await this.queue.enqueue(runId, ownerKey);
     run.queuePosition = position;
     
     // Update with queue position

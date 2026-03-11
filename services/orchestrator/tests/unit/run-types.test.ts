@@ -41,6 +41,10 @@ describe('isValidStateTransition', () => {
     expect(isValidStateTransition(RunState.LEASED, RunState.CANCELLED)).toBe(true);
   });
 
+  it('should allow LEASED -> FAILED', () => {
+    expect(isValidStateTransition(RunState.LEASED, RunState.FAILED)).toBe(true);
+  });
+
   it('should allow RUNNING -> COMPLETED', () => {
     expect(isValidStateTransition(RunState.RUNNING, RunState.COMPLETED)).toBe(true);
   });
@@ -86,6 +90,14 @@ describe('getValidNextStates', () => {
       RunState.FAILED,
       RunState.CANCELLED,
       RunState.TIMED_OUT,
+    ]);
+  });
+
+  it('should return correct next states for LEASED', () => {
+    expect(getValidNextStates(RunState.LEASED)).toEqual([
+      RunState.RUNNING,
+      RunState.FAILED,
+      RunState.CANCELLED,
     ]);
   });
 

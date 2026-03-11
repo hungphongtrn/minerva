@@ -5,6 +5,8 @@
  * run metadata, and supporting interfaces.
  */
 
+import type { OwnerPrincipal } from './owner.js';
+
 /**
  * Run states following the state machine:
  * QUEUED → LEASED → RUNNING → COMPLETED
@@ -44,8 +46,11 @@ export interface AgentMessage {
 export interface Run {
   /** ULID run identifier */
   id: string;
+
+  /** Canonical owner principal for authorization */
+  owner: OwnerPrincipal;
   
-  /** User who owns this run */
+  /** Stable owner lane key derived from the authenticated principal */
   userId: string;
   
   /** Current state in the state machine */
@@ -105,7 +110,8 @@ export interface RunMetadata {
  * Input for creating a new run
  */
 export interface CreateRunInput {
-  userId: string;
+  owner?: OwnerPrincipal;
+  userId?: string;
   agentPackId: string;
   prompt: string;
   maxDurationMs?: number;
@@ -116,7 +122,7 @@ export interface CreateRunInput {
  */
 export const VALID_STATE_TRANSITIONS: Record<RunState, RunState[]> = {
   [RunState.QUEUED]: [RunState.LEASED, RunState.CANCELLED],
-  [RunState.LEASED]: [RunState.RUNNING, RunState.CANCELLED],
+  [RunState.LEASED]: [RunState.RUNNING, RunState.FAILED, RunState.CANCELLED],
   [RunState.RUNNING]: [RunState.COMPLETED, RunState.FAILED, RunState.CANCELLED, RunState.TIMED_OUT],
   [RunState.COMPLETED]: [],
   [RunState.FAILED]: [],

@@ -5,6 +5,11 @@ import { WorkspaceStrategy } from '../sandbox/types.js';
 const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   HOST: z.string().default('0.0.0.0'),
+  DATABASE_URL: z.string().url().optional(),
+  GATEWAY_PROOF_HEADER: z.string().default('x-minerva-gateway-proof'),
+  GATEWAY_PROOF_SECRET: z.string().min(1, 'GATEWAY_PROOF_SECRET is required'),
+  GATEWAY_TENANT_ID_HEADER: z.string().default('x-minerva-tenant-id'),
+  GATEWAY_SUBJECT_ID_HEADER: z.string().default('x-minerva-subject-id'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   DAYTONA_SERVER_URL: z.string().min(1, 'DAYTONA_SERVER_URL is required'),
   DAYTONA_API_KEY: z.string().min(1, 'DAYTONA_API_KEY is required'),
@@ -41,6 +46,15 @@ export function loadConfig(): OrchestratorConfig {
     server: {
       port: env.PORT,
       host: env.HOST,
+    },
+    gateway: {
+      proofHeader: env.GATEWAY_PROOF_HEADER,
+      proofSecret: env.GATEWAY_PROOF_SECRET,
+      tenantIdHeader: env.GATEWAY_TENANT_ID_HEADER,
+      subjectIdHeader: env.GATEWAY_SUBJECT_ID_HEADER,
+    },
+    database: {
+      url: env.DATABASE_URL,
     },
     logging: {
       level: env.LOG_LEVEL,

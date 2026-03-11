@@ -5,6 +5,15 @@ export interface OrchestratorConfig {
     port: number;
     host: string;
   };
+  gateway: {
+    proofHeader: string;
+    proofSecret: string;
+    tenantIdHeader: string;
+    subjectIdHeader: string;
+  };
+  database: {
+    url?: string;
+  };
   logging: {
     level: 'debug' | 'info' | 'warn' | 'error';
   };

@@ -1,11 +1,11 @@
 ---
 # minerva-izp3
 title: Implement LLM environment variable configuration
-status: in-progress
+status: completed
 type: task
 priority: normal
 created_at: 2026-03-10T09:28:56Z
-updated_at: 2026-03-10T09:45:40Z
+updated_at: 2026-03-11T06:50:29Z
 ---
 
 Implement tasks from OpenSpec change 'support-llm-env-variables' to add environment variable support for LLM configuration with validation and NestJS integration.

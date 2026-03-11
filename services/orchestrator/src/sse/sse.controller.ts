@@ -8,21 +8,27 @@
 import {
   Controller,
   Get,
+  Headers,
+  Logger,
+  NotFoundException,
   Param,
   Query,
   Req,
   Res,
-  Headers,
-  NotFoundException,
-  Logger,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { AuthenticatedOwner } from '../auth/authenticated-owner.decorator.js';
+import { GatewayAuthGuard } from '../auth/gateway-auth.guard.js';
 import { SSEService } from './sse.service.js';
 import { RunManager } from '../services/run-manager.js';
 import type { SSEStream } from './stream.js';
+import type { OwnerPrincipal } from '../types/owner.js';
+import { sameOwnerPrincipal } from '../types/owner.js';
 import { isTerminalState } from '../types/run.js';
 
 @Controller('api/v0/runs')
+@UseGuards(GatewayAuthGuard)
 export class SSEController {
   private readonly logger = new Logger(SSEController.name);
   private readonly keepAliveIntervalMs = 30000;
@@ -35,6 +41,7 @@ export class SSEController {
   @Get(':runId/stream')
   async streamEvents(
     @Param('runId') runId: string,
+    @AuthenticatedOwner() owner: OwnerPrincipal,
     @Query('replayFrom') replayFrom: string | undefined,
     @Headers('last-event-id') lastEventId: string | undefined,
     @Req() req: Request,
@@ -43,6 +50,9 @@ export class SSEController {
     // Validate run exists
     const run = await this.runManager.getRun(runId);
     if (!run) {
+      throw new NotFoundException(`Run ${runId} not found`);
+    }
+    if (!sameOwnerPrincipal(run.owner, owner)) {
       throw new NotFoundException(`Run ${runId} not found`);
     }
 

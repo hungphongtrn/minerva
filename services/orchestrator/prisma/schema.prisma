@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RunLifecycleState {
+  QUEUED @map("queued")
+  LEASED @map("leased")
+  RUNNING @map("running")
+  COMPLETED @map("completed")
+  FAILED @map("failed")
+  CANCELLED @map("cancelled")
+  TIMED_OUT @map("timed_out")
+}
+
+enum RunAttemptLifecycleState {
+  LEASED @map("leased")
+  RUNNING @map("running")
+  COMPLETED @map("completed")
+  FAILED @map("failed")
+  CANCELLED @map("cancelled")
+  TIMED_OUT @map("timed_out")
+  INTERRUPTED @map("interrupted")
+}
+
+enum SessionEntryType {
+  SYSTEM @map("system")
+  USER @map("user")
+  ASSISTANT @map("assistant")
+  TOOL_RESULT @map("tool_result")
+  CUSTOM @map("custom")
+}
+
+model Session {
+  id                 String         @id
+  tenantId           String         @map("tenant_id")
+  subjectId          String         @map("subject_id")
+  ownerKey           String         @map("owner_key")
+  currentLeafEntryId String?        @unique @map("current_leaf_entry_id")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+  currentLeafEntry   SessionEntry?  @relation("SessionCurrentLeaf", fields: [currentLeafEntryId], references: [id], onDelete: SetNull)
+  entries            SessionEntry[]
+  runs               Run[]
+
+  @@index([ownerKey, createdAt])
+  @@map("sessions")
+}
+
+model SessionEntry {
+  id                    String         @id
+  sessionId             String         @map("session_id")
+  parentEntryId         String?        @map("parent_entry_id")
+  sequence              Int
+  entryType             SessionEntryType @map("entry_type")
+  messageJson           Json           @map("message_json")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  currentLeafForSession Session?       @relation("SessionCurrentLeaf")
+  parentEntry           SessionEntry?  @relation("SessionEntryTree", fields: [parentEntryId], references: [id], onDelete: SetNull)
+  childEntries          SessionEntry[] @relation("SessionEntryTree")
+  session               Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sequence])
+  @@index([sessionId, parentEntryId])
+  @@map("session_entries")
+}
+
+model Run {
+  id                String            @id
+  sessionId         String?           @map("session_id")
+  tenantId          String            @map("tenant_id")
+  subjectId         String            @map("subject_id")
+  ownerKey          String            @map("owner_key")
+  state             RunLifecycleState
+  queuePosition     Int?              @map("queue_position")
+  leaseToken        String?           @unique @map("lease_token")
+  leaseExpiresAt    DateTime?         @map("lease_expires_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  startedAt         DateTime?         @map("started_at")
+  completedAt       DateTime?         @map("completed_at")
+  timeoutAt         DateTime?         @map("timeout_at")
+  maxDurationMs     Int               @map("max_duration_ms")
+  agentPackId       String            @map("agent_pack_id")
+  prompt            String
+  error             String?
+  finalMessagesJson Json?             @map("final_messages_json")
+  attempts          RunAttempt[]
+  cancellations     RunCancellation[]
+  queueEntry        RunQueueEntry?
+  replayEvents      ReplayEvent[]
+  session           Session?          @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  ownerLease        OwnerLease?
+
+  @@index([ownerKey, createdAt])
+  @@index([state, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("runs")
+}
+
+model RunAttempt {
+  id          String                   @id
+  runId       String                   @map("run_id")
+  attemptSeq  Int                      @map("attempt_seq")
+  state       RunAttemptLifecycleState
+  leaseToken  String?                  @map("lease_token")
+  startedAt   DateTime?                @map("started_at")
+  completedAt DateTime?                @map("completed_at")
+  error       String?
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  replayEvents ReplayEvent[]
+  run         Run                      @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, attemptSeq])
+  @@index([runId, createdAt])
+  @@map("run_attempts")
+}
+
+model RunQueueEntry {
+  runId      String   @id @map("run_id")
+  ownerKey   String   @map("owner_key")
+  tenantId   String   @map("tenant_id")
+  subjectId  String   @map("subject_id")
+  position   Int
+  enqueuedAt DateTime @default(now()) @map("enqueued_at")
+  run        Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([ownerKey, position])
+  @@map("run_queue_entries")
+}
+
+model RunCancellation {
+  id                 String   @id
+  runId              String   @map("run_id")
+  requestedByTenantId String  @map("requested_by_tenant_id")
+  requestedBySubjectId String @map("requested_by_subject_id")
+  reason             String?
+  requestedAt        DateTime @default(now()) @map("requested_at")
+  run                Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, requestedAt])
+  @@map("run_cancellations")
+}
+
+model OwnerLease {
+  ownerKey   String   @id @map("owner_key")
+  tenantId   String   @map("tenant_id")
+  subjectId  String   @map("subject_id")
+  runId      String   @unique @map("run_id")
+  token      String   @unique
+  acquiredAt DateTime @default(now()) @map("acquired_at")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  run        Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("owner_leases")
+}
+
+model ReplayEvent {
+  id         String    @id
+  runId      String    @map("run_id")
+  sessionId  String?   @map("session_id")
+  attemptId  String?   @map("attempt_id")
+  tenantId   String    @map("tenant_id")
+  subjectId  String    @map("subject_id")
+  seq        Int
+  type       String
+  payloadJson Json     @map("payload_json")
+  isTerminal Boolean   @default(false) @map("is_terminal")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  attempt    RunAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  run        Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, seq])
+  @@index([tenantId, subjectId, runId, seq])
+  @@map("replay_events")
+}

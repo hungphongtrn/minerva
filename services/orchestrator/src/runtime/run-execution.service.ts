@@ -27,12 +27,13 @@ import { SSEService } from '../sse/sse.service.js';
 import { createToolRegistry } from '../tools/index.js';
 import type { ToolContext, ToolEventEmitter } from '../tools/types.js';
 import { RunManager } from '../services/run-manager.js';
+import type { OwnerPrincipal } from '../types/owner.js';
+import { sameOwnerPrincipal } from '../types/owner.js';
 import { RunState, type Run } from '../types/run.js';
 
 export interface CreateRunRequestBody {
   agentPackId?: string;
   prompt?: string;
-  userId?: string;
   maxDurationMs?: number;
 }
 
@@ -54,10 +55,9 @@ export class RunExecutionService {
     @Inject(LOGGER) private readonly logger: ILogger
   ) {}
 
-  async createRun(body: CreateRunRequestBody): Promise<Run> {
+  async createRun(owner: OwnerPrincipal, body: CreateRunRequestBody): Promise<Run> {
     const prompt = body.prompt?.trim();
     const agentPackId = body.agentPackId?.trim();
-    const userId = body.userId?.trim() || 'anonymous';
 
     if (!prompt) {
       throw new BadRequestException('prompt is required');
@@ -68,7 +68,7 @@ export class RunExecutionService {
     }
 
     const run = await this.runManager.createRun({
-      userId,
+      owner,
       agentPackId,
       prompt,
       maxDurationMs: body.maxDurationMs,
@@ -78,25 +78,28 @@ export class RunExecutionService {
       queue_position: run.queuePosition ?? 0,
     });
 
-    void this.processUserQueue(userId);
+    void this.processUserQueue(run.userId);
 
     return run;
   }
 
-  async getRun(runId: string): Promise<Run> {
+  async getRun(runId: string, owner: OwnerPrincipal): Promise<Run> {
     const run = await this.runManager.getRun(runId);
     if (!run) {
       throw new NotFoundException(`Run '${runId}' not found`);
     }
 
+    this.assertOwner(run, owner);
+
     return run;
   }
 
-  async cancelRun(runId: string, body?: CancelRunRequestBody): Promise<Run> {
-    const existing = await this.runManager.getRun(runId);
-    if (!existing) {
-      throw new NotFoundException(`Run '${runId}' not found`);
-    }
+  async cancelRun(
+    runId: string,
+    owner: OwnerPrincipal,
+    body?: CancelRunRequestBody
+  ): Promise<Run> {
+    await this.getRun(runId, owner);
 
     const cancelled = await this.runManager.cancelRun(runId, body?.reason);
 
@@ -108,6 +111,12 @@ export class RunExecutionService {
     }
 
     return cancelled;
+  }
+
+  private assertOwner(run: Run, owner: OwnerPrincipal): void {
+    if (!sameOwnerPrincipal(run.owner, owner)) {
+      throw new NotFoundException(`Run '${run.id}' not found`);
+    }
   }
 
   private async processUserQueue(userId: string): Promise<void> {

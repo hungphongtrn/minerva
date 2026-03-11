@@ -30,10 +30,11 @@ export {
 } from '../sse/types.js';
 
 export interface CreateRunRequest {
-  userId: string;
   prompt: string;
   context?: Record<string, unknown>;
 }
+
+export type { OwnerPrincipal } from './owner.js';
 
 export interface Sandbox {
   id: string;
