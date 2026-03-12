@@ -1,18 +1,20 @@
 # Markdown-First Workflow with Beans
 
-This project does not depend on specification plugins. The source of truth is:
+This project does not depend on specification plugins. The source of truth is spread across:
 
 - `AGENTS.md` for universal operating rules and document navigation
-- focused markdown documents under `docs/` for discussion, research, design, plans, and technical reference
-- beans for issue tracking and execution status
+- canonical markdown documents under `docs/` for durable product, architecture, API, process, and ratified spec truth
+- supporting and evidence markdown documents under `docs/` for planning, research, and discussions
+- beans for issue tracking, execution status, and fresh-session operational memory
 
 ## Core Rules
 
 1. Start from plain markdown, not plugin-managed specs.
 2. Use progressive disclosure: small index docs pointing to focused detail docs.
-3. Track every executable task with a bean.
-4. Keep documents and beans linked so context is recoverable without chat history.
-5. Prefer small, independent tasks that can be executed and verified without waiting on unrelated work.
+3. Treat canonical docs as ground truth for execution.
+4. Use beans as the operational memory layer for active work.
+5. Keep documents and beans linked so context is recoverable without chat history.
+6. Prefer small, independent tasks that can be executed and verified without waiting on unrelated work.
 
 ## Delivery Loop
 
@@ -55,42 +57,71 @@ A task is ready only when it is:
 - linked to the higher-level phase and MVP docs
 - backed by enough discussion and research for low-drift execution
 
-## Required Task Bundle
+## Document Authority Model
 
-Every task bean must point to a markdown document bundle that contains or links to:
+Treat docs by authority level rather than by detail level alone.
 
-1. Discussion document
-   - what was decided
-   - unresolved questions
-   - edge cases and constraints
+1. Canonical docs
+   - `docs/PROJECT.md`, `docs/ROADMAP.md`, `docs/architecture/**`, `docs/api/**`, `docs/process/**`, rulebooks/guidelines docs, and ratified `docs/specs/**`
+   - define durable truth used during execution
 
-2. Research document
-   - source material
-   - technical validation
-   - tradeoffs and rationale
+2. Supporting docs
+   - plans, phase breakdowns, migration notes, rollout notes, and draft specs
+   - help execute the work but do not override canonical docs
 
-3. Higher-layer project document
-   - parent MVP, phase, or architecture doc
-   - why this task exists
+3. Evidence docs
+   - research, discussions, comparisons, exploratory notes
+   - capture why a direction was chosen but are not authoritative by themselves
 
-4. Execution plan document
-   - exact objective
-   - files or systems expected to change
-   - implementation steps
-   - test/verification steps
-   - rollback or correction notes when useful
+If a supporting or evidence doc contains a conclusion that future work must rely on, promote that conclusion into canonical docs and `docs/DECISIONS.md` before closing the bean.
 
-The execution plan is mandatory because it reduces drift and makes completion criteria explicit.
+## Task Context Bundle
+
+Every task bean must link to enough context for safe execution and fresh-session recovery.
+
+Required:
+1. At least one governing canonical document
+   - project, architecture, API, process, or ratified spec docs that constrain the work
+
+2. Bean-local execution state
+   - objective
+   - current status
+   - checklist
+   - latest findings
+   - next action
+   - blockers
+
+Optional when needed:
+3. Supporting docs
+   - execution plan docs
+   - rollout notes
+   - larger task or phase breakdowns
+
+4. Evidence docs
+   - discussion documents
+   - research documents
+   - comparison notes
+
+Small tasks can keep the execution plan in the bean body. Medium or large tasks should usually link to a dedicated plan doc.
 
 ## Bean Requirements
 
-Each executable task maps to one bean.
+Each executable task maps to one bean, and each bean acts as the operational memory record for that work.
+
+Create or reuse a bean when:
+- the work may continue across sessions
+- the work changes repository state
+- the work has multiple meaningful steps
+- the work may create a durable decision
+- the work may need handoff to another session or agent
 
 Bean expectations:
 - title states the concrete outcome
-- body includes a checklist of the remaining work
-- links to the discussion, research, parent, and execution-plan docs
-- status reflects reality
+- body follows the resumability template or an equivalent high-signal structure
+- links to governing canonical docs and any needed supporting or evidence docs
+- current status reflects reality, not aspiration
+- checklist tracks the remaining execution work
+- latest findings and next action are updated before pausing work
 - summary of changes is added before marking complete
 
 Use parent beans for higher layers such as milestones, epics, or features when helpful, but execution still happens through small task beans.
@@ -126,10 +157,10 @@ small indexes, focused docs, explicit links.
 ## Definition of Ready for a Task
 
 A task can start when:
-- the bean exists
+- the bean exists or the work is still clearly below the bean-creation threshold
 - the task is not blocked
-- the linked docs are present
-- the execution plan is specific enough to verify completion
+- the governing canonical docs are linked or obvious
+- the execution plan is specific enough to verify completion, whether in the bean body or a linked plan doc
 - the task can be completed in a small, reviewable slice
 
 ## Definition of Done for a Task
@@ -137,9 +168,11 @@ A task can start when:
 A task is done when:
 - implementation matches the execution plan or the plan is updated with the approved deviation
 - tests or other verification steps are recorded
-- affected docs are updated
+- affected canonical or supporting docs are updated
+- durable conclusions have been promoted out of temporary docs and into canonical docs or `docs/DECISIONS.md`
 - the bean checklist is fully checked off
 - the bean includes a summary of changes
+- the bean is left in a state that a fresh reader can understand without the original chat
 
 ## Role of AGENTS.md
 
@@ -148,8 +181,10 @@ A task is done when:
 - define universal rules
 - avoid storing large task-specific details
 
-Detailed process knowledge belongs in `docs/process/` and task-specific materials belong near the relevant project docs.
+Detailed process knowledge belongs in `docs/process/` and task-specific materials belong near the relevant project docs. See also:
+- `docs/process/bean-memory-policy.md`
+- `docs/process/bean-template.md`
 
 ## Bottom Line
 
-Use AGENTS.md for navigation, markdown docs for context, and beans for execution tracking. No specification plugins are required.
+Use AGENTS.md for navigation, canonical markdown docs for durable truth, supporting docs for execution context, and beans for execution tracking plus operational memory. No specification plugins are required.

@@ -35,8 +35,10 @@ This is the documentation entry point for Minerva.
 
 ## Process
 
-- `docs/process/INDEX.md`: process index for markdown-first planning and execution.
-- `docs/process/markdown-beans-workflow.md`: idea-to-MVP-to-phase-to-task workflow using progressive disclosure and beans.
+- `docs/process/INDEX.md`: process index for markdown-first planning, bean memory, and execution.
+- `docs/process/markdown-beans-workflow.md`: idea-to-MVP-to-phase-to-task workflow using progressive disclosure, canonical docs, and beans.
+- `docs/process/bean-memory-policy.md`: bean creation, reuse, and resumability rules for stateless agent sessions.
+- `docs/process/bean-template.md`: standard bean body template for agent handoff and fresh-session recovery.
 
 ## Principles
 

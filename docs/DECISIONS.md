@@ -92,3 +92,24 @@
 - [docs/architecture/INDEX.md](./architecture/INDEX.md)
 - [docs/INDEX.md](./INDEX.md)
 - [.beans/minerva-03i3--produce-layer-2-implementation-planning-for-minerv.md](../.beans/minerva-03i3--produce-layer-2-implementation-planning-for-minerv.md)
+
+* 2026-03-12T16:27:00+07:00-classify documentation by authority level, treating PROJECT, ROADMAP, ARCHITECTURE, API, PROCESS, and ratified SPECS as canonical ground truth; treating research, discussions, and most plans as disposable/supporting artifacts; and grouping coding standards plus commit conventions under shared rulebooks/guidelines docs
+- [docs/PROJECT.md](./PROJECT.md)
+- [docs/architecture/INDEX.md](./architecture/INDEX.md)
+- [docs/process/markdown-beans-workflow.md](./process/markdown-beans-workflow.md)
+- [docs/DECISIONS.md](./DECISIONS.md)
+- [.beans/minerva-xqzr--define-stable-vs-disposable-documentation-contract.md](../.beans/minerva-xqzr--define-stable-vs-disposable-documentation-contract.md)
+
+* 2026-03-12T16:30:00+07:00-treat beans as both issue tracker and operational memory for stateless agent sessions, requiring bean-creation rules and enough in-bean status/context to recover work from a fresh context
+- [docs/process/markdown-beans-workflow.md](./process/markdown-beans-workflow.md)
+- [docs/DECISIONS.md](./DECISIONS.md)
+- [.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md](../.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md)
+
+* 2026-03-12T16:38:00+07:00-codify bean creation thresholds, bean-as-memory recovery requirements, and a standard resumability template in docs/process so fresh agent sessions can recover active work from beans plus linked canonical docs
+- [docs/process/bean-memory-policy.md](./process/bean-memory-policy.md)
+- [docs/process/bean-template.md](./process/bean-template.md)
+- [docs/process/markdown-beans-workflow.md](./process/markdown-beans-workflow.md)
+- [docs/process/INDEX.md](./process/INDEX.md)
+- [docs/INDEX.md](./INDEX.md)
+- [docs/DECISIONS.md](./DECISIONS.md)
+- [.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md](../.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md)
