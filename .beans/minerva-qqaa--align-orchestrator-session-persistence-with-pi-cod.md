@@ -5,7 +5,7 @@ status: in-progress
 type: feature
 priority: high
 created_at: 2026-03-11T09:19:56Z
-updated_at: 2026-03-12T05:59:11Z
+updated_at: 2026-03-12T07:31:36Z
 ---
 
 ## Context
@@ -28,9 +28,9 @@ This bean is intended to start design discussion before implementation.
 
 ## Definition of Ready
 - [x] Review relevant pi coding agent session docs/code as the reference baseline
-- [ ] Compare current Minerva orchestrator session flow to the reference approach
-- [ ] Propose a Postgres-backed session model that preserves current behavior
-- [ ] Define how Daytona sandbox execution remains the tool runtime layer
+- [x] Compare current Minerva orchestrator session flow to the reference approach
+- [x] Propose a Postgres-backed session model that preserves current behavior
+- [x] Define how Daytona sandbox execution remains the tool runtime layer
 - [x] Agree on implementation boundaries before coding
 
 ## Discussion Artifacts
@@ -43,3 +43,6 @@ This bean is intended to start design discussion before implementation.
 - Session persistence should follow pi coding agent durable-entry behavior rather than persisting every streaming delta.
 - v1 keeps branch-capable internals but does not expose branching in product UX.
 - Runtime resources such as AGENTS.md and skills should be available inside the sandbox filesystem.
+
+
+- Layer 2 implementation plan: [docs/architecture/minerva-qqaa/layer-2-implementation-plan.md](../docs/architecture/minerva-qqaa/layer-2-implementation-plan.md)

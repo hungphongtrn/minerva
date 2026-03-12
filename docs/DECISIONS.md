@@ -85,3 +85,10 @@
 - [docs/architecture/INDEX.md](./architecture/INDEX.md)
 - [docs/INDEX.md](./INDEX.md)
 - [.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md](../.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md)
+
+* 2026-03-12T14:26:00+07:00-capture minerva-qqaa layer-2 implementation planning around session-first Postgres repositories, hosted session runtime boundaries, Daytona binding/materialization flow, session-aware HTTP-SSE contracts, pi-shaped export serialization, and phased delivery slices
+- [docs/architecture/minerva-qqaa/layer-2-implementation-plan.md](./architecture/minerva-qqaa/layer-2-implementation-plan.md)
+- [docs/architecture/minerva-qqaa/INDEX.md](./architecture/minerva-qqaa/INDEX.md)
+- [docs/architecture/INDEX.md](./architecture/INDEX.md)
+- [docs/INDEX.md](./INDEX.md)
+- [.beans/minerva-03i3--produce-layer-2-implementation-planning-for-minerv.md](../.beans/minerva-03i3--produce-layer-2-implementation-planning-for-minerv.md)

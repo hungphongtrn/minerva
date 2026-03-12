@@ -18,6 +18,7 @@ These docs establish the pre-implementation architecture baseline for aligning M
 - [`session-persistence.md`](./session-persistence.md): Postgres-backed session persistence design, durable record boundaries, and replay/export model.
 - [`runtime-and-sandbox-adapters.md`](./runtime-and-sandbox-adapters.md): session runtime adapter, Daytona tool execution adapter, workspace lifecycle, and resource-loading behavior.
 - [`api-and-export-compatibility.md`](./api-and-export-compatibility.md): HTTP/SSE contract updates, consumer-safe behavior, and pi-shaped export compatibility.
+- [`layer-2-implementation-plan.md`](./layer-2-implementation-plan.md): implementation-ready plan covering schema evolution, repository boundaries, runtime services, sandbox/resource materialization, API changes, export strategy, and phased delivery slices.
 
 ## Layer 1 outcomes
 
@@ -31,10 +32,10 @@ This layer establishes:
 
 ## Layer 2 planning inputs
 
-The next planning layer should turn this baseline into:
+The layer 2 plan is now captured in [`layer-2-implementation-plan.md`](./layer-2-implementation-plan.md). It turns the baseline into:
 
 - concrete Postgres schema migrations and repository interfaces
 - runtime service/module boundaries and dependency graph
 - exact API payload definitions and replay semantics
 - sandbox lifecycle state machines and failure handling
-- phased implementation beans linked back to `minerva-qqaa`
+- phased implementation slices that can become child beans linked back to `minerva-qqaa`
