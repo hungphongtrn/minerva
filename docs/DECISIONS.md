@@ -75,3 +75,13 @@
 - [docs/INDEX.md](./INDEX.md)
 - [AGENTS.md](../AGENTS.md)
 - [.beans/minerva-qqaa--align-orchestrator-session-persistence-with-pi-cod.md](../.beans/minerva-qqaa--align-orchestrator-session-persistence-with-pi-cod.md)
+
+* 2026-03-12T13:28:00+07:00-establish minerva-qqaa layer-1 design baseline around a hosted session runtime adapter, Postgres-backed append-oriented session persistence, Daytona-backed coding adapters, workspace-materialized runtime resources, and session-aware HTTP/SSE plus pi-shaped export compatibility
+- [docs/architecture/minerva-qqaa/INDEX.md](./architecture/minerva-qqaa/INDEX.md)
+- [docs/architecture/minerva-qqaa/current-vs-pi-runtime.md](./architecture/minerva-qqaa/current-vs-pi-runtime.md)
+- [docs/architecture/minerva-qqaa/session-persistence.md](./architecture/minerva-qqaa/session-persistence.md)
+- [docs/architecture/minerva-qqaa/runtime-and-sandbox-adapters.md](./architecture/minerva-qqaa/runtime-and-sandbox-adapters.md)
+- [docs/architecture/minerva-qqaa/api-and-export-compatibility.md](./architecture/minerva-qqaa/api-and-export-compatibility.md)
+- [docs/architecture/INDEX.md](./architecture/INDEX.md)
+- [docs/INDEX.md](./INDEX.md)
+- [.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md](../.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md)

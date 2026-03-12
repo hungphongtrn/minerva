@@ -16,6 +16,7 @@ This is the documentation entry point for Minerva.
 - `docs/architecture/INDEX.md`: architecture index.
 - `docs/architecture/agent-runtime-v0.md`: orchestrator + sandbox runtime notes.
 - `docs/architecture/backend-service-framework.md`: backend framework standard for NestJS services.
+- `docs/architecture/minerva-qqaa/INDEX.md`: layer 1 design baseline for pi-compatible hosted sessions and infrastructure substitutions.
 
 ## Technical Reference Docs
 
