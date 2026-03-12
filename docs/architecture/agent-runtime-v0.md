@@ -47,7 +47,7 @@ agent-pack/
 - **Sandbox Fleet**: Daytona workspaces (per user/workspace) that actually run tools.
 - **Metadata Store**: Postgres for runs, steps, leases (implementation detail).
 
-Reference: `docs/research/pi-agent-core/README.md` and `docs/research/pi-agent-core/events.md`.
+Reference: `docs/research/pi-agent-core/INDEX.md` and `docs/research/pi-agent-core/events.md`.
 
 ## v0 Tooling Model (Minimal)
 
@@ -164,7 +164,7 @@ Provider errors are automatically enhanced with descriptive messages:
 - Timeout errors suggest checking network or reducing request size
 - Quota errors indicate billing issues
 
-See `docs/model-provider-setup.md` for detailed setup instructions and `docs/model-provider-troubleshooting.md` for common issues.
+See `docs/setups/model-provider-setup.md` for detailed setup instructions and `docs/setups/model-provider-troubleshooting.md` for common issues.
 
 ## Deferred Topics (Explicitly Parked)
 

@@ -22,7 +22,7 @@ MODEL_PROVIDER=openai  # or anthropic
 1. Get an API key from [OpenAI](https://platform.openai.com/api-keys)
 2. Add it to your `.env` file:
 ```bash
-OPENAI_API_KEY=sk-your-key-here
+OPENAI_API_KEY=***
 ```
 
 ### "ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic"
@@ -33,7 +33,7 @@ OPENAI_API_KEY=sk-your-key-here
 1. Get an API key from [Anthropic Console](https://console.anthropic.com/)
 2. Add it to your `.env` file:
 ```bash
-ANTHROPIC_API_KEY=sk-ant-your-key-here
+ANTHROPIC_API_KEY=***
 ```
 
 ## Health Check Failures
@@ -158,9 +158,9 @@ MODEL_TEMPERATURE=3.0  # Invalid
 **Solution:**
 Max tokens must be a positive integer:
 ```bash
-MODEL_MAX_TOKENS=4096   # Valid
-MODEL_MAX_TOKENS=-100   # Invalid
-MODEL_MAX_TOKENS=0      # Invalid
+MODEL_MAX_TOKENS=***   # Valid
+MODEL_MAX_TOKENS=***   # Invalid
+MODEL_MAX_TOKENS=***      # Invalid
 ```
 
 ## Development Issues
@@ -174,7 +174,7 @@ Set up test environment variables or mock the provider:
 ```bash
 # In test environment
 MODEL_PROVIDER=openai
-OPENAI_API_KEY=sk-test-key
+OPENAI_API_KEY=***
 ```
 
 Or use the provided mocks in unit tests.
@@ -234,7 +234,7 @@ Test your API key directly with the provider:
 **OpenAI:**
 ```bash
 curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
+  -H "Authorization: Bearer ***
 ```
 
 **Anthropic:**

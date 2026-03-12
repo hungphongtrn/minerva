@@ -19,6 +19,6 @@ Document and align the project workflow around markdown documents with progressi
 
 ## Summary of Changes
 - Removed OpenSpec/plugin workflow guidance from `AGENTS.md` and standardized on markdown documents plus beans.
-- Added `docs/process/README.md` and `docs/process/markdown-beans-workflow.md` to document the idea -> MVP -> phase -> task loop and required task document bundle.
-- Updated `docs/README.md`, `docs/specs/README.md`, and existing orchestrator plan references to point at in-repo markdown docs instead of OpenSpec artifacts.
+- Added `docs/process/INDEX.md` and `docs/process/markdown-beans-workflow.md` to document the idea -> MVP -> phase -> task loop and required task document bundle.
+- Updated `docs/INDEX.md`, `docs/specs/INDEX.md`, and existing orchestrator plan references to point at in-repo markdown docs instead of OpenSpec artifacts.
 - Logged the process decision in `docs/DECISIONS.md`.

@@ -74,4 +74,4 @@ AGENTS.md                 # identity / stance / rules
 
 - Architecture notes: `docs/architecture/agent-runtime-v0.md`
 - Backend service framework guidance: `docs/architecture/backend-service-framework.md`
-- pi-agent-core reference: `docs/research/pi-agent-core/README.md`
+- pi-agent-core reference: `docs/research/pi-agent-core/INDEX.md`

@@ -37,19 +37,19 @@ This guide walks you through configuring the Minerva orchestrator to use real LL
 #### OpenAI Configuration
 ```bash
 MODEL_PROVIDER=openai
-OPENAI_API_KEY=sk-your-openai-key-here
+OPENAI_API_KEY=***
 MODEL_NAME=gpt-4-turbo
 MODEL_TEMPERATURE=0.7
-MODEL_MAX_TOKENS=4096
+MODEL_MAX_TOKENS=***
 ```
 
 #### Anthropic Configuration
 ```bash
 MODEL_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+ANTHROPIC_API_KEY=***
 MODEL_NAME=claude-3-opus-20240229
 MODEL_TEMPERATURE=0.5
-MODEL_MAX_TOKENS=8192
+MODEL_MAX_TOKENS=***
 ```
 
 ## Provider-Specific Setup
@@ -167,14 +167,14 @@ If you were using the old `LLM_*` variables, migrate as follows:
 **Old (deprecated):**
 ```bash
 LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=sk-...
+LLM_API_KEY=***
 LLM_MODEL=gpt-4
 ```
 
 **New:**
 ```bash
 MODEL_PROVIDER=openai
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=***
 MODEL_NAME=gpt-4
 ```
 
@@ -190,6 +190,6 @@ MODEL_NAME=gpt-4
 ## Support
 
 For issues related to:
-- **Minerva orchestrator**: Check the [troubleshooting guide](./troubleshooting.md)
+- **Minerva orchestrator**: Check the [troubleshooting guide](./model-provider-troubleshooting.md)
 - **OpenAI API**: Visit [OpenAI Support](https://help.openai.com/)
 - **Anthropic API**: Visit [Anthropic Support](https://support.anthropic.com/)

@@ -1,4 +1,4 @@
-# Minerva Docs
+# Minerva Docs Index
 
 This is the documentation entry point for Minerva.
 
@@ -8,49 +8,49 @@ This is the documentation entry point for Minerva.
 - `docs/ROADMAP.md`: phased delivery plan.
 - `docs/CODING_STANDARDS.md`: coding quality standards and dependency rules.
 - `docs/COMMIT_GUIDELINES.md`: granular commit conventions and traceability rules.
-- `docs/process/README.md`: markdown-first development workflow and document expectations.
+- `docs/process/INDEX.md`: markdown-first development workflow and document expectations.
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions.
 
 ## Architecture
 
-- `docs/architecture/README.md`: architecture index.
+- `docs/architecture/INDEX.md`: architecture index.
 - `docs/architecture/agent-runtime-v0.md`: orchestrator + sandbox runtime notes.
 - `docs/architecture/backend-service-framework.md`: backend framework standard for NestJS services.
 
 ## Technical Reference Docs
 
-- `docs/specs/README.md`: plain-markdown technical reference index.
+- `docs/specs/INDEX.md`: plain-markdown technical reference index.
 - `docs/specs/agent-packs.md`: agent pack format and skill loading.
 - `docs/specs/event-streaming.md`: SSE streaming behavior.
 - `docs/specs/run-orchestration.md`: run lifecycle and execution control.
 - `docs/specs/sandbox-execution.md`: sandbox security and tool surface.
 
-## Model Provider
+## Setups
 
-- `docs/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration.
-- `docs/model-provider-troubleshooting.md`: troubleshooting common provider issues.
+- `docs/setups/INDEX.md`: setup and troubleshooting index for external provider integrations.
+- `docs/setups/model-provider-setup.md`: setup guide for OpenAI/Anthropic integration.
+- `docs/setups/model-provider-troubleshooting.md`: troubleshooting common provider issues.
+
 
 ## Process
 
-- `docs/process/README.md`: process index for markdown-first planning and execution.
+- `docs/process/INDEX.md`: process index for markdown-first planning and execution.
 - `docs/process/markdown-beans-workflow.md`: idea-to-MVP-to-phase-to-task workflow using progressive disclosure and beans.
-
-## Glider
-
-- `docs/glider/README.md`: glider index for workflow, layered documentation, and agent planning.
-- `docs/glider/implementation-plan.md`: rollout plan for the glider documentation system.
-- `docs/glider/workflow.md`: glider workflow from idea through bean-ready tasks.
-- `docs/glider/layered-documentation-system.md`: layered markdown architecture for glider.
-- `docs/glider/agent-skills-and-plans.md`: agent skill expectations and plan taxonomy for glider.
 
 ## Principles
 
-- `docs/principles/README.md`: documentation principles index.
+- `docs/principles/INDEX.md`: documentation principles index.
 - `docs/principles/progressive-disclosure.md`: how to structure agent-facing docs with small entry points and focused references.
+
+## Discussions
+
+- `docs/disussions/INDEX.md`: discussion index for pre-planning product and architecture conclusions.
+- `docs/disussions/minerva-qqaa-pi-coding-agent-alignment.md`: discussion conclusion for aligning Minerva with pi coding agent SDK semantics.
 
 ## Research
 
-- `docs/research/pi-agent-core/README.md`: pi-agent-core overview.
+- `docs/research/pi-coding-agent-sdk.md`: concise research note on the pi coding agent SDK, session model, tools, events, and Minerva adaptation gaps.
+- `docs/research/pi-agent-core/INDEX.md`: pi-agent-core overview.
 - `docs/research/pi-agent-core/events.md`: event model reference.
 - `docs/research/pi-agent-core/api-reference.md`: API notes.
 - `docs/research/pi-agent-core/concepts.md`: core concepts.

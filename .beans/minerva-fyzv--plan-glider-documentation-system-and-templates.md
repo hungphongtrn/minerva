@@ -21,5 +21,5 @@ Create a plan for a new `glider/` documentation area that defines the workflow, 
 ## Summary of Changes
 - Created `docs/glider/` as the focused home for the Glider system.
 - Added Glider docs for workflow, layered documentation design, agent skills/plans, and an implementation plan.
-- Updated `docs/README.md` and `AGENTS.md` to surface Glider as a key documentation entry point.
+- Updated `docs/INDEX.md` and `AGENTS.md` to surface Glider as a key documentation entry point.
 - Recorded the Glider direction in `docs/DECISIONS.md`.

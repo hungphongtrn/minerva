@@ -19,5 +19,5 @@ Create a progressive disclosure document that consolidates the principle, mechan
 ## Summary of Changes
 
 - Added `docs/principles/progressive-disclosure.md` to explain the principle as a context-management strategy with core rules, a checklist, examples, and anti-patterns.
-- Added `docs/principles/README.md` as the index for documentation principles.
-- Updated `docs/README.md` so the new principles section and progressive disclosure document are discoverable from the main docs entry point.
+- Added `docs/principles/INDEX.md` as the index for documentation principles.
+- Updated `docs/INDEX.md` so the new principles section and progressive disclosure document are discoverable from the main docs entry point.

@@ -109,7 +109,7 @@ Create a well-structured TypeScript project that serves as the foundation for:
 - Core domain types shared across layers
 - Re-exports from pi-agent-core types where needed
 
-#### `/services/orchestrator/README.md`
+#### `/services/orchestrator/INDEX.md`
 - Service overview and setup instructions
 - Development workflow
 - Environment variables reference

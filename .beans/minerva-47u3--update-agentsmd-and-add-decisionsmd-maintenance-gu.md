@@ -20,4 +20,4 @@ Update AGENTS.md so it requires keeping the Docs TOC current whenever docs are c
 ## Summary of Changes
 - updated `AGENTS.md` to require keeping the Docs TOC current whenever docs are created, moved, renamed, or materially updated
 - added `AGENTS.md` guidance for creating and gradually maintaining `docs/DECISIONS.md` using the requested format
-- created `docs/DECISIONS.md` with an initial decision entry and added it to `docs/README.md`
+- created `docs/DECISIONS.md` with an initial decision entry and added it to `docs/INDEX.md`

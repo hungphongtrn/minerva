@@ -501,4 +501,4 @@ For Minerva's pi-agent-core implementation:
 ## Related Documentation
 
 - [pi-agent-core Events Model](./events.md) - Event system that maps well to session entries
-- [Minerva Architecture](../../architecture/README.md) - System architecture overview
+- [Minerva Architecture](../../architecture/INDEX.md) - System architecture overview

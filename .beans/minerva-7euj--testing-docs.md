@@ -55,11 +55,11 @@ See detailed implementation plan: [docs/plans/orchestrator-v0/testing-docs.md](.
 - Can use real Daytona by setting DAYTONA_API_KEY and DAYTONA_SERVER_URL env vars
 
 ### 7.4 Documentation Updates
-- Created `docs/api/README.md` - API overview and quick start
+- Created `docs/api/INDEX.md` - API overview and quick start
 - Created `docs/api/endpoints.md` - HTTP endpoints with request/response schemas
 - Created `docs/api/sse-schema.md` - Event types, payloads, and sequencing
 - Created `docs/api/authentication.md` - Authentication methods
-- Created `docs/testing/README.md` - Testing guide
+- Created `docs/testing/INDEX.md` - Testing guide
 - Created `docs/testing/strategy.md` - Test strategy and best practices
 
 ### Test Infrastructure

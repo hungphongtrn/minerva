@@ -65,19 +65,19 @@ Use this rule when deciding where information belongs:
 ```text
 AGENTS.md or CLAUDE.md    <- short entry point with pointers
 docs/
-  README.md               <- top-level documentation index
+  INDEX.md                <- top-level documentation index
   architecture/
-    README.md
+    INDEX.md
     runtime.md
     state-machines.md
   product-specs/
-    README.md
+    INDEX.md
     onboarding.md
   security/
-    README.md
+    INDEX.md
     auth-model.md
   plans/
-    README.md
+    INDEX.md
     feature-x.md
 ```
 

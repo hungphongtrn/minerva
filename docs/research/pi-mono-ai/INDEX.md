@@ -261,7 +261,7 @@ export GOOGLE_CLOUD_PROJECT="my-project"
 export GOOGLE_CLOUD_LOCATION="us-central1"
 
 # CI/Production (service account)
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+export GOOGLE_APPLICATION_CREDENTIALS="/path/...json"
 ```
 
 ### Package-Specific Environment Variables
@@ -416,7 +416,7 @@ const weatherTool: Tool = {
 import { getModel, complete, getEnvApiKey } from '@mariozechner/pi-ai';
 
 // Check if API key is configured
-const apiKey = getEnvApiKey('openai');
+const apiKey=getEnv...i');
 if (!apiKey) {
   throw new Error('OPENAI_API_KEY not set');
 }
@@ -497,7 +497,7 @@ Several providers require OAuth authentication:
 import { loginAnthropic, getOAuthApiKey } from '@mariozechner/pi-ai/oauth';
 
 // Login to provider
-const credentials = await loginAnthropic({
+const credentials=*** loginAnthropic({
   onAuth: (url, instructions) => console.log(`Open: ${url}`),
   onPrompt: async (prompt) => await getUserInput(prompt.message),
   onProgress: (message) => console.log(message)

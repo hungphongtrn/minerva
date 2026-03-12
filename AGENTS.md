@@ -8,15 +8,16 @@
 
 ## Docs TOC
 
-IMPORTANT: keep this section up to date every time a document is created, renamed, moved, or materially updated, but keep it high-level. `docs/README.md` is the detailed documentation index; this section should only list the key anchor docs agents should check first.
+IMPORTANT: keep this section up to date every time a document is created, renamed, moved, or materially updated, but keep it high-level. `docs/INDEX.md` is the detailed documentation index; this section should only list the key anchor docs agents should check first.
 
-- `docs/README.md`: documentation entry point and detailed index
+- `docs/INDEX.md`: documentation entry point and detailed index
 - `docs/PROJECT.md`: product scope, phase focus, and non-goals
 - `docs/ROADMAP.md`: phased delivery plan
 - `docs/CODING_STANDARDS.md`: coding quality and architecture dependency rules
 - `docs/COMMIT_GUIDELINES.md`: commit formatting and traceability rules
-- `docs/process/README.md`: markdown-first development workflow and document expectations
-- `docs/glider/README.md`: glider workflow, layered docs, and agent planning system
+- `docs/process/INDEX.md`: markdown-first development workflow and document expectations
+- `docs/setups/INDEX.md`: setup and troubleshooting guides for external integrations
+- `docs/disussions/INDEX.md`: discussion conclusions captured before planning and implementation
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions
 
 ## Documentation Guidelines
@@ -28,7 +29,7 @@ IMPORTANT: keep this section up to date every time a document is created, rename
 When we discuss, design, or implement changes, we must also update the relevant documents in `docs/` (and add new docs/index entries when needed). Prefer small, focused docs and link them from an index (progressive disclosure).
 
 Every time a doc is created, renamed, moved, or materially updated:
-- update `docs/README.md` if the index should reference it
+- update `docs/INDEX.md` if the index should reference it
 - update the `## Docs TOC` section in this `AGENTS.md` only if the high-level anchor list should change
 - add or update a matching entry in `docs/DECISIONS.md` when the change captures a decision, direction, constraint, or user-requested policy
 
@@ -63,16 +64,16 @@ Guidelines:
 For large or complex documentation, always follow progressive disclosure:
 
 1. **Break down into smaller files** - Create focused documents (e.g., `state-machines.md`, `execution-flow.md`)
-2. **Use index/moc/toc** - Create a README or index file that links to all related docs
+2. **Use index/moc/toc** - Create an INDEX.md or equivalent index file that links to all related docs
 3. **Cross-reference with links** - Use relative links between documents
 4. **Avoid monolithic files** - Keep files under 500 lines when possible
 
 **Example structure:**
 ```
 docs/
-├── README.md                 # Main entry point with links
+├── INDEX.md                  # Main entry point with links
 ├── architecture/
-│   ├── README.md            # Architecture overview (index)
+│   ├── INDEX.md             # Architecture overview (index)
 │   ├── state-machines.md    # State diagrams
 │   ├── execution-flow.md    # Execution flows
 │   ├── component-catalog.md # Component reference
@@ -83,10 +84,10 @@ docs/
 ### File Organization Rules
 
 - ✅ **DO** create subdirectories for logical groupings
-- ✅ **DO** use README.md as index in each subdirectory
+- ✅ **DO** use INDEX.md as index in each docs subdirectory
 - ✅ **DO** link related documents together
 - ✅ **DO** use descriptive filenames
-- ❌ **DON'T** create docs in root directory (except README.md)
+- ❌ **DON'T** create docs in root directory (except INDEX.md and anchor docs like PROJECT.md)
 - ❌ **DON'T** create single monolithic docs >500 lines
 - ❌ **DON'T** duplicate content across files
 

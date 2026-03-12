@@ -222,7 +222,7 @@ Create `.env.test` for test-specific configuration:
 # .env.test
 NODE_ENV=test
 DAYTONA_SERVER_URL=http://localhost:3000
-DAYTONA_API_KEY=test-key
+DAYTONA_API_KEY=***
 ```
 
 Load in test setup:

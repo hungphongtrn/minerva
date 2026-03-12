@@ -61,11 +61,11 @@ Implement a complete testing suite and documentation update that:
 
 | File | Purpose | Description |
 |------|---------|-------------|
-| `docs/api/README.md` | API overview | Entry point for API documentation |
+| `docs/api/INDEX.md` | API overview | Entry point for API documentation |
 | `docs/api/endpoints.md` | Endpoint reference | HTTP endpoints with request/response schemas |
 | `docs/api/sse-schema.md` | SSE schema | Event types, payloads, sequencing |
 | `docs/api/authentication.md` | Auth guide | Authentication and authorization |
-| `docs/testing/README.md` | Testing guide | How to run tests, write new tests |
+| `docs/testing/INDEX.md` | Testing guide | How to run tests, write new tests |
 | `docs/testing/strategy.md` | Test strategy | Unit vs integration, mocking approach |
 
 ---
@@ -343,7 +343,7 @@ DAYTONA_TARGET=local
    - API key usage
    - Authorization scopes
 
-4. **docs/testing/README.md**
+4. **docs/testing/INDEX.md**
    - Running tests
    - Test structure
    - Writing new tests

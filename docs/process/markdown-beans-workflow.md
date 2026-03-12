@@ -99,24 +99,24 @@ Use parent beans for higher layers such as milestones, epics, or features when h
 
 ```text
 docs/
-  README.md
+  INDEX.md
   project/
-    README.md
+    INDEX.md
     idea-name/
-      README.md              <- index for the initiative
+      INDEX.md               <- index for the initiative
       mvp.md
       research.md
       discussion.md
       phases/
-        README.md
+        INDEX.md
         phase-1.md
       tasks/
-        README.md
+        INDEX.md
         task-001-plan.md
         task-001-research.md
         task-001-discussion.md
   process/
-    README.md
+    INDEX.md
     markdown-beans-workflow.md
 ```
 

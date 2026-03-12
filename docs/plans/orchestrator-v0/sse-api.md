@@ -920,7 +920,7 @@ Agent Integration (pi-agent-core events)
 
 ### Research
 - [pi-agent-core Events](../../research/pi-agent-core/events.md) - Event model reference (message_update, tool_execution_*)
-- [pi-agent-core README](../../research/pi-agent-core/README.md) - SDK overview and event-driven architecture
+- [pi-agent-core README](../../research/pi-agent-core/INDEX.md) - SDK overview and event-driven architecture
 
 ### Related Plans
 - [Run Model + Scheduling](./run-model-scheduling.md) - Run states and lifecycle events
