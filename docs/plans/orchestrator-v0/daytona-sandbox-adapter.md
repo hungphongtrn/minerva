@@ -494,7 +494,7 @@ DAYTONA_MAX_FILE_SIZE=10485760  # 10MB
 - [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and execution model
 - [Sandbox Execution Reference](../../specs/sandbox-execution.md) - Plain-markdown sandbox constraints
-- [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
+- [Coding Standards](../../rulebooks/coding-standards.md) - Code quality and dependency rules
 
 ### Research
 - [pi-agent-core Tools](../../research/pi-agent-core/tools.md) - Tool implementation patterns

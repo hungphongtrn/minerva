@@ -6,10 +6,15 @@ This is the documentation entry point for Minerva.
 
 - `docs/PROJECT.md`: product scope, phase focus, and non-goals.
 - `docs/ROADMAP.md`: phased delivery plan.
-- `docs/CODING_STANDARDS.md`: coding quality standards and dependency rules.
-- `docs/COMMIT_GUIDELINES.md`: granular commit conventions and traceability rules.
+- `docs/rulebooks/INDEX.md`: operational rulebooks and guidance docs.
 - `docs/process/INDEX.md`: markdown-first development workflow and document expectations.
 - `docs/DECISIONS.md`: rolling decision log for project and user-driven decisions.
+
+## Rulebooks
+
+- `docs/rulebooks/INDEX.md`: operational rules and guidance index.
+- `docs/rulebooks/coding-standards.md`: coding quality standards and dependency rules.
+- `docs/rulebooks/commit-guidelines.md`: granular commit conventions and traceability rules.
 
 ## Architecture
 

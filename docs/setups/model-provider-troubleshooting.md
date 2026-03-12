@@ -249,7 +249,7 @@ curl https://api.anthropic.com/v1/models \
 If you're still experiencing issues:
 
 1. Check the [Model Provider Setup Guide](./model-provider-setup.md) for configuration details
-2. Review the [Coding Standards](../CODING_STANDARDS.md) for implementation details
+2. Review the [Coding Standards](../rulebooks/coding-standards.md) for implementation details
 3. Check provider-specific documentation:
    - [OpenAI API Docs](https://platform.openai.com/docs)
    - [Anthropic API Docs](https://docs.anthropic.com/claude/reference)

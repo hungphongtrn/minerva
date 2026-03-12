@@ -472,7 +472,7 @@ export default defineConfig({
 - [Project Scope](../../PROJECT.md) - Product boundaries for the orchestrator MVP
 - [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview
-- [Coding Standards](../../CODING_STANDARDS.md) - Test quality standards
+- [Coding Standards](../../rulebooks/coding-standards.md) - Test quality standards
 - [Run Orchestration Reference](../../specs/run-orchestration.md) - Execution states and lifecycle constraints
 
 ### Related Plans

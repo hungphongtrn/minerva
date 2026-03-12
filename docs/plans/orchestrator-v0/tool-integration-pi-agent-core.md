@@ -269,7 +269,7 @@ interface SSEEvent {
 - [PI Agent Core - Events](../../research/pi-agent-core/events.md) - Event model and sequences
 - [PI Agent Core - Tools](../../research/pi-agent-core/tools.md) - Tool definition patterns
 - [Agent Runtime v0](../../architecture/agent-runtime-v0.md) - Architecture notes
-- [Coding Standards](../../CODING_STANDARDS.md) - Code quality rules
+- [Coding Standards](../../rulebooks/coding-standards.md) - Code quality rules
 
 ### External References
 - `@mariozechner/pi-agent-core` - Agent SDK

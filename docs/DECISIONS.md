@@ -113,3 +113,12 @@
 - [docs/INDEX.md](./INDEX.md)
 - [docs/DECISIONS.md](./DECISIONS.md)
 - [.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md](../.beans/minerva-urdx--define-when-beans-should-be-created-as-agent-memor.md)
+
+* 2026-03-12T16:44:00+07:00-group coding standards and commit conventions under docs/rulebooks with a shared rulebook index and update anchor references to the new canonical structure
+- [docs/rulebooks/INDEX.md](./rulebooks/INDEX.md)
+- [docs/rulebooks/coding-standards.md](./rulebooks/coding-standards.md)
+- [docs/rulebooks/commit-guidelines.md](./rulebooks/commit-guidelines.md)
+- [docs/INDEX.md](./INDEX.md)
+- [AGENTS.md](../AGENTS.md)
+- [docs/DECISIONS.md](./DECISIONS.md)
+- [.beans/minerva-ki1b--move-standards-docs-into-rulebooks.md](../.beans/minerva-ki1b--move-standards-docs-into-rulebooks.md)

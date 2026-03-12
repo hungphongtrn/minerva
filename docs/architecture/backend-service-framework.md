@@ -31,5 +31,5 @@ Minerva standardizes long-lived TypeScript backend services on NestJS.
 ## Related Docs
 
 - `docs/PROJECT.md`
-- `docs/CODING_STANDARDS.md`
+- `docs/rulebooks/coding-standards.md`
 - `docs/architecture/agent-runtime-v0.md`

@@ -916,7 +916,7 @@ Agent Integration (pi-agent-core events)
 - [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
 - [Event Streaming Reference](../../specs/event-streaming.md) - Plain-markdown SSE requirements
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and event flow
-- [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
+- [Coding Standards](../../rulebooks/coding-standards.md) - Code quality and dependency rules
 
 ### Research
 - [pi-agent-core Events](../../research/pi-agent-core/events.md) - Event model reference (message_update, tool_execution_*)

@@ -539,7 +539,7 @@ export class RunService implements IRunService {
 
 ### Project Documentation
 - [Project Scope](../../../docs/PROJECT.md) - Agent pack concept and structure
-- [Coding Standards](../../../docs/CODING_STANDARDS.md) - Quality and architecture rules
+- [Coding Standards](../../../docs/rulebooks/coding-standards.md) - Quality and architecture rules
 - [Architecture Notes](../../../docs/architecture/agent-runtime-v0.md) - Agent pack baseline structure
 
 ### Design Documents

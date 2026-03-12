@@ -298,7 +298,7 @@ Event Streaming
 - [Process Workflow](../../process/markdown-beans-workflow.md) - Markdown-first planning and bean tracking expectations
 - [Architecture v0](../../architecture/agent-runtime-v0.md) - Component overview and state machine
 - [Run Orchestration Reference](../../specs/run-orchestration.md) - Plain-markdown run lifecycle requirements
-- [Coding Standards](../../CODING_STANDARDS.md) - Code quality and dependency rules
+- [Coding Standards](../../rulebooks/coding-standards.md) - Code quality and dependency rules
 
 ### Research
 - [pi-agent-core Events](../../research/pi-agent-core/events.md) - Event model for run streaming

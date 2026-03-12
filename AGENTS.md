@@ -13,8 +13,7 @@ IMPORTANT: keep this section up to date every time a document is created, rename
 - `docs/INDEX.md`: documentation entry point and detailed index
 - `docs/PROJECT.md`: product scope, phase focus, and non-goals
 - `docs/ROADMAP.md`: phased delivery plan
-- `docs/CODING_STANDARDS.md`: coding quality and architecture dependency rules
-- `docs/COMMIT_GUIDELINES.md`: commit formatting and traceability rules
+- `docs/rulebooks/INDEX.md`: operational rulebooks and guidance docs
 - `docs/process/INDEX.md`: markdown-first development workflow and document expectations
 - `docs/setups/INDEX.md`: setup and troubleshooting guides for external integrations
 - `docs/disussions/INDEX.md`: discussion conclusions captured before planning and implementation
@@ -78,7 +77,9 @@ docs/
 │   ├── execution-flow.md    # Execution flows
 │   ├── component-catalog.md # Component reference
 │   └── dead-code-legacy.md  # Cleanup guide
-└── CODING_STANDARDS.md
+└── rulebooks/
+    ├── INDEX.md
+    └── coding-standards.md
 ```
 
 ### File Organization Rules
@@ -91,10 +92,13 @@ docs/
 - ❌ **DON'T** create single monolithic docs >500 lines
 - ❌ **DON'T** duplicate content across files
 
-## Coding Standards Reference
+## Rulebooks Reference
 
-Coding quality and architecture rules are maintained in `docs/CODING_STANDARDS.md`.
+Operational guidance docs are grouped under `docs/rulebooks/`.
+
+- Coding quality and architecture rules: `docs/rulebooks/coding-standards.md`
+- Commit formatting and traceability rules: `docs/rulebooks/commit-guidelines.md`
 
 ## Code Commits
 
-- After each completed bean, commit it following `docs/COMMIT_GUIDELINES.md`, include the relevant bean IDs in the commit message.
+- After each completed bean, commit it following `docs/rulebooks/commit-guidelines.md`, include the relevant bean IDs in the commit message.

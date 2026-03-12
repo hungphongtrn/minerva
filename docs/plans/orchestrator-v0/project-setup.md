@@ -374,7 +374,7 @@ npm start
 
 ### Project Documentation
 - [Project Scope](../../../docs/PROJECT.md) - What Minerva is building
-- [Coding Standards](../../../docs/CODING_STANDARDS.md) - Quality and architecture rules
+- [Coding Standards](../../../docs/rulebooks/coding-standards.md) - Quality and architecture rules
 - [Architecture Notes](../../../docs/architecture/agent-runtime-v0.md) - Orchestrator + sandbox design
 
 ### Research and Design
