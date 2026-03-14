@@ -6,6 +6,18 @@
 - Terminology: a bean = an issue
 - We do not depend on specification plugins or `openspec-*` workflows. Use plain markdown documents under `docs/` plus beans for all planning, design, research, and execution tracking.
 
+In this repository, beans serve not only as the issue tracker but also as an issue-centric project memory. Every artifact (discussion, design, execution logs, decisions) must be attached to an issue, making the issue board the control panel of the project.
+
+**Key Principles:**
+- **Issues** = units of work
+- **Artifacts** = evidence attached to the issue
+
+If done well, opening the board tells you the entire project state.
+
+**Procedure for handling user requests:**
+1. Create a bean for every interactive session
+2. A successful interaction is proven via newly created/updated documents being linked in the bean issues, not via response.
+
 ## Docs TOC
 
 IMPORTANT: keep this section up to date every time a document is created, renamed, moved, or materially updated, but keep it high-level. `docs/INDEX.md` is the detailed documentation index; this section should only list the key anchor docs agents should check first.
@@ -22,6 +34,12 @@ IMPORTANT: keep this section up to date every time a document is created, rename
 ## Documentation Guidelines
 
 **IMPORTANT**: All documentation MUST be placed in `/Users/phong/Workspace/minerva/docs/` directory.
+
+### Canonical vs Disposable Docs
+
+- **Canonical docs** are the currently approved ground truth for the project. They constrain execution and should stay stable until a proposal is finalized and accepted. Update canonical docs only after the related plan, proposal, or implementation direction has been finished and explicitly ratified.
+- **Disposable docs** are supporting artifacts such as plans, proposals, research notes, discussions, migration sketches, and other exploratory material. They can guide work, but they do not override canonical docs and may be replaced, moved, or deleted once their conclusions are promoted.
+- If a document is still under review, still being planned, or not yet approved by the user, treat it as disposable and keep it out of canonical architecture/product ground-truth docs.
 
 ### Keep Docs In Sync
 

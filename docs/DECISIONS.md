@@ -76,18 +76,17 @@
 - [AGENTS.md](../AGENTS.md)
 - [.beans/minerva-qqaa--align-orchestrator-session-persistence-with-pi-cod.md](../.beans/minerva-qqaa--align-orchestrator-session-persistence-with-pi-cod.md)
 
-* 2026-03-12T13:28:00+07:00-establish minerva-qqaa layer-1 design baseline around a hosted session runtime adapter, Postgres-backed append-oriented session persistence, Daytona-backed coding adapters, workspace-materialized runtime resources, and session-aware HTTP/SSE plus pi-shaped export compatibility
+* 2026-03-12T13:28:00+07:00-capture minerva-qqaa layer-1 proposal docs for a hosted session runtime adapter, Postgres-backed append-oriented session persistence, Daytona-backed coding adapters, workspace-materialized runtime resources, and session-aware HTTP/SSE plus pi-shaped export compatibility
+- [docs/plans/minerva-qqaa/INDEX.md](./plans/minerva-qqaa/INDEX.md)
+- [docs/plans/minerva-qqaa/current-vs-pi-runtime.md](./plans/minerva-qqaa/current-vs-pi-runtime.md)
+- [docs/plans/minerva-qqaa/session-persistence.md](./plans/minerva-qqaa/session-persistence.md)
+- [docs/plans/minerva-qqaa/runtime-and-sandbox-adapters.md](./plans/minerva-qqaa/runtime-and-sandbox-adapters.md)
+- [docs/plans/minerva-qqaa/api-and-export-compatibility.md](./plans/minerva-qqaa/api-and-export-compatibility.md)
 - [docs/architecture/minerva-qqaa/INDEX.md](./architecture/minerva-qqaa/INDEX.md)
-- [docs/architecture/minerva-qqaa/current-vs-pi-runtime.md](./architecture/minerva-qqaa/current-vs-pi-runtime.md)
-- [docs/architecture/minerva-qqaa/session-persistence.md](./architecture/minerva-qqaa/session-persistence.md)
-- [docs/architecture/minerva-qqaa/runtime-and-sandbox-adapters.md](./architecture/minerva-qqaa/runtime-and-sandbox-adapters.md)
-- [docs/architecture/minerva-qqaa/api-and-export-compatibility.md](./architecture/minerva-qqaa/api-and-export-compatibility.md)
-- [docs/architecture/INDEX.md](./architecture/INDEX.md)
-- [docs/INDEX.md](./INDEX.md)
 - [.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md](../.beans/minerva-ix5z--produce-layer-1-design-docs-for-minerva-qqaa.md)
 
 * 2026-03-12T14:26:00+07:00-capture minerva-qqaa layer-2 implementation planning around session-first Postgres repositories, hosted session runtime boundaries, Daytona binding/materialization flow, session-aware HTTP-SSE contracts, pi-shaped export serialization, and phased delivery slices
-- [docs/architecture/minerva-qqaa/layer-2-implementation-plan.md](./architecture/minerva-qqaa/layer-2-implementation-plan.md)
+- [docs/plans/minerva-qqaa/layer-2-implementation-plan.md](./plans/minerva-qqaa/layer-2-implementation-plan.md)
 - [docs/architecture/minerva-qqaa/INDEX.md](./architecture/minerva-qqaa/INDEX.md)
 - [docs/architecture/INDEX.md](./architecture/INDEX.md)
 - [docs/INDEX.md](./INDEX.md)
@@ -122,3 +121,12 @@
 - [AGENTS.md](../AGENTS.md)
 - [docs/DECISIONS.md](./DECISIONS.md)
 - [.beans/minerva-ki1b--move-standards-docs-into-rulebooks.md](../.beans/minerva-ki1b--move-standards-docs-into-rulebooks.md)
+
+* 2026-03-14T19:16:00+07:00-keep canonical docs unchanged until minerva-qqaa planning is finalized and approved; treat the remaining minerva-qqaa proposal set as disposable plan artifacts under docs/plans
+- [AGENTS.md](../AGENTS.md)
+- [docs/process/markdown-beans-workflow.md](./process/markdown-beans-workflow.md)
+- [docs/architecture/minerva-qqaa/INDEX.md](./architecture/minerva-qqaa/INDEX.md)
+- [docs/plans/INDEX.md](./plans/INDEX.md)
+- [docs/plans/minerva-qqaa/INDEX.md](./plans/minerva-qqaa/INDEX.md)
+- [docs/plans/minerva-qqaa/layer-2-implementation-plan.md](./plans/minerva-qqaa/layer-2-implementation-plan.md)
+- [.beans/minerva-jrub--reclassify-unapproved-minerva-qqaa-architecture-do.md](../.beans/minerva-jrub--reclassify-unapproved-minerva-qqaa-architecture-do.md)

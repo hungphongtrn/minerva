@@ -1,6 +1,6 @@
 # Minerva QQAA Layer 2 Implementation Plan
 
-Layer 2 turns the layer 1 design baseline into an implementation-ready plan for `minerva-qqaa` and child bean `minerva-03i3`.
+Layer 2 turns the layer 1 proposal set into an implementation-ready plan for `minerva-qqaa` and child bean `minerva-03i3`.
 
 ## Goal
 
@@ -10,7 +10,8 @@ Implement a pi-shaped hosted session runtime in Minerva without changing end-use
 
 - Bean: [`minerva-qqaa`](../../../.beans/minerva-qqaa--align-orchestrator-session-persistence-with-pi-cod.md)
 - Bean: [`minerva-03i3`](../../../.beans/minerva-03i3--produce-layer-2-implementation-planning-for-minerv.md)
-- Layer 1 index: [`INDEX.md`](./INDEX.md)
+- Proposal index: [`docs/plans/minerva-qqaa/INDEX.md`](./INDEX.md)
+- Plans index: [`docs/plans/minerva-qqaa/INDEX.md`](./INDEX.md)
 - Current runtime: [`services/orchestrator/src/runtime/run-execution.service.ts`](../../../services/orchestrator/src/runtime/run-execution.service.ts)
 - Current run lifecycle: [`services/orchestrator/src/services/run-manager.ts`](../../../services/orchestrator/src/services/run-manager.ts)
 - Current sandbox adapter: [`services/orchestrator/src/sandbox/adapter.ts`](../../../services/orchestrator/src/sandbox/adapter.ts)
@@ -312,7 +313,7 @@ Done when: reconnect after process restart can replay terminal and durable-deriv
 
 ### Slice 5: Exporter and compatibility hardening
 Outcome: pi-shaped session export works from Postgres durable history and golden export fixtures protect compatibility.
-Files expected: `services/orchestrator/src/session/export/*`, `services/orchestrator/tests/fixtures/session-exports/*`, `docs/architecture/minerva-qqaa/*`.
+Files expected: `services/orchestrator/src/session/export/*`, `services/orchestrator/tests/fixtures/session-exports/*`, `docs/plans/minerva-qqaa/*`, and any finalized canonical follow-up docs promoted after approval.
 Done when: exported JSONL reflects durable entries rather than final message snapshots, and compatibility notes document any deliberate divergence from pi.
 
 ## 7. Suggested follow-up child beans

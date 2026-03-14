@@ -1,8 +1,8 @@
-# HTTP, SSE, and export compatibility design
+# HTTP, SSE, and export compatibility proposal
 
 ## Purpose
 
-Define the externally visible contracts Minerva should evolve toward so hosted sessions feel pi-like without exposing unsafe or local-only behaviors to consumers.
+Define the externally visible contracts Minerva could evolve toward so hosted sessions feel pi-like without exposing unsafe or local-only behaviors to consumers. This is proposal material, not ratified canonical architecture.
 
 ## References
 

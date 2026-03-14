@@ -62,18 +62,19 @@ A task is ready only when it is:
 Treat docs by authority level rather than by detail level alone.
 
 1. Canonical docs
-   - `docs/PROJECT.md`, `docs/ROADMAP.md`, `docs/architecture/**`, `docs/api/**`, `docs/process/**`, rulebooks/guidelines docs, and ratified `docs/specs/**`
+   - approved ground-truth docs such as `docs/PROJECT.md`, `docs/ROADMAP.md`, ratified architecture docs, `docs/api/**`, `docs/process/**`, rulebooks/guidelines docs, and ratified `docs/specs/**`
+   - stay stable until a proposal or plan is finalized and explicitly accepted
    - define durable truth used during execution
 
 2. Supporting docs
-   - plans, phase breakdowns, migration notes, rollout notes, and draft specs
+   - plans, proposals, phase breakdowns, migration notes, rollout notes, and draft specs
    - help execute the work but do not override canonical docs
 
 3. Evidence docs
    - research, discussions, comparisons, exploratory notes
    - capture why a direction was chosen but are not authoritative by themselves
 
-If a supporting or evidence doc contains a conclusion that future work must rely on, promote that conclusion into canonical docs and `docs/DECISIONS.md` before closing the bean.
+If a supporting or evidence doc contains a conclusion that future work must rely on, promote that conclusion into canonical docs and `docs/DECISIONS.md` only after the direction is finalized and approved.
 
 ## Task Context Bundle
 

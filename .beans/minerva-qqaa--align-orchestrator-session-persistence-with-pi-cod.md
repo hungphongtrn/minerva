@@ -45,4 +45,4 @@ This bean is intended to start design discussion before implementation.
 - Runtime resources such as AGENTS.md and skills should be available inside the sandbox filesystem.
 
 
-- Layer 2 implementation plan: [docs/architecture/minerva-qqaa/layer-2-implementation-plan.md](../docs/architecture/minerva-qqaa/layer-2-implementation-plan.md)
+- Layer 2 implementation plan: [docs/plans/minerva-qqaa/layer-2-implementation-plan.md](../docs/plans/minerva-qqaa/layer-2-implementation-plan.md)

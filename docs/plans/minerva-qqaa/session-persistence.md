@@ -1,8 +1,8 @@
-# Postgres-backed session persistence design
+# Postgres-backed session persistence proposal
 
 ## Purpose
 
-Define the durable data model Minerva should use to emulate pi coding agent session behavior while operating as a hosted service.
+Define the durable data model Minerva could use to emulate pi coding agent session behavior while operating as a hosted service. This is proposal material, not ratified canonical architecture.
 
 ## References
 

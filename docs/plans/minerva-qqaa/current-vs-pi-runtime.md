@@ -1,8 +1,8 @@
-# Current orchestrator flow vs pi coding agent runtime
+# Current orchestrator flow vs pi coding agent runtime proposal
 
 ## Purpose
 
-Compare the current Minerva orchestrator implementation to the pi coding agent SDK behavior so later planning can focus on the real adaptation gaps instead of re-deciding product direction.
+Compare the current Minerva orchestrator implementation to the pi coding agent SDK behavior so later planning can focus on the real adaptation gaps instead of re-deciding product direction. This is proposal material, not ratified canonical architecture.
 
 ## References
 
@@ -114,7 +114,7 @@ Pi-compatible hosted behavior needs:
 | Export | Final messages only | Pi-shaped session artifact export |
 | SSE replay | Live in-process stream behavior | Durable replay-safe event log |
 
-## Layer 1 design baseline
+## Layer 1 proposal baseline
 
 The hosted architecture should be reframed as:
 

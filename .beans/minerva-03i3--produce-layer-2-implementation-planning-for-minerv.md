@@ -28,6 +28,6 @@ Turn the layer 1 minerva-qqaa architecture baseline into a concrete implementati
 
 
 ## Summary of Changes
-- Added `docs/architecture/minerva-qqaa/layer-2-implementation-plan.md` with concrete planning for Postgres schema evolution, repository boundaries, session runtime services, sandbox binding and resource materialization, session-aware HTTP/SSE contracts, export serialization, and phased delivery slices.
+- Added `docs/plans/minerva-qqaa/layer-2-implementation-plan.md` with concrete planning for Postgres schema evolution, repository boundaries, session runtime services, sandbox binding and resource materialization, session-aware HTTP/SSE contracts, export serialization, and phased delivery slices.
 - Updated `docs/architecture/minerva-qqaa/INDEX.md`, `docs/architecture/INDEX.md`, `docs/INDEX.md`, and `docs/DECISIONS.md` to index the new planning layer.
 - Updated parent bean `minerva-qqaa` readiness items and linked the new layer 2 implementation artifact.

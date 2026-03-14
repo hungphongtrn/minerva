@@ -1,8 +1,8 @@
-# Session runtime and Daytona adapter design
+# Session runtime and Daytona adapter proposal
 
 ## Purpose
 
-Define how Minerva should preserve pi coding agent semantics while substituting hosted session persistence and Daytona-backed execution.
+Define how Minerva could preserve pi coding agent semantics while substituting hosted session persistence and Daytona-backed execution. This is proposal material, not ratified canonical architecture.
 
 ## References
 
